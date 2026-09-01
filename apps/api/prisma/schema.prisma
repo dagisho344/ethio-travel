@@ -116,3 +116,123 @@ model EmailVerificationToken {
 }
 
 
+
+enum LocationStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+  INACTIVE
+  ARCHIVED
+}
+
+enum AttractionCategory {
+  CULTURAL
+  HISTORICAL
+  NATURAL
+  RELIGIOUS
+  MUSEUM
+  PARK
+  MARKET
+  ENTERTAINMENT
+  LANDMARK
+  OTHER
+}
+
+model Region {
+  id          String         @id @default(uuid()) @db.Uuid
+  name        String         @db.VarChar(160)
+  slug        String         @db.VarChar(180)
+  description String?
+  status      LocationStatus @default(DRAFT)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  cities      City[]
+
+  @@unique([slug])
+  @@index([status])
+  @@index([name])
+  @@map("regions")
+}
+
+model City {
+  id          String         @id @default(uuid()) @db.Uuid
+  regionId    String         @map("region_id") @db.Uuid
+  name        String         @db.VarChar(160)
+  slug        String         @db.VarChar(180)
+  description String?
+  latitude    Decimal        @db.Decimal(9, 6)
+  longitude   Decimal        @db.Decimal(9, 6)
+  status      LocationStatus @default(DRAFT)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  region      Region         @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  destinations Destination[]
+
+  @@unique([regionId, slug])
+  @@index([regionId])
+  @@index([status])
+  @@index([name])
+  @@index([latitude, longitude])
+  @@map("cities")
+}
+
+model Destination {
+  id               String            @id @default(uuid()) @db.Uuid
+  cityId           String            @map("city_id") @db.Uuid
+  name             String            @db.VarChar(180)
+  slug             String            @db.VarChar(200)
+  shortDescription String            @map("short_description") @db.VarChar(300)
+  fullDescription  String            @map("full_description")
+  latitude         Decimal           @db.Decimal(9, 6)
+  longitude        Decimal           @db.Decimal(9, 6)
+  travelInfo       Json?             @map("travel_info")
+  status           PublicationStatus @default(DRAFT)
+  publishedAt      DateTime?         @map("published_at")
+  archivedAt       DateTime?         @map("archived_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  city             City              @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  attractions      Attraction[]
+
+  @@unique([cityId, slug])
+  @@index([cityId])
+  @@index([status])
+  @@index([name])
+  @@index([latitude, longitude])
+  @@map("destinations")
+}
+
+model Attraction {
+  id            String             @id @default(uuid()) @db.Uuid
+  destinationId String             @map("destination_id") @db.Uuid
+  name          String             @db.VarChar(180)
+  slug          String             @db.VarChar(200)
+  category      AttractionCategory
+  description   String
+  latitude      Decimal            @db.Decimal(9, 6)
+  longitude     Decimal            @db.Decimal(9, 6)
+  entranceFee   Decimal?           @map("entrance_fee") @db.Decimal(12, 2)
+  currency      String?            @db.Char(3)
+  openingInfo   Json?              @map("opening_info")
+  contactInfo   Json?              @map("contact_info")
+  status        PublicationStatus  @default(DRAFT)
+  publishedAt   DateTime?          @map("published_at")
+  archivedAt    DateTime?          @map("archived_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  destination   Destination        @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+
+  @@unique([destinationId, slug])
+  @@index([destinationId])
+  @@index([category])
+  @@index([status])
+  @@index([name])
+  @@index([latitude, longitude])
+  @@map("attractions")
+}

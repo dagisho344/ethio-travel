@@ -1,13 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
+import { AttractionsModule } from './attractions/attractions.module';
 import { AuthModule } from './auth/auth.module';
+import { CitiesModule } from './cities/cities.module';
+import { DestinationsModule } from './destinations/destinations.module';
 import { appConfig } from './config/app.config';
 import { envValidationSchema } from './config/env.validation';
 import { HealthModule } from './health/health.module';
 import { createHttpLoggerOptions } from './logger/http-logger.options';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { RegionsModule } from './regions/regions.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -23,6 +27,10 @@ import { UsersModule } from './users/users.module';
     PrismaModule,
     RedisModule,
     HealthModule,
+    RegionsModule,
+    CitiesModule,
+    DestinationsModule,
+    AttractionsModule,
     UsersModule,
     AuthModule,
   ],

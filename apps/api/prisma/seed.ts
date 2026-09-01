@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { LocationStatus, PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -12,7 +12,7 @@ const roles = [
   { name: 'ADMIN', description: 'Platform administrator.' },
 ];
 
-async function main(): Promise<void> {
+async function seedRoles(): Promise<void> {
   for (const role of roles) {
     await prisma.role.upsert({
       create: role,
@@ -20,6 +20,91 @@ async function main(): Promise<void> {
       where: { name: role.name },
     });
   }
+}
+
+async function seedDevelopmentLocations(): Promise<void> {
+  const southEthiopia = await prisma.region.upsert({
+    create: {
+      name: 'South Ethiopia Regional State',
+      slug: 'south-ethiopia-regional-state',
+      description: 'Development seed region for EthioTravel location testing.',
+      status: LocationStatus.ACTIVE,
+    },
+    update: {
+      description: 'Development seed region for EthioTravel location testing.',
+      status: LocationStatus.ACTIVE,
+    },
+    where: { slug: 'south-ethiopia-regional-state' },
+  });
+
+  await prisma.city.upsert({
+    create: {
+      name: 'Wolaita Sodo',
+      slug: 'wolaita-sodo',
+      description: 'Development seed city for EthioTravel location testing.',
+      latitude: 6.855,
+      longitude: 37.761,
+      status: LocationStatus.ACTIVE,
+      regionId: southEthiopia.id,
+    },
+    update: {
+      description: 'Development seed city for EthioTravel location testing.',
+      latitude: 6.855,
+      longitude: 37.761,
+      status: LocationStatus.ACTIVE,
+    },
+    where: {
+      regionId_slug: {
+        regionId: southEthiopia.id,
+        slug: 'wolaita-sodo',
+      },
+    },
+  });
+
+  const addisAbaba = await prisma.region.upsert({
+    create: {
+      name: 'Addis Ababa',
+      slug: 'addis-ababa',
+      description:
+        'Development seed city-region for EthioTravel location testing.',
+      status: LocationStatus.ACTIVE,
+    },
+    update: {
+      description:
+        'Development seed city-region for EthioTravel location testing.',
+      status: LocationStatus.ACTIVE,
+    },
+    where: { slug: 'addis-ababa' },
+  });
+
+  await prisma.city.upsert({
+    create: {
+      name: 'Addis Ababa',
+      slug: 'addis-ababa',
+      description: 'Development seed city for EthioTravel location testing.',
+      latitude: 9.03,
+      longitude: 38.74,
+      status: LocationStatus.ACTIVE,
+      regionId: addisAbaba.id,
+    },
+    update: {
+      description: 'Development seed city for EthioTravel location testing.',
+      latitude: 9.03,
+      longitude: 38.74,
+      status: LocationStatus.ACTIVE,
+    },
+    where: {
+      regionId_slug: {
+        regionId: addisAbaba.id,
+        slug: 'addis-ababa',
+      },
+    },
+  });
+}
+
+async function main(): Promise<void> {
+  await seedRoles();
+  await seedDevelopmentLocations();
 }
 
 main()
