@@ -15,6 +15,8 @@ import { HealthModule } from './health/health.module';
 import { createHttpLoggerOptions } from './logger/http-logger.options';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { ServiceCategoriesModule } from './service-categories/service-categories.module';
+import { ServicesModule } from './services/services.module';
 import { RegionsModule } from './regions/regions.module';
 import { UsersModule } from './users/users.module';
 
@@ -39,6 +41,8 @@ import { UsersModule } from './users/users.module';
     BusinessesModule,
     BusinessMembersModule,
     BusinessVerificationsModule,
+    ServiceCategoriesModule,
+    ServicesModule,
     UsersModule,
     AuthModule,
   ],

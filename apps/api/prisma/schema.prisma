@@ -30,6 +30,7 @@ model User {
   businessMembers                BusinessMember[]
   submittedBusinessVerifications BusinessVerification[]   @relation("BusinessVerificationSubmittedBy")
   reviewedBusinessVerifications  BusinessVerification[]   @relation("BusinessVerificationReviewedBy")
+  mediaAssets                    MediaAsset[]
 
   @@map("users")
 }
@@ -185,23 +186,24 @@ model City {
 }
 
 model Destination {
-  id               String            @id @default(uuid()) @db.Uuid
-  cityId           String            @map("city_id") @db.Uuid
-  name             String            @db.VarChar(180)
-  slug             String            @db.VarChar(200)
-  shortDescription String            @map("short_description") @db.VarChar(300)
-  fullDescription  String            @map("full_description")
-  latitude         Decimal           @db.Decimal(9, 6)
-  longitude        Decimal           @db.Decimal(9, 6)
-  travelInfo       Json?             @map("travel_info")
-  status           PublicationStatus @default(DRAFT)
-  publishedAt      DateTime?         @map("published_at")
-  archivedAt       DateTime?         @map("archived_at")
-  createdAt        DateTime          @default(now()) @map("created_at")
-  updatedAt        DateTime          @updatedAt @map("updated_at")
-  city             City              @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  id               String             @id @default(uuid()) @db.Uuid
+  cityId           String             @map("city_id") @db.Uuid
+  name             String             @db.VarChar(180)
+  slug             String             @db.VarChar(200)
+  shortDescription String             @map("short_description") @db.VarChar(300)
+  fullDescription  String             @map("full_description")
+  latitude         Decimal            @db.Decimal(9, 6)
+  longitude        Decimal            @db.Decimal(9, 6)
+  travelInfo       Json?              @map("travel_info")
+  status           PublicationStatus  @default(DRAFT)
+  publishedAt      DateTime?          @map("published_at")
+  archivedAt       DateTime?          @map("archived_at")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  city             City               @relation(fields: [cityId], references: [id], onDelete: Restrict)
   attractions      Attraction[]
   businesses       Business[]
+  media            DestinationMedia[]
 
   @@unique([cityId, slug])
   @@index([cityId])
@@ -230,6 +232,7 @@ model Attraction {
   createdAt     DateTime           @default(now()) @map("created_at")
   updatedAt     DateTime           @updatedAt @map("updated_at")
   destination   Destination        @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+  media         AttractionMedia[]
 
   @@unique([destinationId, slug])
   @@index([destinationId])
@@ -328,6 +331,8 @@ model Business {
   category      BusinessCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   members       BusinessMember[]
   verifications BusinessVerification[]
+  services      Service[]
+  media         BusinessMedia[]
 
   @@unique([cityId, slug])
   @@index([cityId])
@@ -403,4 +408,227 @@ model VerificationDocument {
   @@index([verificationId])
   @@index([type])
   @@map("verification_documents")
+}
+
+enum ServiceStatus {
+  DRAFT
+  PUBLISHED
+  INACTIVE
+  ARCHIVED
+}
+
+enum PricingModel {
+  FIXED
+  PER_PERSON
+  PER_NIGHT
+  PER_HOUR
+  PER_DAY
+  STARTING_FROM
+  FREE
+  CONTACT_FOR_PRICE
+}
+
+enum ServiceLocationMode {
+  BUSINESS_LOCATION
+  CUSTOM_LOCATION
+  MOBILE_VARIABLE
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum MediaVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum MediaStatus {
+  PENDING_UPLOAD
+  READY
+  FAILED
+  ARCHIVED
+}
+
+enum MediaRole {
+  GALLERY
+  HERO
+  LOGO
+}
+
+model ServiceCategory {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(80)
+  name        String   @db.VarChar(120)
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  services Service[]
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("service_categories")
+}
+
+model Service {
+  id               String              @id @default(uuid()) @db.Uuid
+  businessId       String              @map("business_id") @db.Uuid
+  categoryId       String              @map("category_id") @db.Uuid
+  name             String              @db.VarChar(180)
+  slug             String              @db.VarChar(200)
+  shortDescription String              @map("short_description") @db.VarChar(300)
+  description      String
+  price            Decimal?            @db.Decimal(12, 2)
+  currency         String?             @db.Char(3)
+  pricingModel     PricingModel        @map("pricing_model")
+  durationMinutes  Int?                @map("duration_minutes")
+  minGuests        Int?                @map("min_guests")
+  maxGuests        Int?                @map("max_guests")
+  locationMode     ServiceLocationMode @default(BUSINESS_LOCATION) @map("location_mode")
+  address          String?             @db.VarChar(240)
+  latitude         Decimal?            @db.Decimal(9, 6)
+  longitude        Decimal?            @db.Decimal(9, 6)
+  attributes       Json?
+  status           ServiceStatus       @default(DRAFT)
+  publishedAt      DateTime?           @map("published_at")
+  archivedAt       DateTime?           @map("archived_at")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  category ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  media    ServiceMedia[]
+
+  @@unique([businessId, slug])
+  @@index([businessId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([pricingModel])
+  @@index([name])
+  @@index([price])
+  @@index([latitude, longitude])
+  @@index([status, categoryId, pricingModel])
+  @@map("services")
+}
+
+model MediaAsset {
+  id               String          @id @default(uuid()) @db.Uuid
+  storageKey       String          @unique @map("storage_key") @db.VarChar(500)
+  originalFilename String          @map("original_filename") @db.VarChar(255)
+  mimeType         String          @map("mime_type") @db.VarChar(120)
+  mediaType        MediaType       @map("media_type")
+  sizeBytes        Int             @map("size_bytes")
+  width            Int?
+  height           Int?
+  durationSeconds  Int?            @map("duration_seconds")
+  checksum         String?         @db.VarChar(128)
+  visibility       MediaVisibility @default(PUBLIC)
+  status           MediaStatus     @default(PENDING_UPLOAD)
+  createdByUserId  String          @map("created_by_user_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  createdBy        User               @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  businessMedia    BusinessMedia[]
+  serviceMedia     ServiceMedia[]
+  destinationMedia DestinationMedia[]
+  attractionMedia  AttractionMedia[]
+
+  @@index([createdByUserId])
+  @@index([mediaType])
+  @@index([visibility])
+  @@index([status])
+  @@map("media_assets")
+}
+
+model BusinessMedia {
+  id         String    @id @default(uuid()) @db.Uuid
+  businessId String    @map("business_id") @db.Uuid
+  mediaId    String    @map("media_id") @db.Uuid
+  role       MediaRole @default(GALLERY)
+  sortOrder  Int       @default(0) @map("sort_order")
+  altText    String?   @map("alt_text") @db.VarChar(240)
+  caption    String?   @db.VarChar(500)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  business Business   @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  media    MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@unique([businessId, mediaId])
+  @@index([businessId])
+  @@index([mediaId])
+  @@index([role])
+  @@index([sortOrder])
+  @@map("business_media")
+}
+
+model ServiceMedia {
+  id        String    @id @default(uuid()) @db.Uuid
+  serviceId String    @map("service_id") @db.Uuid
+  mediaId   String    @map("media_id") @db.Uuid
+  role      MediaRole @default(GALLERY)
+  sortOrder Int       @default(0) @map("sort_order")
+  altText   String?   @map("alt_text") @db.VarChar(240)
+  caption   String?   @db.VarChar(500)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  service Service    @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  media   MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@unique([serviceId, mediaId])
+  @@index([serviceId])
+  @@index([mediaId])
+  @@index([role])
+  @@index([sortOrder])
+  @@map("service_media")
+}
+
+model DestinationMedia {
+  id            String    @id @default(uuid()) @db.Uuid
+  destinationId String    @map("destination_id") @db.Uuid
+  mediaId       String    @map("media_id") @db.Uuid
+  role          MediaRole @default(GALLERY)
+  sortOrder     Int       @default(0) @map("sort_order")
+  altText       String?   @map("alt_text") @db.VarChar(240)
+  caption       String?   @db.VarChar(500)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  destination Destination @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+  media       MediaAsset  @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@unique([destinationId, mediaId])
+  @@index([destinationId])
+  @@index([mediaId])
+  @@index([role])
+  @@index([sortOrder])
+  @@map("destination_media")
+}
+
+model AttractionMedia {
+  id           String    @id @default(uuid()) @db.Uuid
+  attractionId String    @map("attraction_id") @db.Uuid
+  mediaId      String    @map("media_id") @db.Uuid
+  role         MediaRole @default(GALLERY)
+  sortOrder    Int       @default(0) @map("sort_order")
+  altText      String?   @map("alt_text") @db.VarChar(240)
+  caption      String?   @db.VarChar(500)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  attraction Attraction @relation(fields: [attractionId], references: [id], onDelete: Restrict)
+  media      MediaAsset @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@unique([attractionId, mediaId])
+  @@index([attractionId])
+  @@index([mediaId])
+  @@index([role])
+  @@index([sortOrder])
+  @@map("attraction_media")
 }

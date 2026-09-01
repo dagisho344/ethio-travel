@@ -24,6 +24,18 @@ const businessCategories = [
   { code: 'FINANCIAL_SERVICE', name: 'Financial Service', sortOrder: 90 },
   { code: 'OTHER', name: 'Other', sortOrder: 100 },
 ];
+const serviceCategories = [
+  { code: 'ROOM', name: 'Room', sortOrder: 10 },
+  { code: 'MEAL', name: 'Meal', sortOrder: 20 },
+  { code: 'TOUR', name: 'Tour', sortOrder: 30 },
+  { code: 'TRANSFER', name: 'Transfer', sortOrder: 40 },
+  { code: 'RENTAL', name: 'Rental', sortOrder: 50 },
+  { code: 'EVENT_PACKAGE', name: 'Event Package', sortOrder: 60 },
+  { code: 'ACTIVITY', name: 'Activity', sortOrder: 70 },
+  { code: 'WELLNESS', name: 'Wellness', sortOrder: 80 },
+  { code: 'TICKET', name: 'Ticket', sortOrder: 90 },
+  { code: 'GENERAL', name: 'General', sortOrder: 100 },
+];
 async function seedRoles(): Promise<void> {
   for (const role of roles) {
     await prisma.role.upsert({
@@ -130,9 +142,26 @@ async function seedBusinessCategories(): Promise<void> {
     });
   }
 }
+async function seedServiceCategories(): Promise<void> {
+  for (const category of serviceCategories) {
+    await prisma.serviceCategory.upsert({
+      create: {
+        ...category,
+        isActive: true,
+      },
+      update: {
+        isActive: true,
+        name: category.name,
+        sortOrder: category.sortOrder,
+      },
+      where: { code: category.code },
+    });
+  }
+}
 async function main(): Promise<void> {
   await seedRoles();
   await seedBusinessCategories();
+  await seedServiceCategories();
   await seedDevelopmentLocations();
 }
 
