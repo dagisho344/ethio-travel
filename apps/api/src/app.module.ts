@@ -3,6 +3,10 @@ import { ConfigModule } from '@nestjs/config';
 import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
 import { AttractionsModule } from './attractions/attractions.module';
 import { AuthModule } from './auth/auth.module';
+import { BusinessCategoriesModule } from './business-categories/business-categories.module';
+import { BusinessMembersModule } from './business-members/business-members.module';
+import { BusinessVerificationsModule } from './business-verifications/business-verifications.module';
+import { BusinessesModule } from './businesses/businesses.module';
 import { CitiesModule } from './cities/cities.module';
 import { DestinationsModule } from './destinations/destinations.module';
 import { appConfig } from './config/app.config';
@@ -31,6 +35,10 @@ import { UsersModule } from './users/users.module';
     CitiesModule,
     DestinationsModule,
     AttractionsModule,
+    BusinessCategoriesModule,
+    BusinessesModule,
+    BusinessMembersModule,
+    BusinessVerificationsModule,
     UsersModule,
     AuthModule,
   ],

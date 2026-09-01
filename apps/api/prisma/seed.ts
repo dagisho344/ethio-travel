@@ -12,6 +12,18 @@ const roles = [
   { name: 'ADMIN', description: 'Platform administrator.' },
 ];
 
+const businessCategories = [
+  { code: 'HOTEL', name: 'Hotel', sortOrder: 10 },
+  { code: 'RESTAURANT', name: 'Restaurant', sortOrder: 20 },
+  { code: 'TOUR_OPERATOR', name: 'Tour Operator', sortOrder: 30 },
+  { code: 'TRANSPORT', name: 'Transport', sortOrder: 40 },
+  { code: 'CAFE', name: 'Cafe', sortOrder: 50 },
+  { code: 'SHOPPING', name: 'Shopping', sortOrder: 60 },
+  { code: 'ENTERTAINMENT', name: 'Entertainment', sortOrder: 70 },
+  { code: 'HEALTH', name: 'Health', sortOrder: 80 },
+  { code: 'FINANCIAL_SERVICE', name: 'Financial Service', sortOrder: 90 },
+  { code: 'OTHER', name: 'Other', sortOrder: 100 },
+];
 async function seedRoles(): Promise<void> {
   for (const role of roles) {
     await prisma.role.upsert({
@@ -102,8 +114,25 @@ async function seedDevelopmentLocations(): Promise<void> {
   });
 }
 
+async function seedBusinessCategories(): Promise<void> {
+  for (const category of businessCategories) {
+    await prisma.businessCategory.upsert({
+      create: {
+        ...category,
+        isActive: true,
+      },
+      update: {
+        isActive: true,
+        name: category.name,
+        sortOrder: category.sortOrder,
+      },
+      where: { code: category.code },
+    });
+  }
+}
 async function main(): Promise<void> {
   await seedRoles();
+  await seedBusinessCategories();
   await seedDevelopmentLocations();
 }
 

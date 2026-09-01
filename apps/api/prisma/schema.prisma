@@ -14,19 +14,22 @@ enum UserStatus {
 }
 
 model User {
-  id                      String                   @id @default(uuid()) @db.Uuid
-  email                   String                   @unique
-  passwordHash            String                   @map("password_hash")
-  status                  UserStatus               @default(ACTIVE)
-  emailVerifiedAt         DateTime?                @map("email_verified_at")
-  lastLoginAt             DateTime?                @map("last_login_at")
-  createdAt               DateTime                 @default(now()) @map("created_at")
-  updatedAt               DateTime                 @updatedAt @map("updated_at")
-  profile                 UserProfile?
-  roles                   UserRole[]
-  sessions                Session[]
-  passwordResetTokens     PasswordResetToken[]
-  emailVerificationTokens EmailVerificationToken[]
+  id                             String                   @id @default(uuid()) @db.Uuid
+  email                          String                   @unique
+  passwordHash                   String                   @map("password_hash")
+  status                         UserStatus               @default(ACTIVE)
+  emailVerifiedAt                DateTime?                @map("email_verified_at")
+  lastLoginAt                    DateTime?                @map("last_login_at")
+  createdAt                      DateTime                 @default(now()) @map("created_at")
+  updatedAt                      DateTime                 @updatedAt @map("updated_at")
+  profile                        UserProfile?
+  roles                          UserRole[]
+  sessions                       Session[]
+  passwordResetTokens            PasswordResetToken[]
+  emailVerificationTokens        EmailVerificationToken[]
+  businessMembers                BusinessMember[]
+  submittedBusinessVerifications BusinessVerification[]   @relation("BusinessVerificationSubmittedBy")
+  reviewedBusinessVerifications  BusinessVerification[]   @relation("BusinessVerificationReviewedBy")
 
   @@map("users")
 }
@@ -115,8 +118,6 @@ model EmailVerificationToken {
   @@map("email_verification_tokens")
 }
 
-
-
 enum LocationStatus {
   DRAFT
   ACTIVE
@@ -161,18 +162,19 @@ model Region {
 }
 
 model City {
-  id          String         @id @default(uuid()) @db.Uuid
-  regionId    String         @map("region_id") @db.Uuid
-  name        String         @db.VarChar(160)
-  slug        String         @db.VarChar(180)
-  description String?
-  latitude    Decimal        @db.Decimal(9, 6)
-  longitude   Decimal        @db.Decimal(9, 6)
-  status      LocationStatus @default(DRAFT)
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
-  region      Region         @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  id           String         @id @default(uuid()) @db.Uuid
+  regionId     String         @map("region_id") @db.Uuid
+  name         String         @db.VarChar(160)
+  slug         String         @db.VarChar(180)
+  description  String?
+  latitude     Decimal        @db.Decimal(9, 6)
+  longitude    Decimal        @db.Decimal(9, 6)
+  status       LocationStatus @default(DRAFT)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  region       Region         @relation(fields: [regionId], references: [id], onDelete: Restrict)
   destinations Destination[]
+  businesses   Business[]
 
   @@unique([regionId, slug])
   @@index([regionId])
@@ -199,6 +201,7 @@ model Destination {
   updatedAt        DateTime          @updatedAt @map("updated_at")
   city             City              @relation(fields: [cityId], references: [id], onDelete: Restrict)
   attractions      Attraction[]
+  businesses       Business[]
 
   @@unique([cityId, slug])
   @@index([cityId])
@@ -235,4 +238,169 @@ model Attraction {
   @@index([name])
   @@index([latitude, longitude])
   @@map("attractions")
+}
+
+enum BusinessStatus {
+  DRAFT
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum BusinessVerificationSummary {
+  NOT_SUBMITTED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum BusinessMemberRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum BusinessMemberStatus {
+  ACTIVE
+  INACTIVE
+  REMOVED
+}
+
+enum VerificationRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum VerificationDocumentType {
+  BUSINESS_LICENSE
+  TAX_DOCUMENT
+  OWNER_ID
+  ADDRESS_PROOF
+  OTHER
+}
+
+model BusinessCategory {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(80)
+  name        String   @db.VarChar(120)
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  businesses Business[]
+
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("business_categories")
+}
+
+model Business {
+  id                  String                      @id @default(uuid()) @db.Uuid
+  cityId              String                      @map("city_id") @db.Uuid
+  destinationId       String?                     @map("destination_id") @db.Uuid
+  categoryId          String                      @map("category_id") @db.Uuid
+  name                String                      @db.VarChar(180)
+  slug                String                      @db.VarChar(200)
+  description         String
+  phone               String?                     @db.VarChar(40)
+  email               String?                     @db.VarChar(254)
+  website             String?                     @db.VarChar(2048)
+  addressLine1        String                      @map("address_line_1") @db.VarChar(240)
+  addressLine2        String?                     @map("address_line_2") @db.VarChar(240)
+  neighborhood        String?                     @db.VarChar(120)
+  postalCode          String?                     @map("postal_code") @db.VarChar(40)
+  latitude            Decimal                     @db.Decimal(9, 6)
+  longitude           Decimal                     @db.Decimal(9, 6)
+  status              BusinessStatus              @default(DRAFT)
+  verificationSummary BusinessVerificationSummary @default(NOT_SUBMITTED) @map("verification_summary")
+  publishedAt         DateTime?                   @map("published_at")
+  suspendedAt         DateTime?                   @map("suspended_at")
+  archivedAt          DateTime?                   @map("archived_at")
+  createdAt           DateTime                    @default(now()) @map("created_at")
+  updatedAt           DateTime                    @updatedAt @map("updated_at")
+
+  city          City                   @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  destination   Destination?           @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  category      BusinessCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  members       BusinessMember[]
+  verifications BusinessVerification[]
+
+  @@unique([cityId, slug])
+  @@index([cityId])
+  @@index([destinationId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([verificationSummary])
+  @@index([name])
+  @@index([latitude, longitude])
+  @@index([status, verificationSummary, categoryId])
+  @@map("businesses")
+}
+
+model BusinessMember {
+  id         String               @id @default(uuid()) @db.Uuid
+  businessId String               @map("business_id") @db.Uuid
+  userId     String               @map("user_id") @db.Uuid
+  role       BusinessMemberRole
+  status     BusinessMemberStatus @default(ACTIVE)
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([businessId, userId])
+  @@index([businessId])
+  @@index([userId])
+  @@index([role])
+  @@index([status])
+  @@index([businessId, role, status])
+  @@map("business_members")
+}
+
+model BusinessVerification {
+  id                String                    @id @default(uuid()) @db.Uuid
+  businessId        String                    @map("business_id") @db.Uuid
+  submittedByUserId String                    @map("submitted_by_user_id") @db.Uuid
+  status            VerificationRequestStatus @default(PENDING)
+  submittedAt       DateTime                  @default(now()) @map("submitted_at")
+  reviewedAt        DateTime?                 @map("reviewed_at")
+  reviewedByUserId  String?                   @map("reviewed_by_user_id") @db.Uuid
+  rejectionReason   String?                   @map("rejection_reason")
+  adminNotes        String?                   @map("admin_notes")
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+
+  business        Business               @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  submittedByUser User                   @relation("BusinessVerificationSubmittedBy", fields: [submittedByUserId], references: [id], onDelete: Restrict)
+  reviewedByUser  User?                  @relation("BusinessVerificationReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+  documents       VerificationDocument[]
+
+  @@index([businessId])
+  @@index([submittedByUserId])
+  @@index([reviewedByUserId])
+  @@index([status])
+  @@index([submittedAt])
+  @@map("business_verifications")
+}
+
+model VerificationDocument {
+  id               String                   @id @default(uuid()) @db.Uuid
+  verificationId   String                   @map("verification_id") @db.Uuid
+  type             VerificationDocumentType
+  storageReference String                   @map("storage_reference") @db.VarChar(500)
+  originalFilename String                   @map("original_filename") @db.VarChar(255)
+  mimeType         String                   @map("mime_type") @db.VarChar(120)
+  sizeBytes        Int                      @map("size_bytes")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+
+  verification BusinessVerification @relation(fields: [verificationId], references: [id], onDelete: Restrict)
+
+  @@index([verificationId])
+  @@index([type])
+  @@map("verification_documents")
 }
