@@ -1,0 +1,30 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
+import { AuthModule } from './auth/auth.module';
+import { appConfig } from './config/app.config';
+import { envValidationSchema } from './config/env.validation';
+import { HealthModule } from './health/health.module';
+import { createHttpLoggerOptions } from './logger/http-logger.options';
+import { PrismaModule } from './prisma/prisma.module';
+import { RedisModule } from './redis/redis.module';
+import { UsersModule } from './users/users.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [appConfig],
+      validationSchema: envValidationSchema,
+    }),
+    PinoLoggerModule.forRoot({
+      pinoHttp: createHttpLoggerOptions(process.env.NODE_ENV),
+    }),
+    PrismaModule,
+    RedisModule,
+    HealthModule,
+    UsersModule,
+    AuthModule,
+  ],
+})
+export class AppModule {}
