@@ -5,8 +5,23 @@
 :root {
   color-scheme: light;
 }
-
+html {
+  scroll-behavior: smooth;
+}
 body {
   background: #f8fafc;
   color: #172033;
+}
+a,
+button,
+input,
+select {
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    opacity 150ms ease;
+}
+.leaflet-container {
+  font: inherit;
 }
