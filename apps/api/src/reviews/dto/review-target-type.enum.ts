@@ -1,0 +1,6 @@
+export enum ReviewTargetType {
+  BUSINESS = 'BUSINESS',
+  SERVICE = 'SERVICE',
+  DESTINATION = 'DESTINATION',
+  ATTRACTION = 'ATTRACTION',
+}

@@ -17,6 +17,7 @@ import { MapsModule } from './maps/maps.module';
 import { createHttpLoggerOptions } from './logger/http-logger.options';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { ReviewsModule } from './reviews/reviews.module';
 import { ServiceCategoriesModule } from './service-categories/service-categories.module';
 import { ServicesModule } from './services/services.module';
 import { SearchModule } from './search/search.module';
@@ -49,6 +50,7 @@ import { UsersModule } from './users/users.module';
     SearchModule,
     MapsModule,
     FavoritesModule,
+    ReviewsModule,
     UsersModule,
     AuthModule,
   ],
