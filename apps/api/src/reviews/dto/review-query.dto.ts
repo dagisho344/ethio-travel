@@ -17,6 +17,44 @@ export class MyReviewQueryDto extends PaginationQueryDto {
   status?: ReviewStatus;
 }
 
+export enum AdminReviewSort {
+  NEWEST = 'newest',
+  OLDEST = 'oldest',
+}
+
+export class AdminReviewQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({ enum: ReviewStatus })
+  @IsEnum(ReviewStatus)
+  @IsOptional()
+  status?: ReviewStatus;
+
+  @ApiPropertyOptional({ enum: ReviewTargetType })
+  @IsEnum(ReviewTargetType)
+  @IsOptional()
+  targetType?: ReviewTargetType;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 5 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  @IsOptional()
+  rating?: number;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsUUID()
+  @IsOptional()
+  userId?: string;
+
+  @ApiPropertyOptional({
+    enum: AdminReviewSort,
+    default: AdminReviewSort.NEWEST,
+  })
+  @IsEnum(AdminReviewSort)
+  @IsOptional()
+  sort: AdminReviewSort = AdminReviewSort.NEWEST;
+}
+
 export enum PublicReviewSort {
   NEWEST = 'newest',
   OLDEST = 'oldest',

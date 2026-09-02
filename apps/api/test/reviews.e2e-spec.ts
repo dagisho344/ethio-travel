@@ -95,6 +95,44 @@ describe('Phase 6C review routes', () => {
       }),
     ),
     update: jest.fn(() => Promise.resolve({ ...review, rating: 4 })),
+    findAdmin: jest.fn(() =>
+      Promise.resolve({
+        data: [
+          {
+            ...review,
+            author: {
+              id: user.sub,
+              email: user.email,
+              status: 'ACTIVE',
+              displayName: 'Dagi Traveler',
+            },
+            moderatedById: null,
+          },
+        ],
+        meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+      }),
+    ),
+    findAdminById: jest.fn(() =>
+      Promise.resolve({
+        ...review,
+        author: {
+          id: user.sub,
+          email: user.email,
+          status: 'ACTIVE',
+          displayName: 'Dagi Traveler',
+        },
+        moderatedById: null,
+      }),
+    ),
+    publish: jest.fn(() =>
+      Promise.resolve({ ...review, status: ReviewStatus.PUBLISHED }),
+    ),
+    reject: jest.fn(() =>
+      Promise.resolve({ ...review, status: ReviewStatus.REJECTED }),
+    ),
+    hide: jest.fn(() =>
+      Promise.resolve({ ...review, status: ReviewStatus.HIDDEN }),
+    ),
   };
 
   beforeAll(async () => {
@@ -128,6 +166,7 @@ describe('Phase 6C review routes', () => {
 
   beforeEach(() => {
     allowAuth = true;
+    user.roles = ['TRAVELER'];
     jest.clearAllMocks();
   });
 
@@ -233,5 +272,81 @@ describe('Phase 6C review routes', () => {
         '/api/v1/reviews/summary?targetType=BUSINESS&targetId=33333333-3333-4333-8333-333333333333',
       )
       .expect(200);
+  });
+  it('requires ADMIN role for admin review routes', async () => {
+    await request(httpServer).get('/api/v1/admin/reviews').expect(403);
+    await request(httpServer)
+      .post(
+        '/api/v1/admin/reviews/22222222-2222-4222-8222-222222222222/publish',
+      )
+      .expect(403);
+  });
+
+  it('allows ADMIN to list and inspect review moderation records', async () => {
+    user.roles = ['ADMIN'];
+    await request(httpServer)
+      .get(
+        '/api/v1/admin/reviews?status=PENDING&targetType=BUSINESS&rating=5&sort=newest',
+      )
+      .expect(200);
+    expect(reviewsService.findAdmin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: ReviewStatus.PENDING,
+        targetType: ReviewTargetType.BUSINESS,
+        rating: 5,
+      }),
+    );
+
+    await request(httpServer)
+      .get('/api/v1/admin/reviews/22222222-2222-4222-8222-222222222222')
+      .expect(200);
+    expect(reviewsService.findAdminById).toHaveBeenCalledWith(
+      '22222222-2222-4222-8222-222222222222',
+    );
+  });
+
+  it('allows ADMIN to publish, reject, and hide reviews', async () => {
+    user.roles = ['ADMIN'];
+    await request(httpServer)
+      .post(
+        '/api/v1/admin/reviews/22222222-2222-4222-8222-222222222222/publish',
+      )
+      .expect(200);
+    expect(reviewsService.publish).toHaveBeenCalledWith(
+      '22222222-2222-4222-8222-222222222222',
+      user.sub,
+    );
+
+    await request(httpServer)
+      .post('/api/v1/admin/reviews/22222222-2222-4222-8222-222222222222/reject')
+      .send({ moderationNote: '  Not enough detail  ' })
+      .expect(200);
+    expect(reviewsService.reject).toHaveBeenCalledWith(
+      '22222222-2222-4222-8222-222222222222',
+      user.sub,
+      'Not enough detail',
+    );
+
+    await request(httpServer)
+      .post('/api/v1/admin/reviews/22222222-2222-4222-8222-222222222222/hide')
+      .send({ moderationNote: 'Policy issue' })
+      .expect(200);
+    expect(reviewsService.hide).toHaveBeenCalledWith(
+      '22222222-2222-4222-8222-222222222222',
+      user.sub,
+      'Policy issue',
+    );
+  });
+
+  it('requires moderation note for reject and hide', async () => {
+    user.roles = ['ADMIN'];
+    await request(httpServer)
+      .post('/api/v1/admin/reviews/22222222-2222-4222-8222-222222222222/reject')
+      .send({ moderationNote: '   ' })
+      .expect(400);
+    await request(httpServer)
+      .post('/api/v1/admin/reviews/22222222-2222-4222-8222-222222222222/hide')
+      .send({})
+      .expect(400);
   });
 });

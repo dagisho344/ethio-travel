@@ -16,6 +16,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import {
+  AdminReviewQueryDto,
+  AdminReviewSort,
   MyReviewQueryDto,
   PublicReviewQueryDto,
   PublicReviewSort,
@@ -118,6 +120,31 @@ const myReviewSelect = Prisma.validator<Prisma.ReviewSelect>()({
   ...reviewTargetSelect,
 });
 
+const adminReviewSelect = Prisma.validator<Prisma.ReviewSelect>()({
+  id: true,
+  userId: true,
+  rating: true,
+  title: true,
+  body: true,
+  status: true,
+  moderationNote: true,
+  moderatedAt: true,
+  moderatedById: true,
+  publishedAt: true,
+  hiddenAt: true,
+  rejectedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  author: {
+    select: {
+      id: true,
+      email: true,
+      status: true,
+      profile: { select: { firstName: true, lastName: true } },
+    },
+  },
+  ...reviewTargetSelect,
+});
 const publicReviewSelect = Prisma.validator<Prisma.ReviewSelect>()({
   id: true,
   rating: true,
@@ -135,6 +162,9 @@ type MyReviewRecord = Prisma.ReviewGetPayload<{
 }>;
 type PublicReviewRecord = Prisma.ReviewGetPayload<{
   select: typeof publicReviewSelect;
+}>;
+type AdminReviewRecord = Prisma.ReviewGetPayload<{
+  select: typeof adminReviewSelect;
 }>;
 type ReviewCreateData = Pick<
   Prisma.ReviewUncheckedCreateInput,
@@ -216,6 +246,16 @@ export interface PublicReviewResponseDto {
   author: { displayName: string };
   publishedAt: Date | null;
   createdAt: Date;
+}
+
+export interface AdminReviewResponseDto extends MyReviewResponseDto {
+  author: {
+    id: string;
+    email: string;
+    status: UserStatus;
+    displayName: string;
+  };
+  moderatedById: string | null;
 }
 
 export interface ReviewSummaryDto {
@@ -362,6 +402,86 @@ export class ReviewsService {
     };
   }
 
+  async findAdmin(
+    query: AdminReviewQueryDto,
+  ): Promise<PaginatedResponse<AdminReviewResponseDto>> {
+    const where = this.adminReviewWhere(query);
+    const [records, total] = await this.prisma.$transaction([
+      this.prisma.review.findMany({
+        where,
+        select: adminReviewSelect,
+        orderBy: this.adminOrderBy(query.sort),
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+      }),
+      this.prisma.review.count({ where }),
+    ]);
+    return paginate(
+      records.map((record) => this.toAdminResponse(record)),
+      total,
+      query.page,
+      query.limit,
+    );
+  }
+
+  async findAdminById(reviewId: string): Promise<AdminReviewResponseDto> {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      select: adminReviewSelect,
+    });
+    if (!review) throw new NotFoundException('Review not found.');
+    return this.toAdminResponse(review);
+  }
+
+  async publish(
+    reviewId: string,
+    adminId: string,
+  ): Promise<AdminReviewResponseDto> {
+    await this.moderate(reviewId, adminId, ReviewStatus.PENDING, {
+      status: ReviewStatus.PUBLISHED,
+      moderatedAt: new Date(),
+
+      moderationNote: null,
+      publishedAt: new Date(),
+      hiddenAt: null,
+      rejectedAt: null,
+    });
+    return this.findAdminById(reviewId);
+  }
+
+  async reject(
+    reviewId: string,
+    adminId: string,
+    moderationNote: string,
+  ): Promise<AdminReviewResponseDto> {
+    await this.moderate(reviewId, adminId, ReviewStatus.PENDING, {
+      status: ReviewStatus.REJECTED,
+      moderatedAt: new Date(),
+
+      moderationNote: this.normalizeRequiredModerationNote(moderationNote),
+      publishedAt: null,
+      hiddenAt: null,
+      rejectedAt: new Date(),
+    });
+    return this.findAdminById(reviewId);
+  }
+
+  async hide(
+    reviewId: string,
+    adminId: string,
+    moderationNote: string,
+  ): Promise<AdminReviewResponseDto> {
+    await this.moderate(reviewId, adminId, ReviewStatus.PUBLISHED, {
+      status: ReviewStatus.HIDDEN,
+      moderatedAt: new Date(),
+
+      moderationNote: this.normalizeRequiredModerationNote(moderationNote),
+      publishedAt: null,
+      hiddenAt: new Date(),
+      rejectedAt: null,
+    });
+    return this.findAdminById(reviewId);
+  }
   private async ensureActiveUser(userId: string): Promise<void> {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, status: UserStatus.ACTIVE },
@@ -419,8 +539,8 @@ export class ReviewsService {
       ...this.targetWhere(dto.targetType, dto.targetId),
       userId,
       rating: dto.rating,
-      title: dto.title,
-      body: dto.body,
+      title: this.normalizeOptionalText(dto.title),
+      body: this.normalizeOptionalText(dto.body),
       status: ReviewStatus.PENDING,
     };
   }
@@ -430,8 +550,9 @@ export class ReviewsService {
   ): Prisma.ReviewUpdateManyMutationInput {
     const data: Prisma.ReviewUpdateManyMutationInput = {};
     if (dto.rating !== undefined) data.rating = dto.rating;
-    if ('title' in dto) data.title = dto.title ?? null;
-    if ('body' in dto) data.body = dto.body ?? null;
+    if ('title' in dto)
+      data.title = this.normalizeOptionalText(dto.title) ?? null;
+    if ('body' in dto) data.body = this.normalizeOptionalText(dto.body) ?? null;
     return data;
   }
 
@@ -510,6 +631,84 @@ export class ReviewsService {
     return this.toMyResponse(review);
   }
 
+  private async moderate(
+    reviewId: string,
+    adminId: string,
+    fromStatus: ReviewStatus,
+    data: Prisma.ReviewUpdateManyMutationInput,
+  ): Promise<void> {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updateResult = await tx.review.updateMany({
+        where: { id: reviewId, status: fromStatus },
+        data,
+      });
+      if (updateResult.count === 0) return updateResult;
+      await tx.review.update({
+        where: { id: reviewId },
+        data: { moderator: { connect: { id: adminId } } },
+        select: { id: true },
+      });
+      return updateResult;
+    });
+    if (result.count > 0) return;
+    const existing = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException('Review not found.');
+    throw new ConflictException(
+      'Review is not in a valid state for this action.',
+    );
+  }
+  private adminReviewWhere(
+    query: AdminReviewQueryDto,
+  ): Prisma.ReviewWhereInput {
+    return {
+      status: query.status,
+      rating: query.rating,
+      userId: query.userId,
+      ...(query.targetType ? this.targetPresentWhere(query.targetType) : {}),
+    };
+  }
+
+  private adminOrderBy(
+    sort: AdminReviewSort,
+  ): Prisma.ReviewOrderByWithRelationInput[] {
+    return sort === AdminReviewSort.OLDEST
+      ? [{ createdAt: 'asc' }]
+      : [{ createdAt: 'desc' }];
+  }
+
+  private normalizeRequiredModerationNote(value: string): string {
+    const note = value.trim();
+    if (!note) throw new BadRequestException('Moderation note is required.');
+    return note;
+  }
+
+  private toAdminResponse(review: AdminReviewRecord): AdminReviewResponseDto {
+    return {
+      id: review.id,
+      rating: review.rating,
+      title: review.title,
+      body: review.body,
+      status: review.status,
+      moderationNote: review.moderationNote,
+      moderatedAt: review.moderatedAt,
+      moderatedById: review.moderatedById,
+      publishedAt: review.publishedAt,
+      hiddenAt: review.hiddenAt,
+      rejectedAt: review.rejectedAt,
+      createdAt: review.createdAt,
+      updatedAt: review.updatedAt,
+      author: {
+        id: review.author.id,
+        email: review.author.email,
+        status: review.author.status,
+        displayName: this.authorDisplayName(review),
+      },
+      target: this.toTarget(review),
+    };
+  }
   private toMyResponse(review: MyReviewRecord): MyReviewResponseDto {
     return {
       id: review.id,
