@@ -32,6 +32,10 @@ model User {
   reviewedBusinessVerifications  BusinessVerification[]   @relation("BusinessVerificationReviewedBy")
   mediaAssets                    MediaAsset[]
 
+  favorites        Favorite[]
+  reviewsAuthored  Review[]   @relation("ReviewAuthor")
+  reviewsModerated Review[]   @relation("ReviewModerator")
+
   @@map("users")
 }
 
@@ -205,6 +209,9 @@ model Destination {
   businesses       Business[]
   media            DestinationMedia[]
 
+  favorites Favorite[]
+  reviews   Review[]
+
   @@unique([cityId, slug])
   @@index([cityId])
   @@index([status])
@@ -233,6 +240,9 @@ model Attraction {
   updatedAt     DateTime           @updatedAt @map("updated_at")
   destination   Destination        @relation(fields: [destinationId], references: [id], onDelete: Restrict)
   media         AttractionMedia[]
+
+  favorites Favorite[]
+  reviews   Review[]
 
   @@unique([destinationId, slug])
   @@index([destinationId])
@@ -333,6 +343,8 @@ model Business {
   verifications BusinessVerification[]
   services      Service[]
   media         BusinessMedia[]
+  favorites     Favorite[]
+  reviews       Review[]
 
   @@unique([cityId, slug])
   @@index([cityId])
@@ -499,9 +511,11 @@ model Service {
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
-  business Business        @relation(fields: [businessId], references: [id], onDelete: Restrict)
-  category ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  media    ServiceMedia[]
+  business  Business        @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  category  ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  media     ServiceMedia[]
+  favorites Favorite[]
+  reviews   Review[]
 
   @@unique([businessId, slug])
   @@index([businessId])
@@ -631,4 +645,73 @@ model AttractionMedia {
   @@index([role])
   @@index([sortOrder])
   @@map("attraction_media")
+}
+
+enum ReviewStatus {
+  PENDING
+  PUBLISHED
+  HIDDEN
+  REJECTED
+}
+
+model Favorite {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  businessId    String?  @map("business_id") @db.Uuid
+  serviceId     String?  @map("service_id") @db.Uuid
+  destinationId String?  @map("destination_id") @db.Uuid
+  attractionId  String?  @map("attraction_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  business    Business?    @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  service     Service?     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  destination Destination? @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+  attraction  Attraction?  @relation(fields: [attractionId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([businessId])
+  @@index([serviceId])
+  @@index([destinationId])
+  @@index([attractionId])
+  @@map("favorites")
+}
+
+model Review {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  moderatedById  String?      @map("moderated_by_id") @db.Uuid
+  businessId     String?      @map("business_id") @db.Uuid
+  serviceId      String?      @map("service_id") @db.Uuid
+  destinationId  String?      @map("destination_id") @db.Uuid
+  attractionId   String?      @map("attraction_id") @db.Uuid
+  rating         Int
+  title          String?      @db.VarChar(120)
+  body           String?
+  status         ReviewStatus @default(PENDING)
+  moderationNote String?      @map("moderation_note")
+  moderatedAt    DateTime?    @map("moderated_at")
+  publishedAt    DateTime?    @map("published_at")
+  hiddenAt       DateTime?    @map("hidden_at")
+  rejectedAt     DateTime?    @map("rejected_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  author      User         @relation("ReviewAuthor", fields: [userId], references: [id], onDelete: Restrict)
+  moderator   User?        @relation("ReviewModerator", fields: [moderatedById], references: [id], onDelete: SetNull)
+  business    Business?    @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  service     Service?     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  destination Destination? @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+  attraction  Attraction?  @relation(fields: [attractionId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([moderatedById])
+  @@index([publishedAt])
+  @@index([businessId, status])
+  @@index([serviceId, status])
+  @@index([destinationId, status])
+  @@index([attractionId, status])
+  @@map("reviews")
 }
