@@ -11,6 +11,7 @@ import { CitiesModule } from './cities/cities.module';
 import { DestinationsModule } from './destinations/destinations.module';
 import { appConfig } from './config/app.config';
 import { envValidationSchema } from './config/env.validation';
+import { FavoritesModule } from './favorites/favorites.module';
 import { HealthModule } from './health/health.module';
 import { MapsModule } from './maps/maps.module';
 import { createHttpLoggerOptions } from './logger/http-logger.options';
@@ -47,6 +48,7 @@ import { UsersModule } from './users/users.module';
     ServicesModule,
     SearchModule,
     MapsModule,
+    FavoritesModule,
     UsersModule,
     AuthModule,
   ],

@@ -1,0 +1,6 @@
+export enum FavoriteTargetType {
+  BUSINESS = 'BUSINESS',
+  SERVICE = 'SERVICE',
+  DESTINATION = 'DESTINATION',
+  ATTRACTION = 'ATTRACTION',
+}

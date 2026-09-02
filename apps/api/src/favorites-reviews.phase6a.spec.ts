@@ -15,8 +15,12 @@ const migrationSql = readFileSync(
 
 describe('Phase 6A favorites and reviews database foundation', () => {
   it('enforces exactly one relational target for favorites and reviews', () => {
-    expect(migrationSql).toContain('CONSTRAINT "favorites_exactly_one_target_check"');
-    expect(migrationSql).toContain('CONSTRAINT "reviews_exactly_one_target_check"');
+    expect(migrationSql).toContain(
+      'CONSTRAINT "favorites_exactly_one_target_check"',
+    );
+    expect(migrationSql).toContain(
+      'CONSTRAINT "reviews_exactly_one_target_check"',
+    );
     expect(migrationSql).toContain('= 1)');
   });
 
