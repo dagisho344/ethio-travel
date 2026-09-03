@@ -4,8 +4,13 @@ import { useEffect, useMemo, useState, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Filter, List, Map, Search, X } from 'lucide-react';
 import { getJson } from '../../lib/api';
+import {
+  buildFavoriteLookup,
+  type FavoriteLookup,
+} from '../../lib/favorite-utils';
 import type {
   Category,
+  Favorite,
   LocationSummary,
   MapPlace,
   PaginatedResponse,
@@ -161,6 +166,7 @@ export function ExploreClient({
     useState<PaginatedResponse<SearchResult> | null>(null);
   const [places, setPlaces] = useState<MapPlace[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [favoriteLookup, setFavoriteLookup] = useState<FavoriteLookup>({});
   const [view, setView] = useState<ViewMode>(
     (searchParams.get('view') as ViewMode) === 'map' ? 'map' : 'list',
   );
@@ -220,6 +226,23 @@ export function ExploreClient({
     selectedDestinationSlug,
     selectedRegionSlug,
   ]);
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const favorites = await fetch('/api/favorites?limit=100', {
+          cache: 'no-store',
+        });
+        if (favorites.ok) {
+          const data = (await favorites.json()) as { data?: Favorite[] };
+          setFavoriteLookup(buildFavoriteLookup(data.data ?? []));
+        }
+      } catch {
+        setFavoriteLookup({});
+      }
+    };
+    void run();
+  }, []);
 
   useEffect(() => {
     const run = async () => {
@@ -706,6 +729,7 @@ export function ExploreClient({
                 <SearchResultCard
                   key={`${result.type}-${result.id}`}
                   result={result}
+                  favoriteLookup={favoriteLookup}
                 />
               ))}
               {isPending || !results ? (

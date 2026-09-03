@@ -22,7 +22,7 @@ export type SafeUser = {
   roles: string[];
 };
 
-type BackendAuthResponse = {
+export type BackendAuthResponse = {
   accessToken: string;
   refreshToken: string;
   user: SafeUser;
@@ -167,6 +167,49 @@ export async function getMeWithBackend(accessToken: string): Promise<SafeUser> {
   });
 }
 
+async function backendJsonWithAccess<T>(
+  path: string,
+  accessToken: string,
+  init: RequestInit = {},
+): Promise<T> {
+  return backendJson<T>(path, {
+    ...init,
+    headers: {
+      ...(init.headers ?? {}),
+      authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function authenticatedBackendJson<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<{ data: T; auth?: BackendAuthResponse }> {
+  const tokens = await currentTokens();
+
+  if (tokens.accessToken) {
+    try {
+      const data = await backendJsonWithAccess<T>(
+        path,
+        tokens.accessToken,
+        init,
+      );
+      return { data };
+    } catch (error) {
+      if (!(error instanceof BffAuthError) || error.status !== 401) {
+        throw error;
+      }
+    }
+  }
+
+  if (!tokens.refreshToken) {
+    throw new BffAuthError(401, 'Authentication required.');
+  }
+
+  const auth = await refreshWithBackend(tokens.refreshToken);
+  const data = await backendJsonWithAccess<T>(path, auth.accessToken, init);
+  return { data, auth };
+}
 export async function currentTokens() {
   const store = await cookies();
   return {

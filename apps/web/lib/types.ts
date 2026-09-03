@@ -114,3 +114,59 @@ export interface ApiErrorShape {
   message?: string | string[];
   statusCode?: number;
 }
+export type FavoriteTargetType =
+  'BUSINESS' | 'SERVICE' | 'DESTINATION' | 'ATTRACTION';
+
+export type FavoriteTarget =
+  | {
+      type: 'BUSINESS';
+      id: string;
+      name: string;
+      slug: string;
+      description: string;
+      category: Category;
+      city: LocationSummary;
+      region: LocationSummary;
+      destination: LocationSummary | null;
+    }
+  | {
+      type: 'SERVICE';
+      id: string;
+      name: string;
+      slug: string;
+      shortDescription: string;
+      pricingModel: PricingModel;
+      price?: string | number | null;
+      currency?: string | null;
+      category: Category;
+      business: LocationSummary;
+      city: LocationSummary;
+      region: LocationSummary;
+      destination: LocationSummary | null;
+    }
+  | {
+      type: 'DESTINATION';
+      id: string;
+      name: string;
+      slug: string;
+      shortDescription: string;
+      city: LocationSummary;
+      region: LocationSummary;
+    }
+  | {
+      type: 'ATTRACTION';
+      id: string;
+      name: string;
+      slug: string;
+      category: string;
+      description: string;
+      destination: LocationSummary;
+      city: LocationSummary;
+      region: LocationSummary;
+    };
+
+export interface Favorite {
+  id: string;
+  createdAt: string;
+  target: FavoriteTarget;
+}

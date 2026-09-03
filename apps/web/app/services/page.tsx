@@ -7,9 +7,14 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ServiceFilters } from './ServiceFilters';
+import { FavoriteButton } from '../../components/favorites/FavoriteButton';
 import { Container } from '../../components/ui/Container';
 import { SectionHeading } from '../../components/ui/States';
 import { safePage } from '../../lib/api';
+import {
+  favoriteLookupKey,
+  getInitialFavoriteLookup,
+} from '../../lib/favorites';
 import { formatPricing } from '../../lib/format';
 import type {
   Category,
@@ -65,13 +70,26 @@ function pricingLabel(model?: PricingModel) {
   return labels[model];
 }
 
-function ServiceResultCard({ service }: { service: Service }) {
+function ServiceResultCard({
+  service,
+  favoriteId,
+}: {
+  service: Service;
+  favoriteId?: string;
+}) {
   const location = [service.city?.name, service.region?.name]
     .filter(Boolean)
     .join(', ');
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-highland/30 hover:shadow-md">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-highland/30 hover:shadow-md">
+      <FavoriteButton
+        targetType="SERVICE"
+        targetId={service.id}
+        targetName={service.name}
+        initialFavoriteId={favoriteId}
+        className="absolute right-3 top-3 z-10"
+      />
       <div className="flex h-32 items-center justify-center bg-gradient-to-br from-emerald-50 via-sky-50 to-amber-50 text-highland">
         <div className="rounded-full bg-white/75 p-4 shadow-sm ring-1 ring-slate-200/70">
           <ImageIcon className="h-7 w-7" aria-hidden="true" />
@@ -208,17 +226,20 @@ export default async function ServicesPage({ searchParams }: PageProps) {
     ? pricingModel
     : undefined;
 
-  const servicesResponse = await safePage<Service>('/services', {
-    q,
-    regionSlug: selectedRegion?.slug,
-    citySlug: selectedCitySlug,
-    category: selectedCategory?.code,
-    pricingModel: selectedPricingModel,
-    minPrice,
-    maxPrice,
-    page,
-    limit: 9,
-  });
+  const [servicesResponse, favoriteLookup] = await Promise.all([
+    safePage<Service>('/services', {
+      q,
+      regionSlug: selectedRegion?.slug,
+      citySlug: selectedCitySlug,
+      category: selectedCategory?.code,
+      pricingModel: selectedPricingModel,
+      minPrice,
+      maxPrice,
+      page,
+      limit: 9,
+    }),
+    getInitialFavoriteLookup('SERVICE'),
+  ]);
 
   const hasFilters = Boolean(
     q ||
@@ -269,7 +290,13 @@ export default async function ServicesPage({ searchParams }: PageProps) {
             </div>
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {services.map((service) => (
-                <ServiceResultCard key={service.id} service={service} />
+                <ServiceResultCard
+                  key={service.id}
+                  service={service}
+                  favoriteId={
+                    favoriteLookup[favoriteLookupKey('SERVICE', service.id)]
+                  }
+                />
               ))}
             </div>
           </>

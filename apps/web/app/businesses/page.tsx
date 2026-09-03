@@ -7,9 +7,14 @@ import {
   MapPin,
 } from 'lucide-react';
 import { BusinessFilters } from './BusinessFilters';
+import { FavoriteButton } from '../../components/favorites/FavoriteButton';
 import { Container } from '../../components/ui/Container';
 import { SectionHeading } from '../../components/ui/States';
 import { safePage } from '../../lib/api';
+import {
+  favoriteLookupKey,
+  getInitialFavoriteLookup,
+} from '../../lib/favorites';
 import type { Business, Category, LocationSummary } from '../../lib/types';
 
 interface PageProps {
@@ -27,13 +32,26 @@ function businessPath(business: Business) {
   return '/explore?types=business';
 }
 
-function BusinessResultCard({ business }: { business: Business }) {
+function BusinessResultCard({
+  business,
+  favoriteId,
+}: {
+  business: Business;
+  favoriteId?: string;
+}) {
   const location = [business.city?.name, business.region?.name]
     .filter(Boolean)
     .join(', ');
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-highland/30 hover:shadow-md">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-highland/30 hover:shadow-md">
+      <FavoriteButton
+        targetType="BUSINESS"
+        targetId={business.id}
+        targetName={business.name}
+        initialFavoriteId={favoriteId}
+        className="absolute right-3 top-3 z-10"
+      />
       <div className="flex h-32 items-center justify-center bg-gradient-to-br from-emerald-50 via-sky-50 to-amber-50 text-highland">
         <div className="rounded-full bg-white/75 p-4 shadow-sm ring-1 ring-slate-200/70">
           <ImageIcon className="h-7 w-7" aria-hidden="true" />
@@ -143,14 +161,17 @@ export default async function BusinessesPage({ searchParams }: PageProps) {
   const selectedCitySlug = selectedRegion ? citySlug : undefined;
   const selectedCategory = categories.find((item) => item.code === category);
 
-  const businessesResponse = await safePage<Business>('/businesses', {
-    q,
-    regionSlug: selectedRegion?.slug,
-    citySlug: selectedCitySlug,
-    category: selectedCategory?.code,
-    page,
-    limit: 9,
-  });
+  const [businessesResponse, favoriteLookup] = await Promise.all([
+    safePage<Business>('/businesses', {
+      q,
+      regionSlug: selectedRegion?.slug,
+      citySlug: selectedCitySlug,
+      category: selectedCategory?.code,
+      page,
+      limit: 9,
+    }),
+    getInitialFavoriteLookup('BUSINESS'),
+  ]);
 
   const hasFilters = Boolean(
     q || selectedRegion || selectedCitySlug || selectedCategory,
@@ -192,7 +213,13 @@ export default async function BusinessesPage({ searchParams }: PageProps) {
             </div>
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {businesses.map((business) => (
-                <BusinessResultCard key={business.id} business={business} />
+                <BusinessResultCard
+                  key={business.id}
+                  business={business}
+                  favoriteId={
+                    favoriteLookup[favoriteLookupKey('BUSINESS', business.id)]
+                  }
+                />
               ))}
             </div>
           </>

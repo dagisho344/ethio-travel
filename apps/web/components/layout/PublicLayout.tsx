@@ -52,6 +52,12 @@ export async function Header() {
                 {accountLabel}
               </span>
               <Link
+                href="/favorites"
+                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+              >
+                Favorites
+              </Link>
+              <Link
                 href="/account"
                 className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
               >
@@ -97,6 +103,12 @@ export async function Header() {
             <div className="mt-2 border-t border-slate-100 pt-2">
               {session.authenticated ? (
                 <>
+                  <Link
+                    href="/favorites"
+                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
+                  >
+                    Favorites
+                  </Link>
                   <Link
                     href="/account"
                     className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"

@@ -1,9 +1,14 @@
 import Link from 'next/link';
 import { ArrowRight, ImageIcon, Map, MapPin } from 'lucide-react';
 import { DestinationFilters } from './DestinationFilters';
+import { FavoriteButton } from '../../components/favorites/FavoriteButton';
 import { Container } from '../../components/ui/Container';
 import { SectionHeading } from '../../components/ui/States';
 import { safePage } from '../../lib/api';
+import {
+  favoriteLookupKey,
+  getInitialFavoriteLookup,
+} from '../../lib/favorites';
 import type {
   Destination,
   LocationSummary,
@@ -108,13 +113,26 @@ async function findDestinations({
   return safePage<Destination>('/destinations', { q, page, limit });
 }
 
-function DestinationResultCard({ destination }: { destination: Destination }) {
+function DestinationResultCard({
+  destination,
+  favoriteId,
+}: {
+  destination: Destination;
+  favoriteId?: string;
+}) {
   const region = destination.region;
   const city = destination.city;
   const location = [city?.name, region?.name].filter(Boolean).join(', ');
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-highland/30 hover:shadow-md">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-highland/30 hover:shadow-md">
+      <FavoriteButton
+        targetType="DESTINATION"
+        targetId={destination.id}
+        targetName={destination.name}
+        initialFavoriteId={favoriteId}
+        className="absolute right-3 top-3 z-10"
+      />
       <div className="flex h-36 items-center justify-center bg-gradient-to-br from-emerald-50 via-sky-50 to-amber-50 text-highland">
         <div className="rounded-full bg-white/75 p-4 shadow-sm ring-1 ring-slate-200/70">
           <ImageIcon className="h-7 w-7" aria-hidden="true" />
@@ -200,13 +218,16 @@ export default async function DestinationsPage({ searchParams }: PageProps) {
   const selectedRegion = regions.find((region) => region.slug === regionSlug);
   const selectedCitySlug = selectedRegion ? citySlug : undefined;
 
-  const destinationsResponse = await findDestinations({
-    q,
-    page,
-    region: selectedRegion,
-    cities,
-    citySlug: selectedCitySlug,
-  });
+  const [destinationsResponse, favoriteLookup] = await Promise.all([
+    findDestinations({
+      q,
+      page,
+      region: selectedRegion,
+      cities,
+      citySlug: selectedCitySlug,
+    }),
+    getInitialFavoriteLookup('DESTINATION'),
+  ]);
 
   const hasFilters = Boolean(q || selectedRegion || selectedCitySlug);
   const destinations = destinationsResponse?.data ?? [];
@@ -247,6 +268,11 @@ export default async function DestinationsPage({ searchParams }: PageProps) {
                 <DestinationResultCard
                   key={destination.id}
                   destination={destination}
+                  favoriteId={
+                    favoriteLookup[
+                      favoriteLookupKey('DESTINATION', destination.id)
+                    ]
+                  }
                 />
               ))}
             </div>

@@ -1,9 +1,15 @@
 import Link from 'next/link';
 import { Briefcase, Landmark, MapPin, Sparkles } from 'lucide-react';
+import { FavoriteButton } from '../favorites/FavoriteButton';
+import {
+  favoriteLookupKey,
+  type FavoriteLookup,
+} from '../../lib/favorite-utils';
 import { categoryName, formatPricing } from '../../lib/format';
 import type {
   Business,
   Destination,
+  FavoriteTargetType,
   SearchResult,
   Service,
 } from '../../lib/types';
@@ -77,14 +83,31 @@ export function ServiceCard({ service }: { service: Service }) {
     </article>
   );
 }
-export function SearchResultCard({ result }: { result: SearchResult }) {
+export function SearchResultCard({
+  result,
+  favoriteLookup = {},
+}: {
+  result: SearchResult;
+  favoriteLookup?: FavoriteLookup;
+}) {
   const typeLabel =
     result.type === 'business'
       ? 'Verified Business'
       : result.type.charAt(0).toUpperCase() + result.type.slice(1);
+  const targetType = result.type.toUpperCase() as FavoriteTargetType;
+
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
+    <article className="relative rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <FavoriteButton
+        targetType={targetType}
+        targetId={result.id}
+        targetName={result.name}
+        initialFavoriteId={
+          favoriteLookup[favoriteLookupKey(targetType, result.id)]
+        }
+        className="absolute right-3 top-3 z-10"
+      />
+      <div className="flex items-center justify-between gap-3 pr-11">
         <span className="inline-flex items-center gap-2 rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
           <Landmark className="h-3.5 w-3.5" />
           {typeLabel}
