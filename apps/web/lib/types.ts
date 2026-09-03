@@ -170,3 +170,39 @@ export interface Favorite {
   createdAt: string;
   target: FavoriteTarget;
 }
+export type ReviewTargetType = FavoriteTargetType;
+export type ReviewStatus = 'PENDING' | 'PUBLISHED' | 'HIDDEN' | 'REJECTED';
+
+export type ReviewTargetSummary = FavoriteTarget;
+
+export interface MyReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string | null;
+  status: ReviewStatus;
+  moderationNote: string | null;
+  moderatedAt: string | null;
+  publishedAt: string | null;
+  hiddenAt: string | null;
+  rejectedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  target: ReviewTargetSummary;
+}
+
+export interface PublicReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string | null;
+  author: { displayName: string };
+  publishedAt: string | null;
+  createdAt: string;
+}
+
+export interface ReviewSummary {
+  averageRating: number | null;
+  reviewCount: number;
+  ratingDistribution: Record<'1' | '2' | '3' | '4' | '5', number>;
+}

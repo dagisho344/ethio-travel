@@ -58,6 +58,12 @@ export async function Header() {
                 Favorites
               </Link>
               <Link
+                href="/reviews"
+                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+              >
+                My Reviews
+              </Link>
+              <Link
                 href="/account"
                 className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
               >
@@ -108,6 +114,12 @@ export async function Header() {
                     className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
                   >
                     Favorites
+                  </Link>
+                  <Link
+                    href="/reviews"
+                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
+                  >
+                    My Reviews
                   </Link>
                   <Link
                     href="/account"

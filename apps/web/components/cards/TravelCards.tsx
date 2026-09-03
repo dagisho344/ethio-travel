@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Briefcase, Landmark, MapPin, Sparkles } from 'lucide-react';
 import { FavoriteButton } from '../favorites/FavoriteButton';
+import { ReviewForm } from '../reviews/ReviewForm';
+import { ReviewPanel } from '../reviews/ReviewPanel';
 import {
   favoriteLookupKey,
   type FavoriteLookup,
@@ -10,6 +12,7 @@ import type {
   Business,
   Destination,
   FavoriteTargetType,
+  MyReview,
   SearchResult,
   Service,
 } from '../../lib/types';
@@ -86,9 +89,11 @@ export function ServiceCard({ service }: { service: Service }) {
 export function SearchResultCard({
   result,
   favoriteLookup = {},
+  reviewLookup = {},
 }: {
   result: SearchResult;
   favoriteLookup?: FavoriteLookup;
+  reviewLookup?: Record<string, MyReview>;
 }) {
   const typeLabel =
     result.type === 'business'
@@ -128,6 +133,15 @@ export function SearchResultCard({
         city={result.location.city}
         region={result.location.region}
       />
+      <div className="mt-5 space-y-4">
+        <ReviewForm
+          targetType={targetType}
+          targetId={result.id}
+          targetName={result.name}
+          existingReview={reviewLookup[`${targetType}:${result.id}`]}
+        />
+        <ReviewPanel targetType={targetType} targetId={result.id} />
+      </div>
       {result.type === 'destination' &&
       result.location.region &&
       result.location.city ? (

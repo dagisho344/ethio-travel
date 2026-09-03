@@ -8,9 +8,11 @@ import {
   buildFavoriteLookup,
   type FavoriteLookup,
 } from '../../lib/favorite-utils';
+import { buildReviewLookup, type ReviewLookup } from '../../lib/review-utils';
 import type {
   Category,
   Favorite,
+  MyReview,
   LocationSummary,
   MapPlace,
   PaginatedResponse,
@@ -167,6 +169,7 @@ export function ExploreClient({
   const [places, setPlaces] = useState<MapPlace[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [favoriteLookup, setFavoriteLookup] = useState<FavoriteLookup>({});
+  const [reviewLookup, setReviewLookup] = useState<ReviewLookup>({});
   const [view, setView] = useState<ViewMode>(
     (searchParams.get('view') as ViewMode) === 'map' ? 'map' : 'list',
   );
@@ -230,15 +233,21 @@ export function ExploreClient({
   useEffect(() => {
     const run = async () => {
       try {
-        const favorites = await fetch('/api/favorites?limit=100', {
-          cache: 'no-store',
-        });
+        const [favorites, reviews] = await Promise.all([
+          fetch('/api/favorites?limit=100', { cache: 'no-store' }),
+          fetch('/api/reviews?mine=true&limit=100', { cache: 'no-store' }),
+        ]);
         if (favorites.ok) {
           const data = (await favorites.json()) as { data?: Favorite[] };
           setFavoriteLookup(buildFavoriteLookup(data.data ?? []));
         }
+        if (reviews.ok) {
+          const data = (await reviews.json()) as { data?: MyReview[] };
+          setReviewLookup(buildReviewLookup(data.data ?? []));
+        }
       } catch {
         setFavoriteLookup({});
+        setReviewLookup({});
       }
     };
     void run();
@@ -730,6 +739,7 @@ export function ExploreClient({
                   key={`${result.type}-${result.id}`}
                   result={result}
                   favoriteLookup={favoriteLookup}
+                  reviewLookup={reviewLookup}
                 />
               ))}
               {isPending || !results ? (
