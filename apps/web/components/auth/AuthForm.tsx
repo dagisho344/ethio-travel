@@ -1,25 +1,62 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useId, useState } from 'react';
-import { ApiError, postJson } from '../../lib/api';
 
 type Mode = 'login' | 'register';
 
-type AuthResponse = {
-  accessToken: string;
-  refreshToken: string;
+class AuthRouteError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+type AuthRouteResponse = {
+  authenticated: boolean;
+  user: unknown;
 };
 
+async function postAuthRoute(
+  path: string,
+  body: unknown,
+): Promise<AuthRouteResponse> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = (await response.json().catch(() => null)) as {
+    message?: string;
+  } | null;
+  if (!response.ok) {
+    throw new AuthRouteError(
+      response.status,
+      data?.message ?? 'Request failed.',
+    );
+  }
+  return data as AuthRouteResponse;
+}
+
+function safeReturnTo(value: string | null): string {
+  if (!value || !value.startsWith('/') || value.startsWith('//'))
+    return '/explore';
+  if (value.startsWith('/login') || value.startsWith('/register'))
+    return '/explore';
+  return value;
+}
 function textValue(form: FormData, key: string): string {
   const value = form.get(key);
   return typeof value === 'string' ? value : '';
 }
 
 function authErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
+  if (error instanceof AuthRouteError) {
     if (error.status === 401 || error.status === 403) {
       return 'The email or password you entered is incorrect.';
     }
@@ -32,7 +69,7 @@ function authErrorMessage(error: unknown): string {
 }
 
 function registerErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
+  if (error instanceof AuthRouteError) {
     if (error.status === 409) {
       return 'An account with this email already exists. Sign in instead.';
     }
@@ -90,6 +127,7 @@ function validateRegister({
 }
 
 export function AuthForm({ mode }: { mode: Mode }) {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -144,19 +182,21 @@ export function AuthForm({ mode }: { mode: Mode }) {
             lastName,
           };
     try {
-      await postJson<AuthResponse>(
-        mode === 'login' ? '/auth/login' : '/auth/register',
+      await postAuthRoute(
+        mode === 'login' ? '/api/auth/login' : '/api/auth/register',
         body,
       );
-      setSuccess(
-        mode === 'login'
-          ? 'Sign-in accepted, but staying signed in is not available in this browser yet.'
-          : 'Account created. You can sign in now.',
-      );
-      if (mode === 'register') {
-        event.currentTarget.reset();
-        setEmail('');
+      if (mode === 'login') {
+        const returnTo = new URLSearchParams(window.location.search).get(
+          'returnTo',
+        );
+        router.push(safeReturnTo(returnTo));
+        router.refresh();
+        return;
       }
+      setSuccess('Account created. You can sign in now.');
+      event.currentTarget.reset();
+      setEmail('');
     } catch (err) {
       setError(
         mode === 'login' ? authErrorMessage(err) : registerErrorMessage(err),

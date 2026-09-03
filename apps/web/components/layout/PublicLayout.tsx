@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { Compass, Menu } from 'lucide-react';
+import { LogoutButton } from '../auth/LogoutButton';
+import { currentSessionSnapshot } from '../../lib/auth/session';
 import { Container } from '../ui/Container';
 
 const links = [
@@ -10,7 +12,10 @@ const links = [
   { href: '/services', label: 'Services' },
 ];
 
-export function Header() {
+export async function Header() {
+  const session = await currentSessionSnapshot();
+  const accountLabel = session.user?.firstName ?? session.user?.email ?? '';
+
   return (
     <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/95 backdrop-blur">
       <Container className="flex h-16 items-center justify-between gap-4">
@@ -41,18 +46,35 @@ export function Header() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-3 lg:flex">
-          <Link
-            href="/login"
-            className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-          >
-            Sign In
-          </Link>
-          <Link
-            href="/register"
-            className="whitespace-nowrap rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-          >
-            Register
-          </Link>
+          {session.authenticated ? (
+            <>
+              <span className="max-w-36 truncate text-sm font-semibold text-slate-700">
+                {accountLabel}
+              </span>
+              <Link
+                href="/account"
+                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+              >
+                Account
+              </Link>
+              <LogoutButton className="whitespace-nowrap rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60" />
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/register"
+                className="whitespace-nowrap rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+              >
+                Register
+              </Link>
+            </>
+          )}
         </div>
 
         <details className="relative lg:hidden">
@@ -73,18 +95,32 @@ export function Header() {
               </Link>
             ))}
             <div className="mt-2 border-t border-slate-100 pt-2">
-              <Link
-                href="/login"
-                className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
-              >
-                Sign In
-              </Link>
-              <Link
-                href="/register"
-                className="mt-1 block rounded-md bg-highland px-3 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland"
-              >
-                Register
-              </Link>
+              {session.authenticated ? (
+                <>
+                  <Link
+                    href="/account"
+                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
+                  >
+                    Account
+                  </Link>
+                  <LogoutButton className="mt-1 block w-full rounded-md bg-highland px-3 py-2.5 text-left text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland disabled:cursor-not-allowed disabled:opacity-60" />
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="mt-1 block rounded-md bg-highland px-3 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland"
+                  >
+                    Register
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </details>
