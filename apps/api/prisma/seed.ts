@@ -1,4 +1,17 @@
-import { LocationStatus, PrismaClient } from '@prisma/client';
+import {
+  BusinessMemberRole,
+  BusinessMemberStatus,
+  BusinessStatus,
+  BusinessVerificationSummary,
+  LocationStatus,
+  PricingModel,
+  PrismaClient,
+  ServiceLocationMode,
+  ServiceStatus,
+  UserStatus,
+  VerificationRequestStatus,
+} from '@prisma/client';
+import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
 
@@ -412,11 +425,334 @@ async function seedServiceCategories(): Promise<void> {
     });
   }
 }
+
+type DemoAccount = {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  roleName: string;
+};
+
+const demoAccounts: DemoAccount[] = [
+  {
+    email: 'traveler@ethiotravel.local',
+    password: 'TravelDemo#2026!',
+    firstName: 'Demo',
+    lastName: 'Traveler',
+    roleName: 'TRAVELER',
+  },
+  {
+    email: 'owner@ethiotravel.local',
+    password: 'OwnerDemo#2026!',
+    firstName: 'Demo',
+    lastName: 'Owner',
+    roleName: 'BUSINESS_OWNER',
+  },
+  {
+    email: 'admin@ethiotravel.local',
+    password: 'AdminDemo#2026!',
+    firstName: 'Demo',
+    lastName: 'Admin',
+    roleName: 'ADMIN',
+  },
+];
+
+async function upsertDemoUser(account: DemoAccount) {
+  const passwordHash = await argon2.hash(account.password);
+
+  const user = await prisma.user.upsert({
+    create: {
+      email: account.email,
+      passwordHash,
+      status: UserStatus.ACTIVE,
+      emailVerifiedAt: new Date(),
+      profile: {
+        create: {
+          firstName: account.firstName,
+          lastName: account.lastName,
+        },
+      },
+    },
+    update: {
+      passwordHash,
+      status: UserStatus.ACTIVE,
+      profile: {
+        upsert: {
+          create: {
+            firstName: account.firstName,
+            lastName: account.lastName,
+          },
+          update: {
+            firstName: account.firstName,
+            lastName: account.lastName,
+          },
+        },
+      },
+    },
+    where: { email: account.email },
+  });
+
+  const role = await prisma.role.findUniqueOrThrow({
+    where: { name: account.roleName },
+  });
+
+  await prisma.userRole.upsert({
+    create: { roleId: role.id, userId: user.id },
+    update: {},
+    where: {
+      userId_roleId: {
+        roleId: role.id,
+        userId: user.id,
+      },
+    },
+  });
+
+  return user;
+}
+
+async function seedDevelopmentDemoData(): Promise<void> {
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Skipping demo account/business seed in production.');
+    return;
+  }
+
+  if (process.env.ETHIO_TRAVEL_SEED_DEMO === 'false') {
+    console.log('Skipping demo account/business seed by environment flag.');
+    return;
+  }
+
+  const users = new Map<string, Awaited<ReturnType<typeof upsertDemoUser>>>();
+  for (const account of demoAccounts) {
+    const user = await upsertDemoUser(account);
+    users.set(account.email, user);
+  }
+
+  const owner = users.get('owner@ethiotravel.local');
+  const admin = users.get('admin@ethiotravel.local');
+
+  if (!owner || !admin) {
+    throw new Error('Demo owner/admin accounts were not created.');
+  }
+
+  const region = await prisma.region.findFirst({
+    where: { slug: 'addis-ababa', status: LocationStatus.ACTIVE },
+  });
+
+  if (!region) {
+    throw new Error(
+      'Cannot seed demo business: ACTIVE Addis Ababa region is missing.',
+    );
+  }
+
+  const city = await prisma.city.findUnique({
+    where: {
+      regionId_slug: {
+        regionId: region.id,
+        slug: 'bole',
+      },
+    },
+  });
+
+  if (!city || city.status !== LocationStatus.ACTIVE) {
+    throw new Error(
+      'Cannot seed demo business: ACTIVE Bole city record is missing.',
+    );
+  }
+
+  const businessCategory = await prisma.businessCategory.findFirst({
+    where: { code: 'HOTEL', isActive: true },
+  });
+
+  if (!businessCategory) {
+    throw new Error(
+      'Cannot seed demo business: active HOTEL business category is missing.',
+    );
+  }
+
+  const serviceCategoryCodes = ['ROOM', 'MEAL', 'TRANSFER'];
+  const serviceCategoriesByCode = new Map(
+    (
+      await prisma.serviceCategory.findMany({
+        where: { code: { in: serviceCategoryCodes }, isActive: true },
+      })
+    ).map((category) => [category.code, category]),
+  );
+
+  for (const code of serviceCategoryCodes) {
+    if (!serviceCategoriesByCode.has(code)) {
+      throw new Error(
+        'Cannot seed demo services: an active service category is missing.',
+      );
+    }
+  }
+
+  const now = new Date();
+  const business = await prisma.business.upsert({
+    create: {
+      addressLine1: 'Bole Road demo address',
+      categoryId: businessCategory.id,
+      cityId: city.id,
+      description:
+        'Development-only verified guest house sample for exercising public business and service flows.',
+      email: 'owner@ethiotravel.local',
+      latitude: 8.99,
+      longitude: 38.79,
+      name: 'Addis Demo Guest House',
+      neighborhood: 'Bole',
+      phone: '+251911000000',
+      publishedAt: now,
+      slug: 'addis-demo-guest-house',
+      status: BusinessStatus.ACTIVE,
+      verificationSummary: BusinessVerificationSummary.VERIFIED,
+      website: 'https://example.com/addis-demo-guest-house',
+    },
+    update: {
+      addressLine1: 'Bole Road demo address',
+      categoryId: businessCategory.id,
+      description:
+        'Development-only verified guest house sample for exercising public business and service flows.',
+      email: 'owner@ethiotravel.local',
+      latitude: 8.99,
+      longitude: 38.79,
+      name: 'Addis Demo Guest House',
+      neighborhood: 'Bole',
+      phone: '+251911000000',
+      publishedAt: now,
+      status: BusinessStatus.ACTIVE,
+      suspendedAt: null,
+      verificationSummary: BusinessVerificationSummary.VERIFIED,
+      website: 'https://example.com/addis-demo-guest-house',
+    },
+    where: {
+      cityId_slug: {
+        cityId: city.id,
+        slug: 'addis-demo-guest-house',
+      },
+    },
+  });
+
+  await prisma.businessMember.upsert({
+    create: {
+      businessId: business.id,
+      role: BusinessMemberRole.OWNER,
+      status: BusinessMemberStatus.ACTIVE,
+      userId: owner.id,
+    },
+    update: {
+      role: BusinessMemberRole.OWNER,
+      status: BusinessMemberStatus.ACTIVE,
+    },
+    where: {
+      businessId_userId: {
+        businessId: business.id,
+        userId: owner.id,
+      },
+    },
+  });
+
+  const approvedVerification = await prisma.businessVerification.findFirst({
+    where: {
+      businessId: business.id,
+      status: VerificationRequestStatus.APPROVED,
+    },
+  });
+
+  if (!approvedVerification) {
+    await prisma.businessVerification.create({
+      data: {
+        adminNotes: 'Development seed verification for demo business.',
+        businessId: business.id,
+        reviewedAt: now,
+        reviewedByUserId: admin.id,
+        status: VerificationRequestStatus.APPROVED,
+        submittedAt: now,
+        submittedByUserId: owner.id,
+      },
+    });
+  }
+
+  const demoServices = [
+    {
+      categoryCode: 'ROOM',
+      description:
+        'Development-only room service sample for testing public service discovery.',
+      name: 'Standard Guest Room',
+      price: 1800,
+      pricingModel: PricingModel.PER_NIGHT,
+      shortDescription: 'Simple private room for development testing.',
+      slug: 'standard-guest-room',
+    },
+    {
+      categoryCode: 'MEAL',
+      description:
+        'Development-only breakfast service sample for testing public service discovery.',
+      name: 'Traditional Breakfast',
+      price: 350,
+      pricingModel: PricingModel.FIXED,
+      shortDescription: 'Breakfast service sample with Ethiopian dishes.',
+      slug: 'traditional-breakfast',
+    },
+    {
+      categoryCode: 'TRANSFER',
+      description:
+        'Development-only airport transfer sample for testing public service discovery.',
+      name: 'Airport Transfer',
+      price: null,
+      pricingModel: PricingModel.CONTACT_FOR_PRICE,
+      shortDescription: 'Airport pickup or drop-off arranged by request.',
+      slug: 'airport-transfer',
+    },
+  ];
+
+  for (const service of demoServices) {
+    const category = serviceCategoriesByCode.get(service.categoryCode);
+    if (!category) {
+      throw new Error('Cannot seed demo service: category missing.');
+    }
+
+    await prisma.service.upsert({
+      create: {
+        businessId: business.id,
+        categoryId: category.id,
+        currency: service.price === null ? null : 'ETB',
+        description: service.description,
+        locationMode: ServiceLocationMode.BUSINESS_LOCATION,
+        name: service.name,
+        price: service.price,
+        pricingModel: service.pricingModel,
+        publishedAt: now,
+        shortDescription: service.shortDescription,
+        slug: service.slug,
+        status: ServiceStatus.PUBLISHED,
+      },
+      update: {
+        categoryId: category.id,
+        currency: service.price === null ? null : 'ETB',
+        description: service.description,
+        locationMode: ServiceLocationMode.BUSINESS_LOCATION,
+        name: service.name,
+        price: service.price,
+        pricingModel: service.pricingModel,
+        publishedAt: now,
+        shortDescription: service.shortDescription,
+        status: ServiceStatus.PUBLISHED,
+      },
+      where: {
+        businessId_slug: {
+          businessId: business.id,
+          slug: service.slug,
+        },
+      },
+    });
+  }
+}
 async function main(): Promise<void> {
   await seedRoles();
   await seedBusinessCategories();
   await seedServiceCategories();
   await seedDevelopmentLocations();
+  await seedDevelopmentDemoData();
 }
 
 main()
