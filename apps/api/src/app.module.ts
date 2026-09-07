@@ -7,6 +7,7 @@ import { BusinessCategoriesModule } from './business-categories/business-categor
 import { BusinessMembersModule } from './business-members/business-members.module';
 import { BusinessVerificationsModule } from './business-verifications/business-verifications.module';
 import { BusinessesModule } from './businesses/businesses.module';
+import { BookingsModule } from './bookings/bookings.module';
 import { CitiesModule } from './cities/cities.module';
 import { DestinationsModule } from './destinations/destinations.module';
 import { appConfig } from './config/app.config';
@@ -51,6 +52,7 @@ import { UsersModule } from './users/users.module';
     MapsModule,
     FavoritesModule,
     ReviewsModule,
+    BookingsModule,
     UsersModule,
     AuthModule,
   ],

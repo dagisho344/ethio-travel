@@ -1,4 +1,5 @@
 import {
+  BookingMode,
   BusinessMemberRole,
   BusinessMemberStatus,
   BusinessStatus,
@@ -711,7 +712,7 @@ async function seedDevelopmentDemoData(): Promise<void> {
       throw new Error('Cannot seed demo service: category missing.');
     }
 
-    await prisma.service.upsert({
+    const seededService = await prisma.service.upsert({
       create: {
         businessId: business.id,
         categoryId: category.id,
@@ -744,6 +745,43 @@ async function seedDevelopmentDemoData(): Promise<void> {
           slug: service.slug,
         },
       },
+    });
+
+    await prisma.serviceBookingConfig.upsert({
+      create: {
+        serviceId: seededService.id,
+        enabled: true,
+        bookingMode:
+          service.pricingModel === PricingModel.PER_NIGHT
+            ? BookingMode.DATE_RANGE
+            : BookingMode.TIME_SLOT,
+        timezone: 'Africa/Addis_Ababa',
+        capacity: service.pricingModel === PricingModel.PER_NIGHT ? 6 : 12,
+        minQuantity: 1,
+        maxQuantity: service.pricingModel === PricingModel.PER_NIGHT ? 3 : 12,
+        minDurationMinutes:
+          service.pricingModel === PricingModel.PER_NIGHT ? 1440 : 60,
+        maxDurationMinutes:
+          service.pricingModel === PricingModel.PER_NIGHT ? 10080 : 480,
+        advanceNoticeMinutes: 60,
+      },
+      update: {
+        enabled: true,
+        bookingMode:
+          service.pricingModel === PricingModel.PER_NIGHT
+            ? BookingMode.DATE_RANGE
+            : BookingMode.TIME_SLOT,
+        timezone: 'Africa/Addis_Ababa',
+        capacity: service.pricingModel === PricingModel.PER_NIGHT ? 6 : 12,
+        minQuantity: 1,
+        maxQuantity: service.pricingModel === PricingModel.PER_NIGHT ? 3 : 12,
+        minDurationMinutes:
+          service.pricingModel === PricingModel.PER_NIGHT ? 1440 : 60,
+        maxDurationMinutes:
+          service.pricingModel === PricingModel.PER_NIGHT ? 10080 : 480,
+        advanceNoticeMinutes: 60,
+      },
+      where: { serviceId: seededService.id },
     });
   }
 }

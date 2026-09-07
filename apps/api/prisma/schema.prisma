@@ -32,9 +32,11 @@ model User {
   reviewedBusinessVerifications  BusinessVerification[]   @relation("BusinessVerificationReviewedBy")
   mediaAssets                    MediaAsset[]
 
-  favorites        Favorite[]
-  reviewsAuthored  Review[]   @relation("ReviewAuthor")
-  reviewsModerated Review[]   @relation("ReviewModerator")
+  favorites            Favorite[]
+  reviewsAuthored      Review[]               @relation("ReviewAuthor")
+  reviewsModerated     Review[]               @relation("ReviewModerator")
+  bookingsAuthored     Booking[]              @relation("BookingTraveler")
+  bookingStatusChanges BookingStatusHistory[] @relation("BookingStatusChangedBy")
 
   @@map("users")
 }
@@ -345,6 +347,7 @@ model Business {
   media         BusinessMedia[]
   favorites     Favorite[]
   reviews       Review[]
+  bookings      Booking[]
 
   @@unique([cityId, slug])
   @@index([cityId])
@@ -511,11 +514,15 @@ model Service {
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
-  business  Business        @relation(fields: [businessId], references: [id], onDelete: Restrict)
-  category  ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  media     ServiceMedia[]
-  favorites Favorite[]
-  reviews   Review[]
+  business              Business                      @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  category              ServiceCategory               @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  media                 ServiceMedia[]
+  favorites             Favorite[]
+  reviews               Review[]
+  bookingConfig         ServiceBookingConfig?
+  availabilityRules     ServiceAvailabilityRule[]
+  availabilityOverrides ServiceAvailabilityOverride[]
+  bookings              Booking[]
 
   @@unique([businessId, slug])
   @@index([businessId])
@@ -714,4 +721,149 @@ model Review {
   @@index([destinationId, status])
   @@index([attractionId, status])
   @@map("reviews")
+}
+
+enum BookingMode {
+  DATE
+  DATE_RANGE
+  TIME_SLOT
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED_BY_TRAVELER
+  CANCELLED_BY_BUSINESS
+  COMPLETED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  NOT_REQUIRED
+  UNPAID
+  PENDING
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  FAILED
+}
+
+enum AvailabilityOverrideType {
+  BLOCKED
+  CAPACITY
+}
+
+model ServiceBookingConfig {
+  id                   String      @id @default(uuid()) @db.Uuid
+  serviceId            String      @unique @map("service_id") @db.Uuid
+  enabled              Boolean     @default(false)
+  bookingMode          BookingMode @default(TIME_SLOT) @map("booking_mode")
+  timezone             String      @default("Africa/Addis_Ababa") @db.VarChar(80)
+  capacity             Int         @default(1)
+  minQuantity          Int         @default(1) @map("min_quantity")
+  maxQuantity          Int         @default(1) @map("max_quantity")
+  minDurationMinutes   Int?        @map("min_duration_minutes")
+  maxDurationMinutes   Int?        @map("max_duration_minutes")
+  advanceNoticeMinutes Int         @default(0) @map("advance_notice_minutes")
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([enabled])
+  @@index([bookingMode])
+  @@map("service_booking_configs")
+}
+
+model ServiceAvailabilityRule {
+  id         String    @id @default(uuid()) @db.Uuid
+  serviceId  String    @map("service_id") @db.Uuid
+  weekday    Int
+  startTime  String    @map("start_time") @db.VarChar(5)
+  endTime    String    @map("end_time") @db.VarChar(5)
+  capacity   Int
+  isActive   Boolean   @default(true) @map("is_active")
+  validFrom  DateTime? @map("valid_from") @db.Date
+  validUntil DateTime? @map("valid_until") @db.Date
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([serviceId, weekday, isActive])
+  @@index([validFrom, validUntil])
+  @@map("service_availability_rules")
+}
+
+model ServiceAvailabilityOverride {
+  id        String                   @id @default(uuid()) @db.Uuid
+  serviceId String                   @map("service_id") @db.Uuid
+  startAt   DateTime                 @map("start_at")
+  endAt     DateTime                 @map("end_at")
+  type      AvailabilityOverrideType @default(BLOCKED)
+  capacity  Int?
+  reason    String?                  @db.VarChar(300)
+  createdAt DateTime                 @default(now()) @map("created_at")
+  updatedAt DateTime                 @updatedAt @map("updated_at")
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([serviceId, startAt, endAt])
+  @@index([type])
+  @@map("service_availability_overrides")
+}
+
+model Booking {
+  id                   String        @id @default(uuid()) @db.Uuid
+  reference            String        @unique @db.VarChar(32)
+  serviceId            String        @map("service_id") @db.Uuid
+  businessId           String        @map("business_id") @db.Uuid
+  travelerId           String        @map("traveler_id") @db.Uuid
+  startAt              DateTime      @map("start_at")
+  endAt                DateTime      @map("end_at")
+  quantity             Int           @default(1)
+  guestCount           Int?          @map("guest_count")
+  unitPrice            Decimal?      @map("unit_price") @db.Decimal(12, 2)
+  subtotal             Decimal       @default(0) @db.Decimal(12, 2)
+  currency             String?       @db.Char(3)
+  pricingModelSnapshot PricingModel  @map("pricing_model_snapshot")
+  bookingModeSnapshot  BookingMode   @map("booking_mode_snapshot")
+  bookingStatus        BookingStatus @default(PENDING) @map("booking_status")
+  paymentStatus        PaymentStatus @default(NOT_REQUIRED) @map("payment_status")
+  travelerNote         String?       @map("traveler_note") @db.VarChar(1000)
+  businessNote         String?       @map("business_note") @db.VarChar(1000)
+  cancellationReason   String?       @map("cancellation_reason") @db.VarChar(1000)
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  service  Service                @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  business Business               @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  traveler User                   @relation("BookingTraveler", fields: [travelerId], references: [id], onDelete: Restrict)
+  history  BookingStatusHistory[]
+
+  @@index([travelerId, createdAt])
+  @@index([businessId, createdAt])
+  @@index([serviceId, startAt, endAt])
+  @@index([bookingStatus, createdAt])
+  @@index([paymentStatus])
+  @@map("bookings")
+}
+
+model BookingStatusHistory {
+  id          String         @id @default(uuid()) @db.Uuid
+  bookingId   String         @map("booking_id") @db.Uuid
+  fromStatus  BookingStatus? @map("from_status")
+  toStatus    BookingStatus  @map("to_status")
+  changedById String?        @map("changed_by_id") @db.Uuid
+  note        String?        @db.VarChar(1000)
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  changedBy User?   @relation("BookingStatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([bookingId, createdAt])
+  @@index([changedById])
+  @@index([toStatus, createdAt])
+  @@map("booking_status_history")
 }
