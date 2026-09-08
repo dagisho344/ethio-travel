@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Briefcase, Landmark, MapPin, Sparkles } from 'lucide-react';
+import { BookingWidget } from '../bookings/BookingWidget';
 import { FavoriteButton } from '../favorites/FavoriteButton';
 import { ReviewForm } from '../reviews/ReviewForm';
 import { ReviewPanel } from '../reviews/ReviewPanel';
@@ -133,6 +134,16 @@ export function SearchResultCard({
         city={result.location.city}
         region={result.location.region}
       />
+      {result.type === 'service' ? (
+        <BookingWidget
+          serviceId={result.id}
+          serviceName={result.name}
+          pricingModel={result.pricingModel}
+          price={result.price}
+          currency={result.currency}
+          compact
+        />
+      ) : null}
       <div className="mt-5 space-y-4">
         <ReviewForm
           targetType={targetType}

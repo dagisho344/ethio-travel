@@ -7,6 +7,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ServiceFilters } from './ServiceFilters';
+import { BookingWidget } from '../../components/bookings/BookingWidget';
 import { FavoriteButton } from '../../components/favorites/FavoriteButton';
 import { Container } from '../../components/ui/Container';
 import { SectionHeading } from '../../components/ui/States';
@@ -159,6 +160,14 @@ function ServiceResultCard({
             aria-hidden="true"
           />
         </Link>
+        <BookingWidget
+          serviceId={service.id}
+          serviceName={service.name}
+          pricingModel={service.pricingModel}
+          price={service.price}
+          currency={service.currency}
+          compact
+        />
       </div>
     </article>
   );

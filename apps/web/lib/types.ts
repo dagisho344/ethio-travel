@@ -206,3 +206,89 @@ export interface ReviewSummary {
   reviewCount: number;
   ratingDistribution: Record<'1' | '2' | '3' | '4' | '5', number>;
 }
+
+export type BookingMode = 'DATE' | 'DATE_RANGE' | 'TIME_SLOT';
+export type BookingStatus =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'CANCELLED_BY_TRAVELER'
+  | 'CANCELLED_BY_BUSINESS'
+  | 'COMPLETED'
+  | 'NO_SHOW';
+export type PaymentStatus =
+  | 'NOT_REQUIRED'
+  | 'UNPAID'
+  | 'PENDING'
+  | 'PAID'
+  | 'PARTIALLY_REFUNDED'
+  | 'REFUNDED'
+  | 'FAILED';
+
+export interface ServiceBookingConfig {
+  id?: string;
+  serviceId?: string;
+  enabled: boolean;
+  bookingMode: BookingMode;
+  timezone: string;
+  capacity: number;
+  minQuantity: number;
+  maxQuantity: number;
+  minDurationMinutes?: number | null;
+  maxDurationMinutes?: number | null;
+  advanceNoticeMinutes: number;
+}
+
+export interface AvailabilityResponse {
+  serviceId: string;
+  bookingMode?: BookingMode;
+  timezone?: string;
+  requestedQuantity: number;
+  capacity: number;
+  reserved: number;
+  remaining: number;
+  available: boolean;
+  startAt: string;
+  endAt: string;
+}
+
+export interface BookingStatusHistoryItem {
+  id: string;
+  fromStatus: BookingStatus | null;
+  toStatus: BookingStatus;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface BookingSummaryTarget {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface Booking {
+  id: string;
+  reference: string;
+  startAt: string;
+  endAt: string;
+  quantity: number;
+  guestCount: number | null;
+  unitPrice: string | number | null;
+  subtotal: string | number;
+  currency: string | null;
+  pricingModelSnapshot: PricingModel;
+  bookingModeSnapshot: BookingMode;
+  bookingStatus: BookingStatus;
+  paymentStatus: PaymentStatus;
+  travelerNote: string | null;
+  businessNote: string | null;
+  cancellationReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  service: BookingSummaryTarget;
+  business: BookingSummaryTarget;
+  history: BookingStatusHistoryItem[];
+}
+
+export type BookingListResponse = PaginatedResponse<Booking>;
+export type BusinessBookingListResponse = PaginatedResponse<Booking>;
