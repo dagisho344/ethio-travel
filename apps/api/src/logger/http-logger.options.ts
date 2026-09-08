@@ -10,9 +10,12 @@ const SENSITIVE_HEADER_PATTERNS = [
   /^api-key$/i,
   /^apikey$/i,
   /^x-refresh-token$/i,
+  /^x-ethiotravel-signature$/i,
+  /^stripe-signature$/i,
   /^refresh-token$/i,
   /refresh.*token/i,
   /api.*key/i,
+  /webhook.*signature/i,
 ];
 
 export type SafeHeaders = Record<string, string | string[] | undefined>;
@@ -49,6 +52,8 @@ export function createHttpLoggerOptions(nodeEnv: string | undefined): Options {
         'req.headers.api-key',
         'req.headers.apikey',
         'req.headers.x-refresh-token',
+        'req.headers.x-ethiotravel-signature',
+        'req.headers.stripe-signature',
         'req.headers.refresh-token',
         'req.raw.headers.authorization',
         'req.raw.headers.cookie',
@@ -57,6 +62,8 @@ export function createHttpLoggerOptions(nodeEnv: string | undefined): Options {
         'req.raw.headers.api-key',
         'req.raw.headers.apikey',
         'req.raw.headers.x-refresh-token',
+        'req.raw.headers.x-ethiotravel-signature',
+        'req.raw.headers.stripe-signature',
         'req.raw.headers.refresh-token',
         'res.headers.set-cookie',
       ],

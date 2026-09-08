@@ -5,6 +5,8 @@ export interface AppConfig {
   jwtAccessExpiresIn: string;
   jwtAccessSecret: string;
   nodeEnv: 'development' | 'test' | 'production';
+  paymentProvider: 'DEVELOPMENT' | 'STRIPE';
+  paymentDevelopmentWebhookSecret: string;
   passwordResetTokenExpiresMinutes: number;
   port: number;
   redisUrl: string;
@@ -18,6 +20,12 @@ export const appConfig = (): AppConfig => ({
   jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',
   jwtAccessSecret: process.env.JWT_ACCESS_SECRET ?? '',
   nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
+  paymentProvider:
+    (process.env.PAYMENT_PROVIDER as AppConfig['paymentProvider']) ??
+    'DEVELOPMENT',
+  paymentDevelopmentWebhookSecret:
+    process.env.PAYMENT_DEVELOPMENT_WEBHOOK_SECRET ??
+    'development-payment-webhook-secret-change-me',
   passwordResetTokenExpiresMinutes: Number(
     process.env.PASSWORD_RESET_TOKEN_EXPIRES_MINUTES ?? 30,
   ),

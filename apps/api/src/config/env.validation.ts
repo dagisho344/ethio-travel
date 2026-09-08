@@ -11,6 +11,16 @@ export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production')
     .default('development'),
+  PAYMENT_PROVIDER: Joi.string()
+    .valid('DEVELOPMENT', 'STRIPE')
+    .default('DEVELOPMENT'),
+  PAYMENT_DEVELOPMENT_WEBHOOK_SECRET: Joi.when('PAYMENT_PROVIDER', {
+    is: 'DEVELOPMENT',
+    then: Joi.string()
+      .min(32)
+      .default('development-payment-webhook-secret-change-me'),
+    otherwise: Joi.string().optional(),
+  }),
   PASSWORD_RESET_TOKEN_EXPIRES_MINUTES: Joi.number()
     .integer()
     .min(5)

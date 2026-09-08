@@ -13,6 +13,8 @@ describe('http logger options', () => {
       'x-refresh-token': 'refresh-token',
       'refresh-token': 'refresh-token',
       'x-api-key': 'api-key',
+      'x-ethiotravel-signature': 'sha256=secret',
+      'stripe-signature': 'provider-secret',
       'x-request-id': 'request-id',
     });
 
@@ -22,12 +24,16 @@ describe('http logger options', () => {
     expect(headers['x-refresh-token']).toBe('[Redacted]');
     expect(headers['refresh-token']).toBe('[Redacted]');
     expect(headers['x-api-key']).toBe('[Redacted]');
+    expect(headers['x-ethiotravel-signature']).toBe('[Redacted]');
+    expect(headers['stripe-signature']).toBe('[Redacted]');
     expect(headers['x-request-id']).toBe('request-id');
   });
 
   it('detects refresh token and API key header variants', () => {
     expect(isSensitiveHeader('x-refresh-token')).toBe(true);
     expect(isSensitiveHeader('x-api-key')).toBe(true);
+    expect(isSensitiveHeader('x-ethiotravel-signature')).toBe(true);
+    expect(isSensitiveHeader('stripe-signature')).toBe(true);
     expect(isSensitiveHeader('x-request-id')).toBe(false);
   });
 

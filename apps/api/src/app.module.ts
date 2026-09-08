@@ -15,6 +15,7 @@ import { envValidationSchema } from './config/env.validation';
 import { FavoritesModule } from './favorites/favorites.module';
 import { HealthModule } from './health/health.module';
 import { MapsModule } from './maps/maps.module';
+import { PaymentsModule } from './payments/payments.module';
 import { createHttpLoggerOptions } from './logger/http-logger.options';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
@@ -53,6 +54,7 @@ import { UsersModule } from './users/users.module';
     FavoritesModule,
     ReviewsModule,
     BookingsModule,
+    PaymentsModule,
     UsersModule,
     AuthModule,
   ],
