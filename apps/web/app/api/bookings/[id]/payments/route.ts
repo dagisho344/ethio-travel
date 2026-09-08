@@ -20,13 +20,13 @@ import type {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ bookingId: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { bookingId } = await params;
+    const { id } = await params;
     const query = paymentQuery(request);
     const result = await authenticatedBackendJson<PaymentListResponse>(
-      `/bookings/${bookingId}/payments${query ? `?${query}` : ''}`,
+      `/bookings/${id}/payments${query ? `?${query}` : ''}`,
     );
     const response = NextResponse.json(result.data);
     if (result.auth) setAuthCookies(response, result.auth);
@@ -40,14 +40,14 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ bookingId: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     validateSameOrigin(request);
-    const { bookingId } = await params;
+    const { id } = await params;
     const body = paymentCreateBody(await readOptionalJson(request));
     const result = await authenticatedBackendJson<PaymentInitiationResponse>(
-      `/bookings/${bookingId}/payments`,
+      `/bookings/${id}/payments`,
       {
         method: 'POST',
         headers: idempotencyHeader(request),

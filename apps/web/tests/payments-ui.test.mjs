@@ -11,13 +11,11 @@ function read(path) {
 }
 
 void test('payment BFF routes proxy through secure session helpers', () => {
-  const bookingPayments = read(
-    'app/api/bookings/[bookingId]/payments/route.ts',
-  );
+  const bookingPayments = read('app/api/bookings/[id]/payments/route.ts');
   const adminRefund = read('app/api/admin/payments/[id]/refund/route.ts');
   assert.match(bookingPayments, /authenticatedBackendJson/);
   assert.match(bookingPayments, /validateSameOrigin\(request\)/);
-  assert.match(bookingPayments, /\/bookings\/\$\{bookingId\}\/payments/);
+  assert.match(bookingPayments, /\/bookings\/\$\{id\}\/payments/);
   assert.match(adminRefund, /authenticatedBackendJson/);
   assert.match(adminRefund, /validateSameOrigin\(request\)/);
   assert.match(adminRefund, /\/admin\/payments\/\$\{id\}\/refund/);
@@ -154,7 +152,7 @@ void test('payment frontend does not store auth tokens in browser storage', () =
     'app/businesses/[businessId]/payments/[paymentId]/BusinessPaymentDetailClient.tsx',
     'app/admin/payments/AdminPaymentsClient.tsx',
     'app/admin/payments/[id]/AdminPaymentDetailClient.tsx',
-    'app/api/bookings/[bookingId]/payments/route.ts',
+    'app/api/bookings/[id]/payments/route.ts',
     'app/api/admin/payments/[id]/refund/route.ts',
   ]) {
     const source = read(path);

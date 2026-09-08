@@ -13,13 +13,23 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+
     const result = await authenticatedBackendJson(`/users/me/bookings/${id}`);
+
     const response = NextResponse.json(result.data);
-    if (result.auth) setAuthCookies(response, result.auth);
+
+    if (result.auth) {
+      setAuthCookies(response, result.auth);
+    }
+
     return response;
   } catch (error) {
     const response = jsonError(error);
-    if (response.status === 401) clearAuthCookies(response);
+
+    if (response.status === 401) {
+      clearAuthCookies(response);
+    }
+
     return response;
   }
 }
