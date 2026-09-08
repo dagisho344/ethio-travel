@@ -224,6 +224,71 @@ export type PaymentStatus =
   | 'PARTIALLY_REFUNDED'
   | 'REFUNDED'
   | 'FAILED';
+export type PaymentProvider = 'DEVELOPMENT' | 'STRIPE';
+export type PaymentTransactionType =
+  | 'PAYMENT_INITIATED'
+  | 'PROVIDER_AUTHORIZATION'
+  | 'PAYMENT_CAPTURED'
+  | 'PAYMENT_FAILED'
+  | 'REFUND_INITIATED'
+  | 'REFUND_SUCCEEDED'
+  | 'REFUND_FAILED';
+export type PaymentTransactionStatus = 'PENDING' | 'SUCCEEDED' | 'FAILED';
+export type PaymentRefundStatus = 'PENDING' | 'SUCCEEDED' | 'FAILED';
+
+export interface PaymentBookingSummary {
+  id: string;
+  reference: string;
+  bookingStatus: BookingStatus;
+  paymentStatus: PaymentStatus;
+  service: BookingSummaryTarget;
+  business: BookingSummaryTarget;
+}
+
+export interface PaymentTransaction {
+  id: string;
+  type: PaymentTransactionType;
+  amount: string | number;
+  currency: string;
+  status: PaymentTransactionStatus;
+  createdAt: string;
+}
+
+export interface PaymentRefund {
+  id: string;
+  amount: string | number;
+  currency: string;
+  reason: string | null;
+  status: PaymentRefundStatus;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface Payment {
+  id: string;
+  bookingId: string;
+  travelerId?: string;
+  businessId?: string;
+  provider: PaymentProvider;
+  providerPaymentId: string | null;
+  amount: string | number;
+  currency: string;
+  status: PaymentStatus;
+  method: string | null;
+  paidAt: string | null;
+  failedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  booking: PaymentBookingSummary;
+  transactions: PaymentTransaction[];
+  refunds: PaymentRefund[];
+}
+
+export type PaymentInitiationResponse = Payment & {
+  providerResponse?: Record<string, string>;
+};
+
+export type PaymentListResponse = PaginatedResponse<Payment>;
 
 export interface ServiceBookingConfig {
   id?: string;

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import {
@@ -15,6 +15,7 @@ import {
   BookingStatusBadge,
   PaymentStatusBadge,
 } from '../../../components/bookings/BookingStatusBadge';
+import { PaymentActionPanel } from '../../../components/payments/PaymentActionPanel';
 
 export function BookingDetailClient() {
   const router = useRouter();
@@ -25,28 +26,29 @@ export function BookingDetailClient() {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const run = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(`/api/bookings/${params.id}`, {
-          cache: 'no-store',
-        });
-        if (response.status === 401) {
-          router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
-          return;
-        }
-        if (!response.ok) throw new Error('Request failed');
-        setBooking((await response.json()) as Booking);
-      } catch {
-        setError('We could not load this booking right now.');
-      } finally {
-        setLoading(false);
+  const loadBooking = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/bookings/${params.id}`, {
+        cache: 'no-store',
+      });
+      if (response.status === 401) {
+        router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
+        return;
       }
-    };
-    void run();
+      if (!response.ok) throw new Error('Request failed');
+      setBooking((await response.json()) as Booking);
+    } catch {
+      setError('We could not load this booking right now.');
+    } finally {
+      setLoading(false);
+    }
   }, [params.id, pathname, router]);
+
+  useEffect(() => {
+    void loadBooking();
+  }, [loadBooking]);
 
   async function cancelBooking() {
     if (!booking || !window.confirm('Cancel this booking?')) return;
@@ -178,6 +180,7 @@ export function BookingDetailClient() {
           </button>
         ) : null}
       </article>
+      <PaymentActionPanel booking={booking} onPaymentChange={loadBooking} />
       {booking.history.length ? (
         <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-bold text-slate-950">Status history</h2>

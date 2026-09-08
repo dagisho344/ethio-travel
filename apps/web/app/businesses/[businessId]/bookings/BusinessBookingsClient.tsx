@@ -270,12 +270,20 @@ export function BusinessBookingsClient() {
           </button>
         </div>
       ) : null}
-      <Link
-        href="/bookings"
-        className="mt-8 inline-block text-sm font-semibold text-highland hover:text-highland/80"
-      >
-        View traveler bookings
-      </Link>
+      <div className="mt-8 flex flex-wrap gap-4">
+        <Link
+          href={`/businesses/${params.businessId}/payments`}
+          className="text-sm font-semibold text-highland hover:text-highland/80"
+        >
+          View business payments
+        </Link>
+        <Link
+          href="/bookings"
+          className="text-sm font-semibold text-highland hover:text-highland/80"
+        >
+          View traveler bookings
+        </Link>
+      </div>
     </div>
   );
 }

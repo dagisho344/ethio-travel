@@ -15,6 +15,7 @@ const links = [
 export async function Header() {
   const session = await currentSessionSnapshot();
   const accountLabel = session.user?.firstName ?? session.user?.email ?? '';
+  const isAdmin = session.user?.roles.includes('ADMIN') ?? false;
 
   return (
     <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -69,6 +70,14 @@ export async function Header() {
               >
                 My Reviews
               </Link>
+              {isAdmin ? (
+                <Link
+                  href="/admin/payments"
+                  className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+                >
+                  Payments
+                </Link>
+              ) : null}
               <Link
                 href="/account"
                 className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
@@ -133,6 +142,14 @@ export async function Header() {
                   >
                     My Reviews
                   </Link>
+                  {isAdmin ? (
+                    <Link
+                      href="/admin/payments"
+                      className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
+                    >
+                      Payments
+                    </Link>
+                  ) : null}
                   <Link
                     href="/account"
                     className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
