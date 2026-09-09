@@ -49,6 +49,12 @@ const conversationSelect = Prisma.validator<Prisma.ConversationSelect>()({
       service: { select: { id: true, name: true, slug: true } },
     },
   },
+  messages: {
+    where: { status: MessageStatus.SENT },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+    select: { body: true, createdAt: true },
+  },
   members: {
     orderBy: { createdAt: 'asc' },
     select: {
@@ -76,6 +82,7 @@ const messageSelect = Prisma.validator<Prisma.MessageSelect>()({
   updatedAt: true,
   sender: {
     select: {
+      id: true,
       profile: { select: { firstName: true, lastName: true } },
     },
   },
@@ -479,6 +486,7 @@ export class MessagingService {
       updatedAt: conversation.updatedAt,
       business: conversation.business,
       booking: conversation.booking,
+      lastMessage: conversation.messages?.[0] ?? null,
       members: conversation.members.map((member) => ({
         id: member.id,
         role: member.role,
@@ -518,7 +526,10 @@ export class MessagingService {
       status: message.status,
       createdAt: message.createdAt,
       updatedAt: message.updatedAt,
-      sender: { displayName: this.displayName(message.sender.profile) },
+      sender: {
+        id: message.sender.id,
+        displayName: this.displayName(message.sender.profile),
+      },
     };
   }
 

@@ -28,6 +28,11 @@ type MessagingSocket = Socket<
   MessagingSocketData
 >;
 
+type SocketCredential = {
+  token: string;
+  tokenUse: 'access' | 'socket';
+};
+
 @WebSocketGateway({ namespace: '/messaging', cors: { origin: true } })
 export class MessagingGateway implements OnGatewayConnection {
   @WebSocketServer()
@@ -47,11 +52,12 @@ export class MessagingGateway implements OnGatewayConnection {
 
   async handleConnection(client: MessagingSocket): Promise<void> {
     try {
-      const token = this.token(client);
-      if (!token) throw new UnauthorizedException();
-      const payload =
-        await this.jwt.verifyAsync<Record<string, unknown>>(token);
-      const user = this.authenticatedUser(payload);
+      const credential = this.credential(client);
+      if (!credential) throw new UnauthorizedException();
+      const payload = await this.jwt.verifyAsync<Record<string, unknown>>(
+        credential.token,
+      );
+      const user = this.authenticatedUser(payload, credential.tokenUse);
       if (!user) throw new UnauthorizedException();
       await this.messaging.assertAuthenticatedUser(user.sub);
       client.data.user = user;
@@ -89,23 +95,37 @@ export class MessagingGateway implements OnGatewayConnection {
       .emit('notification.created', notification);
   }
 
-  private token(client: MessagingSocket): string | undefined {
-    const auth = this.record(client.handshake.auth as unknown);
+  private credential(client: MessagingSocket): SocketCredential | undefined {
+    const auth = this.record(client.handshake.auth);
+    const socketTicket = auth?.socketTicket;
+    if (typeof socketTicket === 'string') {
+      const token = this.compactToken(socketTicket);
+      return token ? { token, tokenUse: 'socket' } : undefined;
+    }
     const authToken = auth?.token;
     if (typeof authToken === 'string') {
-      return this.bearerToken(authToken);
+      const token = this.bearerToken(authToken);
+      return token ? { token, tokenUse: 'access' } : undefined;
     }
     const header = client.handshake.headers.authorization;
-    return typeof header === 'string' ? this.bearerToken(header) : undefined;
+    const token =
+      typeof header === 'string' ? this.bearerToken(header) : undefined;
+    return token ? { token, tokenUse: 'access' } : undefined;
   }
 
-  private authenticatedUser(payload: unknown): AuthenticatedUser | undefined {
+  private authenticatedUser(
+    payload: unknown,
+    tokenUse: SocketCredential['tokenUse'],
+  ): AuthenticatedUser | undefined {
     const value = this.record(payload);
     const sub = value?.sub;
     const sessionId = value?.sessionId;
     const email = value?.email;
     const roles = value?.roles;
+    const tokenUseClaim = value?.tokenUse;
     if (
+      (tokenUse === 'socket' && tokenUseClaim !== 'socket') ||
+      (tokenUse === 'access' && tokenUseClaim !== undefined) ||
       typeof sub !== 'string' ||
       !sub.trim() ||
       typeof sessionId !== 'string' ||
@@ -126,7 +146,11 @@ export class MessagingGateway implements OnGatewayConnection {
   }
 
   private bearerToken(value: string): string | undefined {
-    const token = value.replace(/^Bearer\s+/i, '').trim();
+    return this.compactToken(value.replace(/^Bearer\s+/i, ''));
+  }
+
+  private compactToken(value: string): string | undefined {
+    const token = value.trim();
     return token || undefined;
   }
 

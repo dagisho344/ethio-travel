@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Compass, Menu } from 'lucide-react';
 import { LogoutButton } from '../auth/LogoutButton';
+import { NotificationBell } from '../notifications/NotificationBell';
+import { RealtimeProvider } from '../realtime/RealtimeProvider';
 import { currentSessionSnapshot } from '../../lib/auth/session';
 import { Container } from '../ui/Container';
 
@@ -53,6 +55,13 @@ export async function Header() {
                 {accountLabel}
               </span>
               <Link
+                href="/messages"
+                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+              >
+                Messages
+              </Link>
+              <NotificationBell />
+              <Link
                 href="/bookings"
                 className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
               >
@@ -104,6 +113,7 @@ export async function Header() {
           )}
         </div>
 
+        {session.authenticated ? <NotificationBell /> : null}
         <details className="relative lg:hidden">
           <summary
             aria-label="Open navigation menu"
@@ -124,6 +134,12 @@ export async function Header() {
             <div className="mt-2 border-t border-slate-100 pt-2">
               {session.authenticated ? (
                 <>
+                  <Link
+                    href="/messages"
+                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
+                  >
+                    Messages
+                  </Link>
                   <Link
                     href="/bookings"
                     className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
@@ -214,12 +230,17 @@ export function Footer() {
   );
 }
 
-export function PublicLayout({ children }: { children: React.ReactNode }) {
+export async function PublicLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await currentSessionSnapshot();
   return (
-    <>
+    <RealtimeProvider enabled={session.authenticated}>
       <Header />
       {children}
       <Footer />
-    </>
+    </RealtimeProvider>
   );
 }

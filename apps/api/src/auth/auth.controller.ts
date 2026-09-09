@@ -52,6 +52,18 @@ export class AuthController {
     return this.authService.logout(user.sessionId);
   }
 
+  @Post('socket-ticket')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiCreatedResponse({
+    description: 'Short-lived, socket-only credential for the browser client.',
+  })
+  createSocketTicket(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ socketTicket: string }> {
+    return this.authService.createSocketTicket(user);
+  }
+
   @Post('forgot-password')
   @ApiCreatedResponse({ type: MessageResponseDto })
   forgotPassword(@Body() dto: ForgotPasswordDto): Promise<MessageResponseDto> {

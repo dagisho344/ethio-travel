@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { BusinessFilters } from './BusinessFilters';
 import { FavoriteButton } from '../../components/favorites/FavoriteButton';
+import { StartConversationButton } from '../../components/messaging/StartConversationButton';
 import { Container } from '../../components/ui/Container';
 import { SectionHeading } from '../../components/ui/States';
 import { safePage } from '../../lib/api';
@@ -92,16 +93,23 @@ function BusinessResultCard({
             More business details will be added soon.
           </p>
         )}
-        <Link
-          className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-highland transition hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
-          href={businessPath(business)}
-        >
-          View business
-          <ArrowRight
-            className="h-4 w-4 transition group-hover:translate-x-0.5"
-            aria-hidden="true"
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Link
+            className="inline-flex items-center gap-2 text-sm font-semibold text-highland transition hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+            href={businessPath(business)}
+          >
+            View business
+            <ArrowRight
+              className="h-4 w-4 transition group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
+          </Link>
+          <StartConversationButton
+            businessId={business.id}
+            label="Contact business"
+            className="inline-flex items-center gap-2 rounded-md border border-highland px-3 py-1.5 text-sm font-semibold text-highland hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           />
-        </Link>
+        </div>
       </div>
     </article>
   );

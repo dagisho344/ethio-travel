@@ -357,3 +357,106 @@ export interface Booking {
 
 export type BookingListResponse = PaginatedResponse<Booking>;
 export type BusinessBookingListResponse = PaginatedResponse<Booking>;
+
+export type ConversationStatus = 'ACTIVE' | 'ARCHIVED';
+export type ConversationMemberRole = 'TRAVELER' | 'BUSINESS_MEMBER';
+export type ConversationMemberStatus = 'ACTIVE' | 'ARCHIVED';
+export type MessageStatus = 'SENT' | 'DELETED';
+
+export interface ConversationMember {
+  id: string;
+  role: ConversationMemberRole;
+  status: ConversationMemberStatus;
+  lastReadAt: string | null;
+  createdAt: string;
+  displayName: string;
+}
+
+export interface ConversationBookingContext {
+  id: string;
+  reference: string;
+  bookingStatus: BookingStatus;
+  paymentStatus: PaymentStatus;
+  service: BookingSummaryTarget;
+}
+
+export interface Conversation {
+  id: string;
+  businessId: string;
+  bookingId: string | null;
+  subject: string | null;
+  status: ConversationStatus;
+  lastMessageAt: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  business: BookingSummaryTarget;
+  booking: ConversationBookingContext | null;
+  lastMessage: { body: string; createdAt: string } | null;
+  members: ConversationMember[];
+}
+
+export interface ConversationListItem extends Conversation {
+  unreadCount: number;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  body: string;
+  status: MessageStatus;
+  createdAt: string;
+  updatedAt: string;
+  sender: { id: string; displayName: string };
+}
+
+export type ConversationListResponse = PaginatedResponse<ConversationListItem>;
+export type MessageListResponse = PaginatedResponse<Message>;
+
+export interface CreateConversationInput {
+  businessId: string;
+  bookingId?: string;
+  subject?: string;
+}
+
+export type NotificationType =
+  | 'BOOKING_CREATED'
+  | 'BOOKING_CONFIRMED'
+  | 'BOOKING_REJECTED'
+  | 'BOOKING_CANCELLED'
+  | 'BOOKING_COMPLETED'
+  | 'BOOKING_NO_SHOW'
+  | 'PAYMENT_SUCCEEDED'
+  | 'PAYMENT_FAILED'
+  | 'PAYMENT_REFUNDED'
+  | 'MESSAGE_RECEIVED'
+  | 'BUSINESS_VERIFICATION_APPROVED'
+  | 'BUSINESS_VERIFICATION_REJECTED'
+  | 'REVIEW_PUBLISHED'
+  | 'REVIEW_REJECTED'
+  | 'REVIEW_HIDDEN';
+
+export interface Notification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  actionUrl: string | null;
+  readAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type NotificationListResponse = PaginatedResponse<Notification>;
+export interface UnreadNotificationCount {
+  count: number;
+}
+
+export type RealtimeMessageEvent = Message;
+export type RealtimeNotificationEvent = Notification & {
+  recipientUserId: string;
+};
+
+export interface SocketTicketResponse {
+  socketTicket: string;
+}

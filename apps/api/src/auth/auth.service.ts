@@ -10,6 +10,7 @@ import * as argon2 from 'argon2';
 import { AppConfig } from '../config/app.config';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { AuthenticatedUser } from './authenticated-user';
 import { AuthResponseDto, MessageResponseDto } from './dto/auth-response.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
@@ -195,6 +196,22 @@ export class AuthService {
     });
 
     return { message: 'Logged out successfully.' };
+  }
+
+  async createSocketTicket(
+    user: AuthenticatedUser,
+  ): Promise<{ socketTicket: string }> {
+    const socketTicket = await this.jwtService.signAsync(
+      {
+        email: user.email,
+        roles: user.roles,
+        sessionId: user.sessionId,
+        sub: user.sub,
+        tokenUse: 'socket',
+      },
+      { expiresIn: '60s' },
+    );
+    return { socketTicket };
   }
 
   async requestPasswordReset(

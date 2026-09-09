@@ -55,6 +55,39 @@ describe('MessagingGateway', () => {
     expect(socket.disconnect).not.toHaveBeenCalled();
   });
 
+  it('authenticates a server-minted socket ticket', async () => {
+    const { gateway, jwt, messaging, socket } = setup();
+    socket.handshake.auth = { socketTicket: 'signed-socket-ticket' };
+    jwt.verifyAsync.mockResolvedValue({
+      email: 'traveler@example.com',
+      roles: [],
+      sessionId: 'session-id',
+      sub: userId,
+      tokenUse: 'socket',
+    });
+
+    await gateway.handleConnection(socket as never);
+
+    expect(messaging.assertAuthenticatedUser).toHaveBeenCalledWith(userId);
+    expect(socket.join).toHaveBeenCalledWith(`user:${userId}`);
+    expect(socket.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('rejects an access-token-shaped payload presented as a socket ticket', async () => {
+    const { gateway, jwt, socket } = setup();
+    socket.handshake.auth = { socketTicket: 'signed-access-token' };
+    jwt.verifyAsync.mockResolvedValue({
+      email: 'traveler@example.com',
+      roles: [],
+      sessionId: 'session-id',
+      sub: userId,
+    });
+
+    await gateway.handleConnection(socket as never);
+
+    expect(socket.disconnect).toHaveBeenCalledWith(true);
+  });
+
   it.each([undefined, 'not-a-valid-token'])(
     'rejects a missing, malformed, or invalid token',
     async (token) => {

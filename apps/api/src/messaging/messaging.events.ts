@@ -8,7 +8,7 @@ export interface CreatedMessageEvent {
   status: string;
   createdAt: Date;
   updatedAt: Date;
-  sender: { displayName: string };
+  sender: { id: string; displayName: string };
 }
 
 @Injectable()

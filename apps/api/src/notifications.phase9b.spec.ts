@@ -1,6 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
 import { NotificationType, UserStatus } from '@prisma/client';
-import { NotificationsEvents } from './notifications/notifications.events';
 import { NotificationsService } from './notifications/notifications.service';
 
 const userId = '11111111-1111-4111-8111-111111111111';
@@ -148,10 +147,16 @@ describe('NotificationsService', () => {
     expect(prisma.notification.create).toHaveBeenCalledTimes(1);
     expect(prisma.notification.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
+        data: {
           recipientUserId: otherUserId,
+          actorUserId: userId,
+          type: NotificationType.MESSAGE_RECEIVED,
+          title: 'Message',
+          body: 'You have a message.',
+          actionUrl: '/messages/example',
           dedupeKey: 'message:1:' + otherUserId,
-        }),
+          metadata: undefined,
+        },
       }),
     );
   });

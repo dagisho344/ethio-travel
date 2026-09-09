@@ -16,6 +16,7 @@ import {
   PaymentStatusBadge,
 } from '../../../components/bookings/BookingStatusBadge';
 import { PaymentActionPanel } from '../../../components/payments/PaymentActionPanel';
+import { StartConversationButton } from '../../../components/messaging/StartConversationButton';
 
 export function BookingDetailClient() {
   const router = useRouter();
@@ -166,19 +167,26 @@ export function BookingDetailClient() {
             {booking.travelerNote}
           </p>
         ) : null}
-        {canTravelerCancel(booking.bookingStatus) ? (
-          <button
-            type="button"
-            disabled={working}
-            onClick={() => void cancelBooking()}
-            className="mt-6 inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {working ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            ) : null}
-            Cancel booking
-          </button>
-        ) : null}
+        <div className="mt-6 flex flex-wrap gap-3">
+          <StartConversationButton
+            businessId={booking.business.id}
+            bookingId={booking.id}
+            subject={`Booking ${booking.reference}`}
+          />
+          {canTravelerCancel(booking.bookingStatus) ? (
+            <button
+              type="button"
+              disabled={working}
+              onClick={() => void cancelBooking()}
+              className="mt-6 inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {working ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : null}
+              Cancel booking
+            </button>
+          ) : null}
+        </div>
       </article>
       <PaymentActionPanel booking={booking} onPaymentChange={loadBooking} />
       {booking.history.length ? (
