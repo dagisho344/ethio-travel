@@ -81,7 +81,10 @@ function message(overrides = {}) {
   };
 }
 
-function setup(events?: { messageCreated: jest.Mock }) {
+function setup(
+  events?: { messageCreated: jest.Mock },
+  notifications?: { createForUsers: jest.Mock },
+) {
   const tx = {
     conversation: {
       findUnique: jest.fn(),
@@ -122,7 +125,11 @@ function setup(events?: { messageCreated: jest.Mock }) {
       return (input as (client: typeof tx) => unknown)(tx);
     }),
   };
-  const service = new MessagingService(prisma as never, events as never);
+  const service = new MessagingService(
+    prisma as never,
+    events as never,
+    notifications as never,
+  );
   return { service, prisma, tx };
 }
 
@@ -447,5 +454,37 @@ describe('MessagingService', () => {
       }),
     ).resolves.toMatchObject({ conversationId });
     expect(prisma.business.findFirst).not.toHaveBeenCalled();
+  });
+  it('notifies current active business members even when they are not stored as conversation members', async () => {
+    const staffId = '77777777-7777-4777-8777-777777777777';
+    const notifications = { createForUsers: jest.fn().mockResolvedValue([]) };
+    const { service, prisma, tx } = setup(undefined, notifications);
+    prisma.conversationMember.findFirst.mockResolvedValue({
+      id: 'member-id',
+      role: ConversationMemberRole.TRAVELER,
+      conversation: { businessId },
+    });
+    tx.conversation.findUnique.mockResolvedValue({
+      id: conversationId,
+      status: ConversationStatus.ACTIVE,
+    });
+    tx.message.create.mockResolvedValue(message());
+    prisma.conversation.findUnique.mockResolvedValue({
+      businessId,
+      members: [
+        { userId, role: ConversationMemberRole.TRAVELER },
+        { userId: ownerId, role: ConversationMemberRole.BUSINESS_MEMBER },
+      ],
+    });
+    prisma.businessMember.findMany.mockResolvedValue([{ userId: staffId }]);
+
+    await service.createMessage(userId, conversationId, {
+      body: 'Hello there',
+    });
+
+    expect(notifications.createForUsers).toHaveBeenCalledWith(
+      [staffId],
+      expect.objectContaining({ actorUserId: userId }),
+    );
   });
 });

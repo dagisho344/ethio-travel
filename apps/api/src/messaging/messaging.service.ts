@@ -360,14 +360,19 @@ export class MessagingService {
     const activeBusinessUserIds = new Set(
       activeBusinessMembers.map((member) => member.userId),
     );
-    const recipients = conversation.members
+    const travelerRecipientIds = conversation.members
       .filter(
         (member) =>
-          member.userId !== senderId &&
-          (member.role === ConversationMemberRole.TRAVELER ||
-            activeBusinessUserIds.has(member.userId)),
+          member.role === ConversationMemberRole.TRAVELER &&
+          member.userId !== senderId,
       )
       .map((member) => member.userId);
+    const businessRecipientIds = [...activeBusinessUserIds].filter(
+      (userId) => userId !== senderId,
+    );
+    const recipients = [
+      ...new Set([...travelerRecipientIds, ...businessRecipientIds]),
+    ];
     await this.notifications.createForUsers(recipients, {
       actorUserId: senderId,
       type: NotificationType.MESSAGE_RECEIVED,

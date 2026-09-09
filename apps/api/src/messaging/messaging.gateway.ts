@@ -49,7 +49,8 @@ export class MessagingGateway implements OnGatewayConnection {
     try {
       const token = this.token(client);
       if (!token) throw new UnauthorizedException();
-      const payload = await this.jwt.verifyAsync<unknown>(token);
+      const payload =
+        await this.jwt.verifyAsync<Record<string, unknown>>(token);
       const user = this.authenticatedUser(payload);
       if (!user) throw new UnauthorizedException();
       await this.messaging.assertAuthenticatedUser(user.sub);
