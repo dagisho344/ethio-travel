@@ -62,6 +62,12 @@ export async function Header() {
               </Link>
               <NotificationBell />
               <Link
+                href="/trips"
+                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+              >
+                My Trips
+              </Link>
+              <Link
                 href="/bookings"
                 className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
               >
@@ -139,6 +145,12 @@ export async function Header() {
                     className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
                   >
                     Messages
+                  </Link>
+                  <Link
+                    href="/trips"
+                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
+                  >
+                    My Trips
                   </Link>
                   <Link
                     href="/bookings"

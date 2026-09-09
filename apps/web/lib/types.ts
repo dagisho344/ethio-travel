@@ -460,3 +460,77 @@ export type RealtimeNotificationEvent = Notification & {
 export interface SocketTicketResponse {
   socketTicket: string;
 }
+
+export type TripStatus =
+  'DRAFT' | 'UPCOMING' | 'IN_PROGRESS' | 'COMPLETED' | 'ARCHIVED';
+
+export type TripItemType =
+  'DESTINATION' | 'ATTRACTION' | 'BUSINESS' | 'SERVICE' | 'BOOKING' | 'CUSTOM';
+
+export interface TripLocationSummary {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface TripBookingContext {
+  id: string;
+  reference: string;
+  bookingStatus: BookingStatus;
+  paymentStatus: PaymentStatus;
+  subtotal: string | number;
+  currency: string | null;
+  service: BookingSummaryTarget;
+  business: BookingSummaryTarget;
+}
+
+export interface TripItem {
+  id: string;
+  type: TripItemType;
+  targetId: string | null;
+  title: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  position: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  booking: TripBookingContext | null;
+}
+
+export interface TripDay {
+  id: string;
+  date: string;
+  dayNumber: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: TripItem[];
+}
+
+export interface TripCostEstimate {
+  amount: string | number | null;
+  currency: string | null;
+  reason: 'MULTIPLE_OR_UNKNOWN_CURRENCIES' | null;
+}
+
+export interface Trip {
+  id: string;
+  title: string;
+  originCity: TripLocationSummary | null;
+  destinationCity: TripLocationSummary | null;
+  primaryDestination: TripLocationSummary | null;
+  startDate: string;
+  endDate: string;
+  status: TripStatus;
+  notes: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  days: TripDay[];
+  dayCount: number;
+  estimatedBookingCost: TripCostEstimate | null;
+}
+
+export type TripListItem = Omit<Trip, 'days' | 'estimatedBookingCost'>;
+export type TripListResponse = PaginatedResponse<TripListItem>;

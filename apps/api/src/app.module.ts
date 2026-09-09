@@ -25,6 +25,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { ServiceCategoriesModule } from './service-categories/service-categories.module';
 import { ServicesModule } from './services/services.module';
 import { SearchModule } from './search/search.module';
+import { TripsModule } from './trips/trips.module';
 import { RegionsModule } from './regions/regions.module';
 import { UsersModule } from './users/users.module';
 
@@ -59,6 +60,7 @@ import { UsersModule } from './users/users.module';
     PaymentsModule,
     NotificationsModule,
     MessagingModule,
+    TripsModule,
     UsersModule,
     AuthModule,
   ],

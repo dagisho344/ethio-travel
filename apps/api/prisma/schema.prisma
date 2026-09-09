@@ -42,6 +42,7 @@ model User {
   messagesSent         Message[]              @relation("MessageSender")
   notificationsReceived Notification[]         @relation("NotificationRecipient")
   notificationsActed   Notification[]         @relation("NotificationActor")
+  trips                Trip[]
 
   @@map("users")
 }
@@ -187,6 +188,8 @@ model City {
   region       Region         @relation(fields: [regionId], references: [id], onDelete: Restrict)
   destinations Destination[]
   businesses   Business[]
+  originTrips  Trip[]         @relation("TripOriginCity")
+  destinationTrips Trip[]     @relation("TripDestinationCity")
 
   @@unique([regionId, slug])
   @@index([regionId])
@@ -218,6 +221,8 @@ model Destination {
 
   favorites Favorite[]
   reviews   Review[]
+  primaryTrips Trip[]     @relation("TripPrimaryDestination")
+  tripItems    TripItem[] @relation("TripItemDestination")
 
   @@unique([cityId, slug])
   @@index([cityId])
@@ -250,6 +255,7 @@ model Attraction {
 
   favorites Favorite[]
   reviews   Review[]
+  tripItems TripItem[]
 
   @@unique([destinationId, slug])
   @@index([destinationId])
@@ -355,6 +361,7 @@ model Business {
   bookings      Booking[]
   payments      Payment[]
   conversations Conversation[]
+  tripItems     TripItem[]
 
   @@unique([cityId, slug])
   @@index([cityId])
@@ -530,6 +537,7 @@ model Service {
   availabilityRules     ServiceAvailabilityRule[]
   availabilityOverrides ServiceAvailabilityOverride[]
   bookings              Booking[]
+  tripItems             TripItem[]
 
   @@unique([businessId, slug])
   @@index([businessId])
@@ -850,6 +858,7 @@ model Booking {
   history      BookingStatusHistory[]
   payments     Payment[]
   conversation Conversation?
+  tripItems    TripItem[]
 
   @@index([travelerId, createdAt])
   @@index([businessId, createdAt])
@@ -1123,4 +1132,102 @@ model BookingStatusHistory {
   @@index([changedById])
   @@index([toStatus, createdAt])
   @@map("booking_status_history")
+}
+
+enum TripStatus {
+  DRAFT
+  UPCOMING
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum TripItemType {
+  DESTINATION
+  ATTRACTION
+  BUSINESS
+  SERVICE
+  BOOKING
+  CUSTOM
+}
+
+model Trip {
+  id                   String     @id @default(uuid()) @db.Uuid
+  userId               String     @map("user_id") @db.Uuid
+  title                String     @db.VarChar(160)
+  originCityId         String?    @map("origin_city_id") @db.Uuid
+  destinationCityId    String?    @map("destination_city_id") @db.Uuid
+  primaryDestinationId String?    @map("primary_destination_id") @db.Uuid
+  startDate            DateTime   @map("start_date") @db.Date
+  endDate              DateTime   @map("end_date") @db.Date
+  status               TripStatus @default(DRAFT)
+  notes                String?    @db.VarChar(2000)
+  archivedAt           DateTime?  @map("archived_at")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+
+  user               User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  originCity         City?        @relation("TripOriginCity", fields: [originCityId], references: [id], onDelete: Restrict)
+  destinationCity    City?        @relation("TripDestinationCity", fields: [destinationCityId], references: [id], onDelete: Restrict)
+  primaryDestination Destination? @relation("TripPrimaryDestination", fields: [primaryDestinationId], references: [id], onDelete: Restrict)
+  days               TripDay[]
+
+  @@index([userId, createdAt])
+  @@index([userId, status, startDate])
+  @@index([originCityId])
+  @@index([destinationCityId])
+  @@index([primaryDestinationId])
+  @@map("trips")
+}
+
+model TripDay {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @map("trip_id") @db.Uuid
+  date      DateTime @db.Date
+  dayNumber Int      @map("day_number")
+  notes     String?  @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  trip  Trip       @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  items TripItem[]
+
+  @@unique([tripId, date])
+  @@unique([tripId, dayNumber])
+  @@index([tripId, date])
+  @@map("trip_days")
+}
+
+model TripItem {
+  id            String       @id @default(uuid()) @db.Uuid
+  tripDayId     String       @map("trip_day_id") @db.Uuid
+  type          TripItemType
+  destinationId String?      @map("destination_id") @db.Uuid
+  attractionId  String?      @map("attraction_id") @db.Uuid
+  businessId    String?      @map("business_id") @db.Uuid
+  serviceId     String?      @map("service_id") @db.Uuid
+  bookingId     String?      @map("booking_id") @db.Uuid
+  titleSnapshot String?      @map("title_snapshot") @db.VarChar(180)
+  startTime     String?      @map("start_time") @db.VarChar(5)
+  endTime       String?      @map("end_time") @db.VarChar(5)
+  position      Int
+  notes         String?      @db.VarChar(1000)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  tripDay     TripDay     @relation(fields: [tripDayId], references: [id], onDelete: Restrict)
+  destination Destination? @relation("TripItemDestination", fields: [destinationId], references: [id], onDelete: Restrict)
+  attraction  Attraction?  @relation(fields: [attractionId], references: [id], onDelete: Restrict)
+  business    Business?    @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  service     Service?     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  booking     Booking?     @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+
+  @@unique([tripDayId, position])
+  @@index([tripDayId, position])
+  @@index([destinationId])
+  @@index([attractionId])
+  @@index([businessId])
+  @@index([serviceId])
+  @@index([bookingId])
+  @@map("trip_items")
 }
