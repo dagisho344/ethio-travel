@@ -11,7 +11,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
   controllers: [AuthController],
-  exports: [AuthService, RolesGuard],
+  exports: [AuthService, JwtModule, RolesGuard],
   imports: [
     PassportModule,
     UsersModule,
