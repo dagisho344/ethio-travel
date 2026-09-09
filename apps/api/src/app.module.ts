@@ -17,6 +17,7 @@ import { HealthModule } from './health/health.module';
 import { MapsModule } from './maps/maps.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { PaymentsModule } from './payments/payments.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { createHttpLoggerOptions } from './logger/http-logger.options';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
@@ -56,6 +57,7 @@ import { UsersModule } from './users/users.module';
     ReviewsModule,
     BookingsModule,
     PaymentsModule,
+    NotificationsModule,
     MessagingModule,
     UsersModule,
     AuthModule,

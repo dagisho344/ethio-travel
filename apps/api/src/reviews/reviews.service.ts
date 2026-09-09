@@ -5,7 +5,12 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Prisma, ReviewStatus, UserStatus } from '@prisma/client';
+import {
+  NotificationType,
+  Prisma,
+  ReviewStatus,
+  UserStatus,
+} from '@prisma/client';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import {
   publicAttractionWhere,
@@ -14,6 +19,7 @@ import {
   publicServiceWhere,
 } from '../common/utils/public-visibility.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import {
   AdminReviewQueryDto,
@@ -266,7 +272,10 @@ export interface ReviewSummaryDto {
 
 @Injectable()
 export class ReviewsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications?: NotificationsService,
+  ) {}
 
   async create(
     userId: string,
@@ -446,6 +455,13 @@ export class ReviewsService {
       hiddenAt: null,
       rejectedAt: null,
     });
+    await this.notifyReview(
+      reviewId,
+      adminId,
+      NotificationType.REVIEW_PUBLISHED,
+      'Review published',
+      'Your review was published.',
+    );
     return this.findAdminById(reviewId);
   }
 
@@ -463,6 +479,13 @@ export class ReviewsService {
       hiddenAt: null,
       rejectedAt: new Date(),
     });
+    await this.notifyReview(
+      reviewId,
+      adminId,
+      NotificationType.REVIEW_REJECTED,
+      'Review rejected',
+      'Your review was rejected.',
+    );
     return this.findAdminById(reviewId);
   }
 
@@ -480,7 +503,36 @@ export class ReviewsService {
       hiddenAt: new Date(),
       rejectedAt: null,
     });
+    await this.notifyReview(
+      reviewId,
+      adminId,
+      NotificationType.REVIEW_HIDDEN,
+      'Review hidden',
+      'Your review was hidden.',
+    );
     return this.findAdminById(reviewId);
+  }
+  private async notifyReview(
+    reviewId: string,
+    actorUserId: string,
+    type: NotificationType,
+    title: string,
+    body: string,
+  ): Promise<void> {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      select: { userId: true },
+    });
+    if (!review) return;
+    await this.notifications?.create({
+      recipientUserId: review.userId,
+      actorUserId,
+      type,
+      title,
+      body,
+      actionUrl: '/reviews',
+      dedupeKey: 'review-moderation:' + reviewId + ':' + type,
+    });
   }
   private async ensureActiveUser(userId: string): Promise<void> {
     const user = await this.prisma.user.findFirst({

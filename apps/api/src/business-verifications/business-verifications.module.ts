@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BusinessesModule } from '../businesses/businesses.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import {
   AdminBusinessVerificationsController,
   MyBusinessVerificationsController,
@@ -8,7 +9,7 @@ import {
 import { BusinessVerificationsService } from './business-verifications.service';
 
 @Module({
-  imports: [PrismaModule, BusinessesModule],
+  imports: [PrismaModule, BusinessesModule, NotificationsModule],
   controllers: [
     MyBusinessVerificationsController,
     AdminBusinessVerificationsController,

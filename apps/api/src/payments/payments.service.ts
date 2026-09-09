@@ -18,10 +18,12 @@ import {
   PaymentWebhookProcessingStatus,
   Prisma,
   UserStatus,
+  NotificationType,
 } from '@prisma/client';
 import { BusinessesService } from '../businesses/businesses.service';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   CreatePaymentDto,
   PaymentQueryDto,
@@ -117,6 +119,7 @@ export class PaymentsService {
     private readonly businesses: BusinessesService,
     private readonly config: ConfigService,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
+    private readonly notifications?: NotificationsService,
   ) {}
 
   async createForBooking(
@@ -256,6 +259,13 @@ export class PaymentsService {
         select: paymentSelect,
       });
     });
+    if (updated.status === PaymentStatus.FAILED) {
+      await this.notifyPayment(
+        updated,
+        NotificationType.PAYMENT_FAILED,
+        'payment-failed:' + updated.id,
+      );
+    }
     return { ...updated, providerResponse: providerResult.safeResponse };
   }
 
@@ -414,7 +424,7 @@ export class PaymentsService {
       idempotencyKey,
     });
 
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       const now = new Date();
       await tx.paymentRefund.update({
         where: { id: refundId },
@@ -463,8 +473,15 @@ export class PaymentsService {
         select: paymentSelect,
       });
     });
+    if (providerRefund.succeeded) {
+      await this.notifyPayment(
+        updated,
+        NotificationType.PAYMENT_REFUNDED,
+        'payment-refunded:' + refundId,
+      );
+    }
+    return updated;
   }
-
   private async processVerifiedWebhook(
     event: ProviderWebhook,
     payload: unknown,
@@ -478,7 +495,7 @@ export class PaymentsService {
       };
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findFirst({
         where: {
           id: event.paymentId,
@@ -545,10 +562,47 @@ export class PaymentsService {
         received: true,
         duplicate: false,
         processed: update.count === 1,
+        payment: update.count === 1 ? payment : undefined,
       };
     });
+    if (result.processed && result.payment) {
+      const type =
+        event.status === PaymentStatus.PAID
+          ? NotificationType.PAYMENT_SUCCEEDED
+          : NotificationType.PAYMENT_FAILED;
+      await this.notifyPayment(
+        result.payment,
+        type,
+        'payment-webhook:' + event.provider + ':' + event.providerEventId,
+      );
+    }
+    return {
+      received: result.received,
+      duplicate: result.duplicate,
+      processed: result.processed,
+    };
   }
 
+  private async notifyPayment(
+    payment: Pick<PaymentRecord, 'id' | 'travelerId' | 'bookingId'>,
+    type: NotificationType,
+    dedupeKey: string,
+  ): Promise<void> {
+    const label =
+      type === NotificationType.PAYMENT_SUCCEEDED
+        ? 'Payment succeeded'
+        : type === NotificationType.PAYMENT_REFUNDED
+          ? 'Refund completed'
+          : 'Payment failed';
+    await this.notifications?.create({
+      recipientUserId: payment.travelerId,
+      type,
+      title: label,
+      body: label + ' for your booking.',
+      actionUrl: '/bookings/' + payment.bookingId,
+      dedupeKey,
+    });
+  }
   private async recordWebhook(event: ProviderWebhook, payload: unknown) {
     try {
       return await this.prisma.paymentWebhookEvent.create({

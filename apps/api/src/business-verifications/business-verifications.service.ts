@@ -11,11 +11,13 @@ import {
   Prisma,
   UserStatus,
   VerificationRequestStatus,
+  NotificationType,
 } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/authenticated-user';
 import { BusinessesService } from '../businesses/businesses.service';
 import { paginate } from '../common/dto/pagination.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   ApproveBusinessVerificationDto,
   RejectBusinessVerificationDto,
@@ -27,6 +29,7 @@ export class BusinessVerificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly businesses: BusinessesService,
+    private readonly notifications?: NotificationsService,
   ) {}
 
   async submit(userId: string, businessId: string) {
@@ -148,7 +151,7 @@ export class BusinessVerificationsService {
     id: string,
     dto: ApproveBusinessVerificationDto,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const verification = await this.prisma.$transaction(async (tx) => {
       const verification = await tx.businessVerification.findUnique({
         where: { id },
       });
@@ -179,14 +182,22 @@ export class BusinessVerificationsService {
       });
       return tx.businessVerification.findUniqueOrThrow({ where: { id } });
     });
+    await this.notifyBusinessVerification(
+      verification.businessId,
+      admin.sub,
+      NotificationType.BUSINESS_VERIFICATION_APPROVED,
+      'Business verification approved',
+      'Your business verification was approved.',
+      'business-verification-approved:' + verification.id,
+    );
+    return verification;
   }
-
   async reject(
     admin: AuthenticatedUser,
     id: string,
     dto: RejectBusinessVerificationDto,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    const verification = await this.prisma.$transaction(async (tx) => {
       const verification = await tx.businessVerification.findUnique({
         where: { id },
       });
@@ -212,6 +223,34 @@ export class BusinessVerificationsService {
         },
       });
       return tx.businessVerification.findUniqueOrThrow({ where: { id } });
+    });
+    await this.notifyBusinessVerification(
+      verification.businessId,
+      admin.sub,
+      NotificationType.BUSINESS_VERIFICATION_REJECTED,
+      'Business verification rejected',
+      'Your business verification was rejected. Review the verification details to resubmit.',
+      'business-verification-rejected:' + verification.id,
+    );
+    return verification;
+  }
+
+  private async notifyBusinessVerification(
+    businessId: string,
+    actorUserId: string,
+    type: NotificationType,
+    title: string,
+    body: string,
+    dedupePrefix: string,
+  ): Promise<void> {
+    await this.notifications?.notifyBusinessMembers(businessId, {
+      actorUserId,
+      type,
+      title,
+      body,
+      actionUrl: '/business/verification',
+      dedupePrefix,
+      roles: [BusinessMemberRole.OWNER, BusinessMemberRole.MANAGER],
     });
   }
 }

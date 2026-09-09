@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BusinessesModule } from '../businesses/businesses.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PAYMENT_GATEWAY } from './payment-gateway';
 import {
   AdminPaymentsController,
@@ -11,7 +12,7 @@ import { PaymentsService } from './payments.service';
 import { DevelopmentPaymentGateway } from './providers/development-payment.gateway';
 
 @Module({
-  imports: [PrismaModule, BusinessesModule],
+  imports: [PrismaModule, BusinessesModule, NotificationsModule],
   controllers: [
     PaymentsController,
     BusinessPaymentsController,

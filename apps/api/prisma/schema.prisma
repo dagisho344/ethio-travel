@@ -40,6 +40,8 @@ model User {
   paymentsMade         Payment[]              @relation("PaymentTraveler")
   conversationMembers  ConversationMember[]
   messagesSent         Message[]              @relation("MessageSender")
+  notificationsReceived Notification[]         @relation("NotificationRecipient")
+  notificationsActed   Notification[]         @relation("NotificationActor")
 
   @@map("users")
 }
@@ -940,6 +942,46 @@ model Message {
   @@map("messages")
 }
 
+enum NotificationType {
+  BOOKING_CREATED
+  BOOKING_CONFIRMED
+  BOOKING_REJECTED
+  BOOKING_CANCELLED
+  BOOKING_COMPLETED
+  BOOKING_NO_SHOW
+  PAYMENT_SUCCEEDED
+  PAYMENT_FAILED
+  PAYMENT_REFUNDED
+  MESSAGE_RECEIVED
+  BUSINESS_VERIFICATION_APPROVED
+  BUSINESS_VERIFICATION_REJECTED
+  REVIEW_PUBLISHED
+  REVIEW_REJECTED
+  REVIEW_HIDDEN
+}
+
+model Notification {
+  id              String           @id @default(uuid()) @db.Uuid
+  recipientUserId String           @map("recipient_user_id") @db.Uuid
+  actorUserId     String?          @map("actor_user_id") @db.Uuid
+  type            NotificationType
+  title           String           @db.VarChar(160)
+  body            String           @db.VarChar(500)
+  actionUrl       String?          @map("action_url") @db.VarChar(2048)
+  metadata        Json?
+  dedupeKey       String?          @unique @map("dedupe_key") @db.VarChar(255)
+  readAt          DateTime?        @map("read_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  recipient User  @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Restrict)
+  actor     User? @relation("NotificationActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([recipientUserId, createdAt])
+  @@index([recipientUserId, readAt])
+  @@index([type, createdAt])
+  @@map("notifications")
+}
 enum PaymentProvider {
   DEVELOPMENT
   STRIPE

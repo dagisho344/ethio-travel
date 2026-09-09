@@ -15,12 +15,14 @@ import {
   PricingModel,
   Prisma,
   UserStatus,
+  NotificationType,
 } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { BusinessesService } from '../businesses/businesses.service';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import { publicServiceWhere } from '../common/utils/public-visibility.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   CreateAvailabilityOverrideDto,
   CreateAvailabilityRuleDto,
@@ -38,6 +40,8 @@ import {
 const bookingSelect = Prisma.validator<Prisma.BookingSelect>()({
   id: true,
   reference: true,
+  businessId: true,
+  travelerId: true,
   startAt: true,
   endAt: true,
   quantity: true,
@@ -104,6 +108,7 @@ export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly businesses: BusinessesService,
+    private readonly notifications?: NotificationsService,
   ) {}
 
   async availability(serviceId: string, query: AvailabilityQueryDto) {
@@ -138,7 +143,7 @@ export class BookingsService {
   async create(userId: string, dto: CreateBookingDto): Promise<BookingRecord> {
     await this.ensureActiveUser(userId);
     const range = this.parseRange(dto.startAt, dto.endAt);
-    return this.prisma.$transaction(
+    const booking = await this.prisma.$transaction(
       async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${dto.serviceId}))`;
         const service = await this.findEligibleBookableService(
@@ -202,6 +207,15 @@ export class BookingsService {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
+    await this.notifications?.notifyBusinessMembers(booking.businessId, {
+      actorUserId: userId,
+      type: NotificationType.BOOKING_CREATED,
+      title: 'New booking request',
+      body: 'Booking ' + booking.reference + ' was requested.',
+      actionUrl: '/business/bookings/' + booking.id,
+      dedupePrefix: 'booking-created:' + booking.id,
+    });
+    return booking;
   }
 
   async findMine(
@@ -557,7 +571,7 @@ export class BookingsService {
     note?: string,
     scope: Prisma.BookingWhereInput = {},
   ): Promise<BookingRecord> {
-    return this.prisma.$transaction(async (tx) => {
+    const booking = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.booking.findFirst({
         where: { id, ...scope },
         select: { id: true, bookingStatus: true },
@@ -597,8 +611,54 @@ export class BookingsService {
         select: bookingSelect,
       });
     });
+    await this.notifyBookingTransition(booking, userId, toStatus);
+    return booking;
   }
 
+  private async notifyBookingTransition(
+    booking: BookingRecord,
+    actorUserId: string,
+    status: BookingStatus,
+  ): Promise<void> {
+    if (status === BookingStatus.CANCELLED_BY_TRAVELER) {
+      await this.notifications?.notifyBusinessMembers(booking.businessId, {
+        actorUserId,
+        type: NotificationType.BOOKING_CANCELLED,
+        title: 'Booking cancelled',
+        body:
+          'Booking ' + booking.reference + ' was cancelled by the traveler.',
+        actionUrl: '/business/bookings/' + booking.id,
+        dedupePrefix: 'booking-cancelled:' + booking.id + ':' + status,
+      });
+      return;
+    }
+    const types: Partial<Record<BookingStatus, NotificationType>> = {
+      [BookingStatus.CONFIRMED]: NotificationType.BOOKING_CONFIRMED,
+      [BookingStatus.REJECTED]: NotificationType.BOOKING_REJECTED,
+      [BookingStatus.CANCELLED_BY_BUSINESS]: NotificationType.BOOKING_CANCELLED,
+      [BookingStatus.COMPLETED]: NotificationType.BOOKING_COMPLETED,
+      [BookingStatus.NO_SHOW]: NotificationType.BOOKING_NO_SHOW,
+    };
+    const type = types[status];
+    if (!type) return;
+    const labels: Partial<Record<NotificationType, string>> = {
+      [NotificationType.BOOKING_CONFIRMED]: 'confirmed',
+      [NotificationType.BOOKING_REJECTED]: 'rejected',
+      [NotificationType.BOOKING_CANCELLED]: 'cancelled',
+      [NotificationType.BOOKING_COMPLETED]: 'completed',
+      [NotificationType.BOOKING_NO_SHOW]: 'marked no-show',
+    };
+    const label = labels[type] ?? 'updated';
+    await this.notifications?.create({
+      recipientUserId: booking.travelerId,
+      actorUserId,
+      type,
+      title: 'Booking ' + label,
+      body: 'Booking ' + booking.reference + ' was ' + label + '.',
+      actionUrl: '/bookings/' + booking.id,
+      dedupeKey: 'booking-status:' + booking.id + ':' + status,
+    });
+  }
   private async findEligibleBookableService(
     serviceId: string,
     tx: PrismaClientLike = this.prisma,

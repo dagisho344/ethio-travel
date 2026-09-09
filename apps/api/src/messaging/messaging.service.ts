@@ -19,6 +19,7 @@ import {
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import { publicBusinessWhere } from '../common/utils/public-visibility.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   ConversationQueryDto,
   MessageQueryDto,
@@ -26,6 +27,7 @@ import {
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { MessagingEvents } from './messaging.events';
+import { NotificationType } from '@prisma/client';
 
 const conversationSelect = Prisma.validator<Prisma.ConversationSelect>()({
   id: true,
@@ -100,6 +102,7 @@ export class MessagingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events?: MessagingEvents,
+    private readonly notifications?: NotificationsService,
   ) {}
 
   async createConversation(userId: string, dto: CreateConversationDto) {
@@ -303,6 +306,7 @@ export class MessagingService {
       });
       return this.toMessage(message);
     });
+    await this.notifyMessageRecipients(userId, message);
     this.events?.messageCreated(message);
     return message;
   }
@@ -329,6 +333,50 @@ export class MessagingService {
     await this.requireConversationMember(userId, conversationId);
   }
 
+  private async notifyMessageRecipients(
+    senderId: string,
+    message: ReturnType<MessagingService['toMessage']>,
+  ): Promise<void> {
+    if (!this.notifications) return;
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: message.conversationId },
+      select: {
+        businessId: true,
+        members: {
+          where: { status: ConversationMemberStatus.ACTIVE },
+          select: { userId: true, role: true },
+        },
+      },
+    });
+    if (!conversation) return;
+    const activeBusinessMembers = await this.prisma.businessMember.findMany({
+      where: {
+        businessId: conversation.businessId,
+        status: BusinessMemberStatus.ACTIVE,
+        user: { status: UserStatus.ACTIVE },
+      },
+      select: { userId: true },
+    });
+    const activeBusinessUserIds = new Set(
+      activeBusinessMembers.map((member) => member.userId),
+    );
+    const recipients = conversation.members
+      .filter(
+        (member) =>
+          member.userId !== senderId &&
+          (member.role === ConversationMemberRole.TRAVELER ||
+            activeBusinessUserIds.has(member.userId)),
+      )
+      .map((member) => member.userId);
+    await this.notifications.createForUsers(recipients, {
+      actorUserId: senderId,
+      type: NotificationType.MESSAGE_RECEIVED,
+      title: 'New message',
+      body: 'You received a new message.',
+      actionUrl: `/messages/${message.conversationId}`,
+      dedupePrefix: `message-received:${message.id}`,
+    });
+  }
   private async requireConversationMember(
     userId: string,
     conversationId: string,
