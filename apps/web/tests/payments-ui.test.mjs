@@ -137,10 +137,10 @@ void test('payment UI prevents duplicate mutations and handles authorization sta
   assert.match(refund, /status === 403/);
 });
 
-void test('authenticated navbar exposes admin payment link only behind admin role check', () => {
-  const layout = read('components/layout/PublicLayout.tsx');
-  assert.match(layout, /roles\.includes\('ADMIN'\)/);
-  assert.match(layout, /href="\/admin\/payments"/);
+void test('authenticated navbar keeps payment administration out of the main account navigation', () => {
+  const navigation = read('components/layout/HeaderNavigation.tsx');
+  assert.doesNotMatch(navigation, /\/admin\/payments/);
+  assert.doesNotMatch(navigation, /Payments/);
 });
 
 void test('payment frontend does not store auth tokens in browser storage', () => {

@@ -1,4 +1,13 @@
+export type AiProviderName = 'DISABLED' | 'OPENAI_COMPATIBLE';
+
 export interface AppConfig {
+  aiApiKey: string;
+  aiBaseUrl: string;
+  aiMaxOutputTokens: number;
+  aiModel: string;
+  aiProvider: AiProviderName;
+  aiRequestTimeoutMs: number;
+  aiRequestsPerHour: number;
   apiPrefix: string;
   corsOrigin: string;
   databaseUrl: string;
@@ -14,6 +23,13 @@ export interface AppConfig {
 }
 
 export const appConfig = (): AppConfig => ({
+  aiApiKey: process.env.AI_API_KEY ?? '',
+  aiBaseUrl: process.env.AI_BASE_URL ?? '',
+  aiMaxOutputTokens: Number(process.env.AI_MAX_OUTPUT_TOKENS ?? 600),
+  aiModel: process.env.AI_MODEL ?? 'gpt-4o-mini',
+  aiProvider: (process.env.AI_PROVIDER as AiProviderName) ?? 'DISABLED',
+  aiRequestTimeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS ?? 20_000),
+  aiRequestsPerHour: Number(process.env.AI_REQUESTS_PER_HOUR ?? 20),
   apiPrefix: process.env.API_PREFIX ?? 'api/v1',
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
   databaseUrl: process.env.DATABASE_URL ?? '',

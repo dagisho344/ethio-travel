@@ -1,6 +1,29 @@
 import Joi from 'joi';
 
 export const envValidationSchema = Joi.object({
+  AI_API_KEY: Joi.when('AI_PROVIDER', {
+    is: 'OPENAI_COMPATIBLE',
+    then: Joi.string().min(1).required(),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  AI_BASE_URL: Joi.when('AI_PROVIDER', {
+    is: 'OPENAI_COMPATIBLE',
+    then: Joi.string()
+      .uri({ scheme: ['http', 'https'] })
+      .required(),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  AI_MAX_OUTPUT_TOKENS: Joi.number().integer().min(64).max(2048).default(600),
+  AI_MODEL: Joi.string().max(160).default('gpt-4o-mini'),
+  AI_PROVIDER: Joi.string()
+    .valid('DISABLED', 'OPENAI_COMPATIBLE')
+    .default('DISABLED'),
+  AI_REQUEST_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(60000)
+    .default(20000),
+  AI_REQUESTS_PER_HOUR: Joi.number().integer().min(1).max(100).default(20),
   API_PREFIX: Joi.string().default('api/v1'),
   CORS_ORIGIN: Joi.string().uri().default('http://localhost:3000'),
   DATABASE_URL: Joi.string()

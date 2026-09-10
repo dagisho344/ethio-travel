@@ -10,6 +10,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
+import { TripAiAssistant } from '../ai/TripAiAssistant';
 import { Container } from '../../components/ui/Container';
 import { getJson } from '../../lib/api';
 import { BffRequestError, bffJson } from '../../lib/private-api';
@@ -314,6 +315,11 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
             retained, but changes are disabled.
           </p>
         ) : null}
+        <TripAiAssistant
+          tripId={trip.id}
+          disabled={readOnly}
+          onApplied={loadTrip}
+        />
         <section className="mt-6 space-y-5" aria-label="Itinerary days">
           {trip.days.map((day) => (
             <DayPlanner

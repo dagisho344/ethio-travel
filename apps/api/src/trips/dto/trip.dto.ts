@@ -1,19 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TripItemType, TripStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
   IsDateString,
   IsEnum,
-  IsIn,
   IsOptional,
   IsString,
   IsUUID,
   Matches,
-  Max,
   MaxLength,
-  Min,
 } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 

@@ -15,6 +15,14 @@ const secondItemId = '66666666-6666-4666-8666-666666666666';
 const targetId = '77777777-7777-4777-8777-777777777777';
 const bookingId = '88888888-8888-4888-888888888888';
 
+function objectMatcher(value: Record<string, unknown>): unknown {
+  return expect.objectContaining(value) as unknown;
+}
+
+function arrayMatcher(values: unknown[]): unknown {
+  return expect.arrayContaining(values) as unknown;
+}
+
 function item(overrides: Record<string, unknown> = {}) {
   return {
     id: itemId,
@@ -155,10 +163,9 @@ function setup() {
         .fn()
         .mockResolvedValue({ id: targetId, cityId: targetId }),
     },
-    $transaction: jest.fn((callback: unknown) => {
-      if (typeof callback !== 'function') return Promise.resolve(callback);
-      return callback(tx);
-    }),
+    $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) =>
+      callback(tx),
+    ),
   };
   return { prisma, service: new TripsService(prisma as never), tx };
 }
@@ -174,9 +181,9 @@ describe('TripsService', () => {
     expect(result.title).toBe('Northern circuit');
     expect(tx.tripDay.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.arrayContaining([
-          expect.objectContaining({ dayNumber: 1 }),
-          expect.objectContaining({ dayNumber: 3 }),
+        data: arrayMatcher([
+          objectMatcher({ dayNumber: 1 }),
+          objectMatcher({ dayNumber: 3 }),
         ]),
       }),
     );
@@ -203,7 +210,7 @@ describe('TripsService', () => {
     });
     expect(prisma.trip.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ userId }),
+        where: objectMatcher({ userId }),
         skip: 5,
         take: 5,
       }),
@@ -233,7 +240,7 @@ describe('TripsService', () => {
     expect(archived.status).toBe(TripStatus.ARCHIVED);
     expect(prisma.trip.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ status: TripStatus.ARCHIVED }),
+        data: objectMatcher({ status: TripStatus.ARCHIVED }),
       }),
     );
   });
@@ -250,7 +257,7 @@ describe('TripsService', () => {
       await service.addItem(userId, tripId, dayId, { type, [field]: targetId });
       expect(tx.tripItem.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
+          data: objectMatcher({
             type,
             [field]: targetId,
             position: 0,

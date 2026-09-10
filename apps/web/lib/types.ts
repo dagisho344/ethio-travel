@@ -534,3 +534,88 @@ export interface Trip {
 
 export type TripListItem = Omit<Trip, 'days' | 'estimatedBookingCost'>;
 export type TripListResponse = PaginatedResponse<TripListItem>;
+
+export type AiIntent =
+  | 'GENERAL_TRAVEL'
+  | 'DESTINATION_DISCOVERY'
+  | 'BUSINESS_RECOMMENDATION'
+  | 'SERVICE_RECOMMENDATION'
+  | 'ATTRACTION_RECOMMENDATION'
+  | 'TRIP_ITINERARY'
+  | 'TRIP_IMPROVEMENT';
+export type AiMessageRole = 'USER' | 'ASSISTANT';
+export type AiSuggestionStatus =
+  'PENDING' | 'APPLYING' | 'APPLIED' | 'DISMISSED' | 'INVALID';
+
+export interface AiKnownPrice {
+  amount: string;
+  currency: string;
+}
+
+export interface AiRecommendation {
+  id: string | null;
+  entityType: Extract<
+    TripItemType,
+    'DESTINATION' | 'ATTRACTION' | 'BUSINESS' | 'SERVICE'
+  >;
+  entityId: string;
+  name: string;
+  slug: string;
+  category: string | null;
+  location: string | null;
+  knownPrice: AiKnownPrice | null;
+  availability: 'UNKNOWN';
+  reason: string;
+  suggestedDay: number | null;
+  notes: string | null;
+}
+
+export interface AiStoredSuggestion {
+  id: string;
+  entityType: TripItemType;
+  entityId: string;
+  name: string;
+  reason: string;
+  suggestedDay: number;
+  suggestedDate: string;
+  notes: string | null;
+  status: AiSuggestionStatus;
+  appliedTripItemId: string | null;
+  createdAt: string;
+  appliedAt: string | null;
+}
+
+export interface AiMessage {
+  id: string;
+  role: AiMessageRole;
+  content: string;
+  createdAt: string;
+}
+
+export interface AiConversation {
+  id: string;
+  tripId: string | null;
+  title: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  trip: {
+    id: string;
+    title: string;
+    startDate: string;
+    endDate: string;
+  } | null;
+  messages: AiMessage[];
+  suggestions: AiStoredSuggestion[];
+}
+
+export type AiConversationListResponse = PaginatedResponse<AiConversation>;
+export interface AiMessageResponse {
+  conversation: AiConversation;
+  assistantMessage: string;
+  recommendations: AiRecommendation[];
+}
+export interface AiRecommendationsResponse {
+  summary: string;
+  recommendations: AiRecommendation[];
+}

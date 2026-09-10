@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return */
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import {
   BusinessMemberRole,
   BusinessMemberStatus,
@@ -219,5 +223,95 @@ describe('Phase 3 business services', () => {
         }),
       }),
     );
+  });
+  it('returns the active requesters membership role with the private business list', async () => {
+    const prisma = prismaMock();
+    prisma.business.findMany.mockResolvedValue([
+      { id: businessId, ...createDto },
+    ]);
+    prisma.business.count.mockResolvedValue(1);
+    prisma.businessMember.findMany.mockResolvedValue([
+      {
+        businessId,
+        role: BusinessMemberRole.MANAGER,
+        status: BusinessMemberStatus.ACTIVE,
+      },
+    ]);
+    const service = new BusinessesService(prisma as PrismaService);
+
+    const result = await service.findMine(userId, { page: 1, limit: 10 });
+
+    expect(result.data[0]).toEqual(
+      expect.objectContaining({
+        currentMember: {
+          role: BusinessMemberRole.MANAGER,
+          status: BusinessMemberStatus.ACTIVE,
+        },
+      }),
+    );
+    expect(prisma.business.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          members: {
+            some: { userId, status: BusinessMemberStatus.ACTIVE },
+          },
+        }),
+      }),
+    );
+  });
+
+  it('rejects a destination that is outside the selected business city', async () => {
+    const prisma = prismaMock();
+    prisma.user.findFirst.mockResolvedValue({ id: userId });
+    prisma.city.findUnique.mockResolvedValue({ id: cityId });
+    prisma.businessCategory.findFirst.mockResolvedValue({ id: categoryId });
+    prisma.destination.findFirst.mockResolvedValue(null);
+    const service = new BusinessesService(prisma as PrismaService);
+
+    await expect(
+      service.create(userId, { ...createDto, destinationId: businessId }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('allows an active manager but rejects staff and inactive members from profile mutation', async () => {
+    const managerPrisma = prismaMock();
+    managerPrisma.businessMember.findFirst.mockResolvedValue({
+      id: 'manager',
+      role: BusinessMemberRole.MANAGER,
+      status: BusinessMemberStatus.ACTIVE,
+    });
+    managerPrisma.business.findUnique.mockResolvedValue({
+      id: businessId,
+      cityId,
+      categoryId,
+      destinationId: null,
+      slug: 'sodo-sample-hotel',
+    });
+    managerPrisma.city.findUnique.mockResolvedValue({ id: cityId });
+    managerPrisma.businessCategory.findFirst.mockResolvedValue({
+      id: categoryId,
+    });
+    const managerService = new BusinessesService(
+      managerPrisma as PrismaService,
+    );
+
+    await expect(
+      managerService.updateMine(userId, businessId, { name: 'Updated Hotel' }),
+    ).resolves.toBeDefined();
+
+    const restrictedPrisma = prismaMock();
+    restrictedPrisma.businessMember.findFirst.mockResolvedValue(null);
+    const restrictedService = new BusinessesService(
+      restrictedPrisma as PrismaService,
+    );
+
+    await expect(
+      restrictedService.updateMine(userId, businessId, {
+        name: 'Blocked update',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      restrictedService.findMineById(userId, businessId),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

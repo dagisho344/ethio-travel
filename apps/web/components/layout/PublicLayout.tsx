@@ -1,12 +1,11 @@
 import Link from 'next/link';
-import { Compass, Menu } from 'lucide-react';
-import { LogoutButton } from '../auth/LogoutButton';
-import { NotificationBell } from '../notifications/NotificationBell';
+import { Compass } from 'lucide-react';
+import { HeaderNavigation } from './HeaderNavigation';
 import { RealtimeProvider } from '../realtime/RealtimeProvider';
 import { currentSessionSnapshot } from '../../lib/auth/session';
 import { Container } from '../ui/Container';
 
-const links = [
+const publicLinks = [
   { href: '/', label: 'Home' },
   { href: '/explore', label: 'Explore' },
   { href: '/destinations', label: 'Destinations' },
@@ -14,14 +13,17 @@ const links = [
   { href: '/services', label: 'Services' },
 ];
 
+const authenticatedLinks = [
+  { href: '/trips', label: 'My Trips' },
+  { href: '/messages', label: 'Messages' },
+  { href: '/assistant', label: 'AI Assistant' },
+];
 export async function Header() {
   const session = await currentSessionSnapshot();
-  const accountLabel = session.user?.firstName ?? session.user?.email ?? '';
-  const isAdmin = session.user?.roles.includes('ADMIN') ?? false;
 
   return (
     <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/95 backdrop-blur">
-      <Container className="flex h-16 items-center justify-between gap-4">
+      <Container className="flex h-16 items-center gap-4 sm:gap-6">
         <Link
           href="/"
           className="flex shrink-0 items-center gap-2 whitespace-nowrap text-lg font-bold text-slate-950 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
@@ -32,184 +34,15 @@ export async function Header() {
           />
           <span>EthioTravel</span>
         </Link>
-
-        <nav
-          className="hidden flex-1 items-center justify-center gap-7 px-8 text-sm font-medium text-slate-700 lg:flex"
-          aria-label="Primary navigation"
-        >
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="whitespace-nowrap rounded-md px-1 py-2 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="hidden shrink-0 items-center gap-3 lg:flex">
-          {session.authenticated ? (
-            <>
-              <span className="max-w-36 truncate text-sm font-semibold text-slate-700">
-                {accountLabel}
-              </span>
-              <Link
-                href="/messages"
-                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-              >
-                Messages
-              </Link>
-              <NotificationBell />
-              <Link
-                href="/trips"
-                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-              >
-                My Trips
-              </Link>
-              <Link
-                href="/bookings"
-                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-              >
-                My Bookings
-              </Link>
-              <Link
-                href="/favorites"
-                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-              >
-                Favorites
-              </Link>
-              <Link
-                href="/reviews"
-                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-              >
-                My Reviews
-              </Link>
-              {isAdmin ? (
-                <Link
-                  href="/admin/payments"
-                  className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-                >
-                  Payments
-                </Link>
-              ) : null}
-              <Link
-                href="/account"
-                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-              >
-                Account
-              </Link>
-              <LogoutButton className="whitespace-nowrap rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60" />
-            </>
-          ) : (
-            <>
-              <Link
-                href="/login"
-                className="whitespace-nowrap rounded-md px-2 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-              >
-                Sign In
-              </Link>
-              <Link
-                href="/register"
-                className="whitespace-nowrap rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-              >
-                Register
-              </Link>
-            </>
-          )}
-        </div>
-
-        {session.authenticated ? <NotificationBell /> : null}
-        <details className="relative lg:hidden">
-          <summary
-            aria-label="Open navigation menu"
-            className="flex cursor-pointer list-none items-center justify-center rounded-md border border-slate-200 p-2 text-slate-700 transition hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 [&::-webkit-details-marker]:hidden"
-          >
-            <Menu className="h-5 w-5" aria-hidden="true" />
-          </summary>
-          <div className="absolute right-0 mt-3 w-[min(18rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
-              >
-                {link.label}
-              </Link>
-            ))}
-            <div className="mt-2 border-t border-slate-100 pt-2">
-              {session.authenticated ? (
-                <>
-                  <Link
-                    href="/messages"
-                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
-                  >
-                    Messages
-                  </Link>
-                  <Link
-                    href="/trips"
-                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
-                  >
-                    My Trips
-                  </Link>
-                  <Link
-                    href="/bookings"
-                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
-                  >
-                    My Bookings
-                  </Link>
-                  <Link
-                    href="/favorites"
-                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
-                  >
-                    Favorites
-                  </Link>
-                  <Link
-                    href="/reviews"
-                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
-                  >
-                    My Reviews
-                  </Link>
-                  {isAdmin ? (
-                    <Link
-                      href="/admin/payments"
-                      className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
-                    >
-                      Payments
-                    </Link>
-                  ) : null}
-                  <Link
-                    href="/account"
-                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
-                  >
-                    Account
-                  </Link>
-                  <LogoutButton className="mt-1 block w-full rounded-md bg-highland px-3 py-2.5 text-left text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland disabled:cursor-not-allowed disabled:opacity-60" />
-                </>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="mt-1 block rounded-md bg-highland px-3 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland"
-                  >
-                    Register
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-        </details>
+        <HeaderNavigation
+          authenticated={session.authenticated}
+          publicLinks={publicLinks}
+          authenticatedLinks={authenticatedLinks}
+        />
       </Container>
     </header>
   );
 }
-
 export function Footer() {
   return (
     <footer className="border-t border-slate-200 bg-white">
@@ -225,7 +58,7 @@ export function Footer() {
           className="flex flex-wrap gap-4 md:justify-end"
           aria-label="Footer navigation"
         >
-          {links.slice(1).map((link) => (
+          {publicLinks.slice(1).map((link) => (
             <Link
               key={link.href}
               href={link.href}

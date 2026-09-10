@@ -115,10 +115,11 @@ void test('notification UI supports unread state, realtime deduplication, and sa
 });
 
 void test('authenticated navigation exposes Messages and notification bell', () => {
-  const source = read('components/layout/PublicLayout.tsx');
-  assert.match(source, /href="\/messages"/);
-  assert.match(source, /NotificationBell/);
-  assert.match(source, /RealtimeProvider/);
+  const layout = read('components/layout/PublicLayout.tsx');
+  const navigation = read('components/layout/HeaderNavigation.tsx');
+  assert.match(layout, /href: '\/messages'/);
+  assert.match(navigation, /NotificationBell/);
+  assert.match(layout, /RealtimeProvider/);
 });
 
 void test('traveler entry points create conversations only through the BFF', () => {

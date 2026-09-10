@@ -39,6 +39,13 @@ type BusinessRecord = Prisma.BusinessGetPayload<{
   include: typeof publicInclude;
 }>;
 type MemberRole = BusinessMemberRole;
+type CurrentBusinessMember = {
+  role: BusinessMemberRole;
+  status: BusinessMemberStatus;
+};
+type MyBusinessRecord = BusinessRecord & {
+  currentMember: CurrentBusinessMember;
+};
 
 @Injectable()
 export class BusinessesService {
@@ -128,7 +135,7 @@ export class BusinessesService {
   async findMine(
     userId: string,
     query: PaginationQueryDto,
-  ): Promise<PaginatedResponse<BusinessRecord>> {
+  ): Promise<PaginatedResponse<MyBusinessRecord>> {
     const where: Prisma.BusinessWhereInput = {
       members: { some: { userId, status: BusinessMemberStatus.ACTIVE } },
       ...this.searchWhere(query.q),
@@ -143,19 +150,45 @@ export class BusinessesService {
       }),
       this.prisma.business.count({ where }),
     ]);
-    return paginate(data, total, query.page, query.limit);
+    const memberships = data.length
+      ? await this.prisma.businessMember.findMany({
+          where: {
+            businessId: { in: data.map((business) => business.id) },
+            status: BusinessMemberStatus.ACTIVE,
+            userId,
+          },
+          select: { businessId: true, role: true, status: true },
+        })
+      : [];
+    const membersByBusinessId = new Map(
+      memberships.map((member) => [
+        member.businessId,
+        { role: member.role, status: member.status },
+      ]),
+    );
+    const businesses = data.map((business) => {
+      const currentMember = membersByBusinessId.get(business.id);
+      if (!currentMember)
+        throw new ForbiddenException('Business membership is required.');
+      return { ...business, currentMember };
+    });
+    return paginate(businesses, total, query.page, query.limit);
   }
 
   async findMineById(
     userId: string,
     businessId: string,
-  ): Promise<BusinessRecord> {
-    await this.requireMembership(userId, businessId, [
+  ): Promise<MyBusinessRecord> {
+    const member = await this.requireMembership(userId, businessId, [
       BusinessMemberRole.OWNER,
       BusinessMemberRole.MANAGER,
       BusinessMemberRole.STAFF,
     ]);
-    return this.findAdminById(businessId);
+    const business = await this.findAdminById(businessId);
+    return {
+      ...business,
+      currentMember: { role: member.role, status: member.status },
+    };
   }
 
   async updateMine(

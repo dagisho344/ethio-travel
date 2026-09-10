@@ -77,7 +77,7 @@ void test('my favorites page is authenticated and supports filtering and paginat
 });
 
 void test('authenticated navbar exposes Favorites link', () => {
-  const source = read('components/layout/PublicLayout.tsx');
-  assert.match(source, /href="\/favorites"/);
-  assert.match(source, />\s*Favorites\s*</);
+  const source = read('components/layout/HeaderNavigation.tsx');
+  assert.match(source, /href: '\/favorites'/);
+  assert.match(source, /Favorites/);
 });

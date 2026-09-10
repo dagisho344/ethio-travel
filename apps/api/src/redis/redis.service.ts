@@ -28,4 +28,18 @@ export class RedisService implements OnModuleDestroy {
       return false;
     }
   }
+
+  async incrementWithExpiry(
+    key: string,
+    ttlSeconds: number,
+  ): Promise<number | null> {
+    try {
+      if (this.client.status === 'wait') await this.client.connect();
+      const count = await this.client.incr(key);
+      if (count === 1) await this.client.expire(key, ttlSeconds);
+      return count;
+    } catch {
+      return null;
+    }
+  }
 }

@@ -43,6 +43,9 @@ model User {
   notificationsReceived Notification[]         @relation("NotificationRecipient")
   notificationsActed   Notification[]         @relation("NotificationActor")
   trips                Trip[]
+  aiConversations      AiConversation[]
+  aiUsage              AiUsage[]
+  aiSuggestions        AiSuggestion[]
 
   @@map("users")
 }
@@ -1171,6 +1174,8 @@ model Trip {
   destinationCity    City?        @relation("TripDestinationCity", fields: [destinationCityId], references: [id], onDelete: Restrict)
   primaryDestination Destination? @relation("TripPrimaryDestination", fields: [primaryDestinationId], references: [id], onDelete: Restrict)
   days               TripDay[]
+  aiConversations    AiConversation[]
+  aiSuggestions      AiSuggestion[]
 
   @@index([userId, createdAt])
   @@index([userId, status, startDate])
@@ -1221,6 +1226,7 @@ model TripItem {
   business    Business?    @relation(fields: [businessId], references: [id], onDelete: Restrict)
   service     Service?     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
   booking     Booking?     @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  aiSuggestionsApplied AiSuggestion[] @relation("AiSuggestionAppliedTripItem")
 
   @@unique([tripDayId, position])
   @@index([tripDayId, position])
@@ -1230,4 +1236,114 @@ model TripItem {
   @@index([serviceId])
   @@index([bookingId])
   @@map("trip_items")
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+}
+
+enum AiIntent {
+  GENERAL_TRAVEL
+  DESTINATION_DISCOVERY
+  BUSINESS_RECOMMENDATION
+  SERVICE_RECOMMENDATION
+  ATTRACTION_RECOMMENDATION
+  TRIP_ITINERARY
+  TRIP_IMPROVEMENT
+}
+
+enum AiSuggestionStatus {
+  PENDING
+  APPLYING
+  APPLIED
+  DISMISSED
+  INVALID
+}
+
+model AiConversation {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tripId     String?   @map("trip_id") @db.Uuid
+  title      String?   @db.VarChar(160)
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  trip        Trip?          @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  messages    AiMessage[]
+  usage       AiUsage[]
+  suggestions AiSuggestion[]
+
+  @@index([userId, updatedAt])
+  @@index([userId, tripId])
+  @@index([tripId])
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String        @id @default(uuid()) @db.Uuid
+  conversationId String        @map("conversation_id") @db.Uuid
+  role           AiMessageRole
+  content        String        @db.VarChar(4000)
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+
+  @@index([conversationId, createdAt])
+  @@map("ai_messages")
+}
+
+model AiUsage {
+  id             String        @id @default(uuid()) @db.Uuid
+  userId         String        @map("user_id") @db.Uuid
+  conversationId String?       @map("conversation_id") @db.Uuid
+  provider       String        @db.VarChar(80)
+  model          String        @db.VarChar(160)
+  intent         AiIntent
+  inputTokens    Int?          @map("input_tokens")
+  outputTokens   Int?          @map("output_tokens")
+  durationMs     Int?          @map("duration_ms")
+  success        Boolean
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  conversation AiConversation? @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([conversationId, createdAt])
+  @@index([intent, createdAt])
+  @@map("ai_usage")
+}
+
+model AiSuggestion {
+  id                  String             @id @default(uuid()) @db.Uuid
+  userId              String             @map("user_id") @db.Uuid
+  tripId              String             @map("trip_id") @db.Uuid
+  conversationId      String?            @map("conversation_id") @db.Uuid
+  tripItemType        TripItemType       @map("trip_item_type")
+  targetEntityId      String             @map("target_entity_id") @db.Uuid
+  titleSnapshot       String             @map("title_snapshot") @db.VarChar(180)
+  reason              String             @db.VarChar(1000)
+  suggestedDayNumber  Int                @map("suggested_day_number")
+  suggestedDate       DateTime           @map("suggested_date") @db.Date
+  notes               String?            @db.VarChar(1000)
+  status              AiSuggestionStatus @default(PENDING)
+  appliedTripItemId   String?            @map("applied_trip_item_id") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  appliedAt           DateTime?          @map("applied_at")
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  trip            Trip            @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  conversation    AiConversation? @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  appliedTripItem TripItem?       @relation("AiSuggestionAppliedTripItem", fields: [appliedTripItemId], references: [id], onDelete: Restrict)
+
+
+  @@index([userId, tripId, status, createdAt])
+  @@index([tripId, suggestedDate])
+  @@index([conversationId])
+  @@index([appliedTripItemId])
+  @@map("ai_suggestions")
 }

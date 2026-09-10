@@ -1,0 +1,723 @@
+'use client';
+
+import Link from 'next/link';
+import {
+  ArrowLeft,
+  Building2,
+  CheckCircle2,
+  Circle,
+  LoaderCircle,
+  MapPin,
+  ShieldCheck,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  canEditBusiness,
+  getManagedBusiness,
+  requestErrorMessage,
+  updateManagedBusiness,
+  verificationLabel,
+} from '../../lib/business-management';
+import type {
+  BusinessDraftInput,
+  ManagedBusiness,
+} from '../../lib/business-management';
+import { getJson } from '../../lib/api';
+import type { PaginatedResponse } from '../../lib/types';
+import { Container } from '../ui/Container';
+
+type RegionOption = { id: string; name: string; slug: string };
+type CityOption = { id: string; name: string; slug: string; regionId: string };
+type DestinationOption = { id: string; name: string; slug: string };
+type CategoryOption = { id: string; name: string };
+type ProfileFields = {
+  name: string;
+  description: string;
+  categoryId: string;
+  regionId: string;
+  cityId: string;
+  destinationId: string;
+  addressLine1: string;
+  addressLine2: string;
+  neighborhood: string;
+  postalCode: string;
+  latitude: string;
+  longitude: string;
+  phone: string;
+  email: string;
+  website: string;
+};
+
+function formFields(business: ManagedBusiness): ProfileFields {
+  return {
+    name: business.name,
+    description: business.description,
+    categoryId: business.category.id,
+    regionId: business.city.region.id,
+    cityId: business.city.id,
+    destinationId: business.destination?.id ?? '',
+    addressLine1: business.addressLine1,
+    addressLine2: business.addressLine2 ?? '',
+    neighborhood: business.neighborhood ?? '',
+    postalCode: business.postalCode ?? '',
+    latitude: String(business.latitude),
+    longitude: String(business.longitude),
+    phone: business.phone ?? '',
+    email: business.email ?? '',
+    website: business.website ?? '',
+  };
+}
+
+function inputClass(): string {
+  return 'mt-1.5 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-highland focus:ring-2 focus:ring-highland/20 disabled:cursor-not-allowed disabled:bg-slate-100';
+}
+
+function statusTone(status: string): string {
+  if (status === 'SUSPENDED') return 'bg-red-50 text-red-800';
+  if (status === 'ARCHIVED') return 'bg-slate-100 text-slate-700';
+  if (status === 'ACTIVE') return 'bg-emerald-50 text-emerald-800';
+  return 'bg-amber-50 text-amber-900';
+}
+
+function SetupChecklist({ business }: { business: ManagedBusiness }) {
+  const checks = [
+    {
+      label: 'Business details',
+      complete: Boolean(
+        business.name && business.description && business.category.id,
+      ),
+    },
+    {
+      label: 'Location',
+      complete: Boolean(business.city.id && business.addressLine1),
+    },
+    {
+      label: 'Contact information',
+      complete: Boolean(business.phone || business.email || business.website),
+    },
+    { label: 'Services', complete: false, note: 'Available in Phase 12D' },
+    { label: 'Media', complete: false, note: 'Available in Phase 12C' },
+    {
+      label: 'Verification',
+      complete: business.verificationSummary === 'VERIFIED',
+      note:
+        business.verificationSummary === 'NOT_SUBMITTED'
+          ? 'Documents and submission UI arrive in Phase 12C'
+          : undefined,
+    },
+  ];
+  return (
+    <section
+      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+      aria-labelledby="setup-progress-heading"
+    >
+      <h2
+        id="setup-progress-heading"
+        className="text-lg font-bold text-slate-950"
+      >
+        Setup progress
+      </h2>
+      <ul className="mt-4 space-y-3 text-sm">
+        {checks.map((check) => (
+          <li
+            key={check.label}
+            className="flex items-start gap-2 text-slate-700"
+          >
+            {check.complete ? (
+              <CheckCircle2
+                className="mt-0.5 h-4 w-4 shrink-0 text-highland"
+                aria-hidden="true"
+              />
+            ) : (
+              <Circle
+                className="mt-0.5 h-4 w-4 shrink-0 text-slate-400"
+                aria-hidden="true"
+              />
+            )}
+            <span>
+              <strong>{check.label}</strong>
+              {check.note ? (
+                <span className="block text-slate-500">{check.note}</span>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ProfileEditor({
+  business,
+  onSaved,
+}: {
+  business: ManagedBusiness;
+  onSaved: () => Promise<void>;
+}) {
+  const [fields, setFields] = useState<ProfileFields>(() =>
+    formFields(business),
+  );
+  const [regions, setRegions] = useState<RegionOption[]>([]);
+  const [cities, setCities] = useState<CityOption[]>([]);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [destinations, setDestinations] = useState<DestinationOption[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canEdit = canEditBusiness(business);
+  const availableCities = useMemo(
+    () => cities.filter((city) => city.regionId === fields.regionId),
+    [cities, fields.regionId],
+  );
+  const selectedRegion = regions.find(
+    (region) => region.id === fields.regionId,
+  );
+  const selectedCity = cities.find((city) => city.id === fields.cityId);
+
+  useEffect(() => {
+    setFields(formFields(business));
+  }, [business]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadOptions() {
+      setLoadingOptions(true);
+      try {
+        const [regionPage, cityPage, categoryPage] = await Promise.all([
+          getJson<PaginatedResponse<RegionOption>>('/regions', { limit: 100 }),
+          getJson<PaginatedResponse<CityOption>>('/cities', { limit: 100 }),
+          getJson<PaginatedResponse<CategoryOption>>('/business-categories', {
+            limit: 100,
+          }),
+        ]);
+        if (!active) return;
+        setRegions(regionPage.data);
+        setCities(cityPage.data);
+        setCategories(categoryPage.data);
+      } catch {
+        if (active)
+          setError(
+            'Profile options could not be loaded. You can try again later.',
+          );
+      } finally {
+        if (active) setLoadingOptions(false);
+      }
+    }
+    if (canEdit) void loadOptions();
+    return () => {
+      active = false;
+    };
+  }, [canEdit]);
+
+  useEffect(() => {
+    let active = true;
+    if (!selectedRegion || !selectedCity) {
+      setDestinations([]);
+      return () => {
+        active = false;
+      };
+    }
+    async function loadDestinations() {
+      try {
+        const result = await getJson<PaginatedResponse<DestinationOption>>(
+          `/regions/${selectedRegion.slug}/cities/${selectedCity.slug}/destinations`,
+          { limit: 100 },
+        );
+        if (active) setDestinations(result.data);
+      } catch {
+        if (active) setDestinations([]);
+      }
+    }
+    if (canEdit) void loadDestinations();
+    return () => {
+      active = false;
+    };
+  }, [canEdit, selectedCity, selectedRegion]);
+
+  function update<K extends keyof ProfileFields>(
+    key: K,
+    value: ProfileFields[K],
+  ) {
+    setFields((current) => ({ ...current, [key]: value }));
+  }
+
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canEdit || saving) return;
+    if (
+      fields.name.trim().length < 2 ||
+      fields.description.trim().length < 10 ||
+      !fields.categoryId ||
+      !fields.cityId ||
+      fields.addressLine1.trim().length < 2
+    ) {
+      setError('Complete the required business, category and location fields.');
+      return;
+    }
+    const latitude = Number(fields.latitude);
+    const longitude = Number(fields.longitude);
+    if (
+      !Number.isFinite(latitude) ||
+      latitude < -90 ||
+      latitude > 90 ||
+      !Number.isFinite(longitude) ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      setError('Enter valid latitude and longitude values.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    const input: BusinessDraftInput = {
+      name: fields.name.trim(),
+      description: fields.description.trim(),
+      categoryId: fields.categoryId,
+      cityId: fields.cityId,
+      destinationId: fields.destinationId || undefined,
+      addressLine1: fields.addressLine1.trim(),
+      addressLine2: fields.addressLine2.trim() || undefined,
+      neighborhood: fields.neighborhood.trim() || undefined,
+      postalCode: fields.postalCode.trim() || undefined,
+      latitude,
+      longitude,
+      phone: fields.phone.trim() || undefined,
+      email: fields.email.trim() || undefined,
+      website: fields.website.trim() || undefined,
+    };
+    try {
+      await updateManagedBusiness(business.id, input);
+      await onSaved();
+    } catch (requestError) {
+      setError(
+        requestErrorMessage(
+          requestError,
+          'We could not update this business profile.',
+        ),
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!canEdit) {
+    return (
+      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-bold text-slate-950">Profile</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          {business.currentMember.role === 'STAFF'
+            ? 'Staff members can view this workspace but cannot change business details.'
+            : 'Archived businesses are read-only.'}
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(event) => void save(event)}
+      className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+      aria-labelledby="profile-heading"
+    >
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 id="profile-heading" className="text-lg font-bold text-slate-950">
+            Edit profile
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Owner and manager changes are authorized again by the backend.
+          </p>
+        </div>
+      </div>
+      {error ? (
+        <p
+          role="alert"
+          className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          {error}
+        </p>
+      ) : null}
+      <div className="mt-5 grid gap-5 sm:grid-cols-2">
+        <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
+          Business name
+          <input
+            value={fields.name}
+            onChange={(event) => update('name', event.target.value)}
+            maxLength={180}
+            required
+            className={inputClass()}
+          />
+        </label>
+        <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
+          Description
+          <textarea
+            value={fields.description}
+            onChange={(event) => update('description', event.target.value)}
+            minLength={10}
+            maxLength={20_000}
+            rows={5}
+            required
+            className={`${inputClass()} resize-y`}
+          />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Category
+          <select
+            value={fields.categoryId}
+            onChange={(event) => update('categoryId', event.target.value)}
+            disabled={loadingOptions}
+            required
+            className={inputClass()}
+          >
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Region
+          <select
+            value={fields.regionId}
+            onChange={(event) =>
+              setFields((current) => ({
+                ...current,
+                regionId: event.target.value,
+                cityId: '',
+                destinationId: '',
+              }))
+            }
+            disabled={loadingOptions}
+            className={inputClass()}
+          >
+            {regions.map((region) => (
+              <option key={region.id} value={region.id}>
+                {region.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          City
+          <select
+            value={fields.cityId}
+            onChange={(event) =>
+              setFields((current) => ({
+                ...current,
+                cityId: event.target.value,
+                destinationId: '',
+              }))
+            }
+            disabled={loadingOptions || !fields.regionId}
+            required
+            className={inputClass()}
+          >
+            {availableCities.map((city) => (
+              <option key={city.id} value={city.id}>
+                {city.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Destination{' '}
+          <span className="font-normal text-slate-500">(optional)</span>
+          <select
+            value={fields.destinationId}
+            onChange={(event) => update('destinationId', event.target.value)}
+            disabled={!fields.cityId}
+            className={inputClass()}
+          >
+            <option value="">No destination selected</option>
+            {destinations.map((destination) => (
+              <option key={destination.id} value={destination.id}>
+                {destination.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
+          Address line 1
+          <input
+            value={fields.addressLine1}
+            onChange={(event) => update('addressLine1', event.target.value)}
+            maxLength={240}
+            required
+            className={inputClass()}
+          />
+        </label>
+        <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
+          Address line 2{' '}
+          <span className="font-normal text-slate-500">(optional)</span>
+          <input
+            value={fields.addressLine2}
+            onChange={(event) => update('addressLine2', event.target.value)}
+            maxLength={240}
+            className={inputClass()}
+          />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Neighborhood{' '}
+          <span className="font-normal text-slate-500">(optional)</span>
+          <input
+            value={fields.neighborhood}
+            onChange={(event) => update('neighborhood', event.target.value)}
+            maxLength={120}
+            className={inputClass()}
+          />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Postal code{' '}
+          <span className="font-normal text-slate-500">(optional)</span>
+          <input
+            value={fields.postalCode}
+            onChange={(event) => update('postalCode', event.target.value)}
+            maxLength={40}
+            className={inputClass()}
+          />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Latitude
+          <input
+            inputMode="decimal"
+            value={fields.latitude}
+            onChange={(event) => update('latitude', event.target.value)}
+            className={inputClass()}
+          />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Longitude
+          <input
+            inputMode="decimal"
+            value={fields.longitude}
+            onChange={(event) => update('longitude', event.target.value)}
+            className={inputClass()}
+          />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Phone <span className="font-normal text-slate-500">(optional)</span>
+          <input
+            type="tel"
+            value={fields.phone}
+            onChange={(event) => update('phone', event.target.value)}
+            maxLength={40}
+            className={inputClass()}
+          />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Email <span className="font-normal text-slate-500">(optional)</span>
+          <input
+            type="email"
+            value={fields.email}
+            onChange={(event) => update('email', event.target.value)}
+            maxLength={254}
+            className={inputClass()}
+          />
+        </label>
+        <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
+          Website <span className="font-normal text-slate-500">(optional)</span>
+          <input
+            type="url"
+            value={fields.website}
+            onChange={(event) => update('website', event.target.value)}
+            maxLength={2048}
+            className={inputClass()}
+          />
+        </label>
+      </div>
+      <button
+        type="submit"
+        disabled={saving || loadingOptions}
+        className="mt-6 inline-flex items-center gap-2 rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {saving ? (
+          <>
+            <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Saving...
+          </>
+        ) : (
+          'Save profile'
+        )}
+      </button>
+    </form>
+  );
+}
+
+export function BusinessWorkspaceClient({
+  businessId,
+}: {
+  businessId: string;
+}) {
+  const [business, setBusiness] = useState<ManagedBusiness | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadBusiness() {
+    setLoading(true);
+    setError(null);
+    try {
+      setBusiness(await getManagedBusiness(businessId));
+    } catch (requestError) {
+      setBusiness(null);
+      setError(
+        requestErrorMessage(
+          requestError,
+          'We could not load this business workspace.',
+        ),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadBusiness();
+  }, [businessId]);
+
+  if (loading)
+    return (
+      <main className="bg-slate-50">
+        <Container className="py-12 text-sm text-slate-500">
+          Loading business workspace...
+        </Container>
+      </main>
+    );
+  if (!business)
+    return (
+      <main className="bg-slate-50">
+        <Container className="py-12">
+          <p
+            role="alert"
+            className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900"
+          >
+            {error ?? 'Business not found.'}
+          </p>
+          <Link
+            href="/businesses/manage"
+            className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            My Businesses
+          </Link>
+        </Container>
+      </main>
+    );
+
+  const location = [
+    business.addressLine1,
+    business.neighborhood,
+    business.city.name,
+    business.destination?.name,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    <main className="bg-slate-50">
+      <Container className="py-8 sm:py-10">
+        <Link
+          href="/businesses/manage"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          My Businesses
+        </Link>
+        <section className="mt-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-highland">
+                Business workspace · {business.currentMember.role.toLowerCase()}
+              </p>
+              <h1 className="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">
+                {business.name}
+              </h1>
+              <p className="mt-2 flex items-start gap-1.5 text-sm text-slate-600">
+                <MapPin
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                  aria-hidden="true"
+                />
+                {location}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs font-semibold">
+              <span
+                className={`rounded-md px-2.5 py-1 ${statusTone(business.status)}`}
+              >
+                {business.status}
+              </span>
+              <span className="rounded-md bg-slate-100 px-2.5 py-1 text-slate-700">
+                {verificationLabel(business.verificationSummary)}
+              </span>
+            </div>
+          </div>
+          {business.status === 'SUSPENDED' ? (
+            <p className="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+              This business is suspended. History remains available, but no new
+              booking setup action is offered here.
+            </p>
+          ) : null}
+          {business.verificationSummary === 'NOT_SUBMITTED' ? (
+            <p className="mt-5 rounded-md bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+              Verification has not been submitted. Private document upload and
+              verification submission will be added in Phase 12C; this workspace
+              does not submit a document-less request.
+            </p>
+          ) : null}
+        </section>
+        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_19rem]">
+          <div className="space-y-6">
+            <ProfileEditor business={business} onSaved={loadBusiness} />
+            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-bold text-slate-950">
+                Available workspace areas
+              </h2>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href={`/businesses/${business.id}/bookings`}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+                >
+                  Bookings
+                </Link>
+                <Link
+                  href={`/businesses/${business.id}/payments`}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+                >
+                  Payments
+                </Link>
+                <Link
+                  href="/messages"
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+                >
+                  Messages
+                </Link>
+              </div>
+              <p className="mt-4 text-sm leading-6 text-slate-600">
+                Services, media, availability, verification document handling,
+                reviews, and settings are deliberately deferred to later Phase
+                12 work.
+              </p>
+            </section>
+          </div>
+          <aside className="space-y-6">
+            <SetupChecklist business={business} />
+            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center gap-2">
+                <ShieldCheck
+                  className="h-5 w-5 text-highland"
+                  aria-hidden="true"
+                />
+                <h2 className="font-bold text-slate-950">Verification</h2>
+              </div>
+              <p className="mt-3 text-sm text-slate-600">
+                Current state:{' '}
+                <strong>
+                  {verificationLabel(business.verificationSummary)}
+                </strong>
+              </p>
+            </section>
+          </aside>
+        </div>
+      </Container>
+    </main>
+  );
+}

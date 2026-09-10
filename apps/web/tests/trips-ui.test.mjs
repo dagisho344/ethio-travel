@@ -92,7 +92,7 @@ void test('Trip Planner routes are protected and navigation exposes My Trips', (
     assert.match(read(path), /currentTokens/);
     assert.match(read(path), /redirect/);
   }
-  assert.match(read('components/layout/PublicLayout.tsx'), /href="\/trips"/);
+  assert.match(read('components/layout/PublicLayout.tsx'), /href: '\/trips'/);
 });
 
 void test('Trip Planner does not store session credentials in browser storage', () => {
