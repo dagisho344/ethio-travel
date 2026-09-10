@@ -6,6 +6,7 @@ import { AttractionsModule } from './attractions/attractions.module';
 import { AuthModule } from './auth/auth.module';
 import { BusinessCategoriesModule } from './business-categories/business-categories.module';
 import { BusinessMembersModule } from './business-members/business-members.module';
+import { BusinessLocationsModule } from './business-locations/business-locations.module';
 import { BusinessVerificationsModule } from './business-verifications/business-verifications.module';
 import { BusinessesModule } from './businesses/businesses.module';
 import { BookingsModule } from './bookings/bookings.module';
@@ -51,6 +52,7 @@ import { UsersModule } from './users/users.module';
     BusinessCategoriesModule,
     BusinessesModule,
     BusinessMembersModule,
+    BusinessLocationsModule,
     BusinessVerificationsModule,
     ServiceCategoriesModule,
     ServicesModule,

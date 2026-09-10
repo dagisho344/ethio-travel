@@ -8,6 +8,7 @@ import {
 import {
   BusinessMemberRole,
   BusinessMemberStatus,
+  BusinessLocationStatus,
   BusinessStatus,
   BusinessVerificationSummary,
   LocationStatus,
@@ -80,6 +81,22 @@ export class BusinessesService {
             userId,
             role: BusinessMemberRole.OWNER,
             status: BusinessMemberStatus.ACTIVE,
+          },
+        });
+        await tx.businessLocation.create({
+          data: {
+            businessId: business.id,
+            cityId: dto.cityId,
+            destinationId: dto.destinationId ?? null,
+            label: 'Primary location',
+            addressLine1: dto.addressLine1,
+            addressLine2: dto.addressLine2 ?? null,
+            neighborhood: dto.neighborhood ?? null,
+            postalCode: dto.postalCode ?? null,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
+            timezone: 'Africa/Addis_Ababa',
+            isPrimary: true,
           },
         });
         return business;
@@ -201,10 +218,16 @@ export class BusinessesService {
       BusinessMemberRole.MANAGER,
     ]);
     const existing = await this.findAdminById(businessId);
+    const resolvedDestinationId =
+      dto.destinationId !== undefined
+        ? (dto.destinationId ?? undefined)
+        : dto.cityId && dto.cityId !== existing.cityId
+          ? undefined
+          : (existing.destinationId ?? undefined);
     await this.validateLocationAndCategory(
       dto.cityId ?? existing.cityId,
       dto.categoryId ?? existing.categoryId,
-      dto.destinationId ?? existing.destinationId ?? undefined,
+      resolvedDestinationId,
     );
     const slug = dto.slug ?? (dto.name ? buildSlug(dto.name) : undefined);
     if (
@@ -217,10 +240,36 @@ export class BusinessesService {
         businessId,
       );
     try {
-      return await this.prisma.business.update({
-        where: { id: businessId },
-        data: { ...dto, slug },
-        include: publicInclude,
+      return await this.prisma.$transaction(async (tx) => {
+        const business = await tx.business.update({
+          where: { id: businessId },
+          data: { ...dto, slug },
+          include: publicInclude,
+        });
+        const primaryLocation = await tx.businessLocation.findFirst({
+          where: {
+            businessId,
+            isPrimary: true,
+            status: BusinessLocationStatus.ACTIVE,
+          },
+        });
+        if (!primaryLocation) {
+          throw new ConflictException('Business primary location is required.');
+        }
+        await tx.businessLocation.update({
+          where: { id: primaryLocation.id },
+          data: {
+            cityId: business.cityId,
+            destinationId: business.destinationId,
+            addressLine1: business.addressLine1,
+            addressLine2: business.addressLine2,
+            neighborhood: business.neighborhood,
+            postalCode: business.postalCode,
+            latitude: business.latitude,
+            longitude: business.longitude,
+          },
+        });
+        return business;
       });
     } catch (error) {
       this.throwSlugConflict(error);
@@ -286,10 +335,16 @@ export class BusinessesService {
       throw new ConflictException(
         'ACTIVE status is controlled by verification approval.',
       );
+    const resolvedDestinationId =
+      dto.destinationId !== undefined
+        ? (dto.destinationId ?? undefined)
+        : dto.cityId && dto.cityId !== existing.cityId
+          ? undefined
+          : (existing.destinationId ?? undefined);
     await this.validateLocationAndCategory(
       dto.cityId ?? existing.cityId,
       dto.categoryId ?? existing.categoryId,
-      dto.destinationId ?? existing.destinationId ?? undefined,
+      resolvedDestinationId,
     );
     const slug = dto.slug ?? (dto.name ? buildSlug(dto.name) : undefined);
     if (
@@ -298,21 +353,46 @@ export class BusinessesService {
     )
       await this.ensureSlugAvailable(dto.cityId ?? existing.cityId, slug, id);
     const now = new Date();
-    return this.prisma.business.update({
-      where: { id },
-      data: {
-        ...dto,
-        slug,
-        suspendedAt:
-          dto.status === BusinessStatus.SUSPENDED && !existing.suspendedAt
-            ? now
-            : undefined,
-        archivedAt:
-          dto.status === BusinessStatus.ARCHIVED && !existing.archivedAt
-            ? now
-            : undefined,
-      },
-      include: publicInclude,
+    return this.prisma.$transaction(async (tx) => {
+      const business = await tx.business.update({
+        where: { id },
+        data: {
+          ...dto,
+          slug,
+          suspendedAt:
+            dto.status === BusinessStatus.SUSPENDED && !existing.suspendedAt
+              ? now
+              : undefined,
+          archivedAt:
+            dto.status === BusinessStatus.ARCHIVED && !existing.archivedAt
+              ? now
+              : undefined,
+        },
+        include: publicInclude,
+      });
+      const primaryLocation = await tx.businessLocation.findFirst({
+        where: {
+          businessId: id,
+          isPrimary: true,
+          status: BusinessLocationStatus.ACTIVE,
+        },
+      });
+      if (primaryLocation) {
+        await tx.businessLocation.update({
+          where: { id: primaryLocation.id },
+          data: {
+            cityId: business.cityId,
+            destinationId: business.destinationId,
+            addressLine1: business.addressLine1,
+            addressLine2: business.addressLine2,
+            neighborhood: business.neighborhood,
+            postalCode: business.postalCode,
+            latitude: business.latitude,
+            longitude: business.longitude,
+          },
+        });
+      }
+      return business;
     });
   }
 

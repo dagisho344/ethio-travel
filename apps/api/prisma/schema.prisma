@@ -188,10 +188,11 @@ model City {
   status       LocationStatus @default(DRAFT)
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
-  region       Region         @relation(fields: [regionId], references: [id], onDelete: Restrict)
-  destinations Destination[]
-  businesses   Business[]
-  originTrips  Trip[]         @relation("TripOriginCity")
+  region            Region             @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  destinations      Destination[]
+  businesses        Business[]         @relation("BusinessCity")
+  businessLocations BusinessLocation[] @relation("BusinessLocationCity")
+  originTrips       Trip[]             @relation("TripOriginCity")
   destinationTrips Trip[]     @relation("TripDestinationCity")
 
   @@unique([regionId, slug])
@@ -217,10 +218,11 @@ model Destination {
   archivedAt       DateTime?          @map("archived_at")
   createdAt        DateTime           @default(now()) @map("created_at")
   updatedAt        DateTime           @updatedAt @map("updated_at")
-  city             City               @relation(fields: [cityId], references: [id], onDelete: Restrict)
-  attractions      Attraction[]
-  businesses       Business[]
-  media            DestinationMedia[]
+  city              City               @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  attractions       Attraction[]
+  businesses        Business[]         @relation("BusinessDestination")
+  businessLocations BusinessLocation[] @relation("BusinessLocationDestination")
+  media             DestinationMedia[]
 
   favorites Favorite[]
   reviews   Review[]
@@ -274,6 +276,22 @@ enum BusinessStatus {
   ACTIVE
   SUSPENDED
   ARCHIVED
+}
+
+enum BusinessLocationStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum BusinessWeekday {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
 }
 
 enum BusinessVerificationSummary {
@@ -352,10 +370,11 @@ model Business {
   createdAt           DateTime                    @default(now()) @map("created_at")
   updatedAt           DateTime                    @updatedAt @map("updated_at")
 
-  city          City                   @relation(fields: [cityId], references: [id], onDelete: Restrict)
-  destination   Destination?           @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  city          City                   @relation("BusinessCity", fields: [cityId], references: [id], onDelete: Restrict)
+  destination   Destination?           @relation("BusinessDestination", fields: [destinationId], references: [id], onDelete: SetNull)
   category      BusinessCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   members       BusinessMember[]
+  locations     BusinessLocation[]
   verifications BusinessVerification[]
   services      Service[]
   media         BusinessMedia[]
@@ -378,6 +397,56 @@ model Business {
   @@map("businesses")
 }
 
+model BusinessLocation {
+  id            String                 @id @default(uuid()) @db.Uuid
+  businessId    String                 @map("business_id") @db.Uuid
+  cityId        String                 @map("city_id") @db.Uuid
+  destinationId String?                @map("destination_id") @db.Uuid
+  label         String                 @db.VarChar(120)
+  addressLine1  String                 @map("address_line_1") @db.VarChar(240)
+  addressLine2  String?                @map("address_line_2") @db.VarChar(240)
+  neighborhood  String?                @db.VarChar(120)
+  postalCode    String?                @map("postal_code") @db.VarChar(40)
+  latitude      Decimal                @db.Decimal(9, 6)
+  longitude     Decimal                @db.Decimal(9, 6)
+  timezone      String                 @default("Africa/Addis_Ababa") @db.VarChar(64)
+  isPrimary     Boolean                @default(false) @map("is_primary")
+  status        BusinessLocationStatus @default(ACTIVE)
+  archivedAt    DateTime?              @map("archived_at")
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
+
+  business       Business                       @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  city           City                           @relation("BusinessLocationCity", fields: [cityId], references: [id], onDelete: Restrict)
+  destination    Destination?                   @relation("BusinessLocationDestination", fields: [destinationId], references: [id], onDelete: Restrict)
+  operatingHours BusinessLocationOperatingHour[]
+
+  @@unique([businessId, label])
+  @@index([businessId])
+  @@index([businessId, status])
+  @@index([cityId])
+  @@index([destinationId])
+  @@index([latitude, longitude])
+  @@index([businessId, isPrimary])
+  @@map("business_locations")
+}
+
+model BusinessLocationOperatingHour {
+  id         String          @id @default(uuid()) @db.Uuid
+  locationId String          @map("location_id") @db.Uuid
+  dayOfWeek  BusinessWeekday @map("day_of_week")
+  isClosed   Boolean         @default(false) @map("is_closed")
+  opensAt    String?         @map("opens_at") @db.Char(5)
+  closesAt   String?         @map("closes_at") @db.Char(5)
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+
+  location BusinessLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@unique([locationId, dayOfWeek])
+  @@index([locationId, dayOfWeek])
+  @@map("business_location_operating_hours")
+}
 model BusinessMember {
   id         String               @id @default(uuid()) @db.Uuid
   businessId String               @map("business_id") @db.Uuid

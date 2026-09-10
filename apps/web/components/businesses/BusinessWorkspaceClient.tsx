@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import {
   ArrowLeft,
-  Building2,
   CheckCircle2,
   Circle,
   LoaderCircle,
@@ -23,6 +22,7 @@ import type {
   ManagedBusiness,
 } from '../../lib/business-management';
 import { getJson } from '../../lib/api';
+import { getLocations } from '../../lib/business-locations';
 import type { PaginatedResponse } from '../../lib/types';
 import { Container } from '../ui/Container';
 
@@ -79,7 +79,13 @@ function statusTone(status: string): string {
   return 'bg-amber-50 text-amber-900';
 }
 
-function SetupChecklist({ business }: { business: ManagedBusiness }) {
+function SetupChecklist({
+  business,
+  hasPrimaryLocation,
+}: {
+  business: ManagedBusiness;
+  hasPrimaryLocation: boolean;
+}) {
   const checks = [
     {
       label: 'Business details',
@@ -89,7 +95,7 @@ function SetupChecklist({ business }: { business: ManagedBusiness }) {
     },
     {
       label: 'Location',
-      complete: Boolean(business.city.id && business.addressLine1),
+      complete: hasPrimaryLocation,
     },
     {
       label: 'Contact information',
@@ -554,12 +560,22 @@ export function BusinessWorkspaceClient({
   const [business, setBusiness] = useState<ManagedBusiness | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasPrimaryLocation, setHasPrimaryLocation] = useState(false);
 
   async function loadBusiness() {
     setLoading(true);
     setError(null);
     try {
-      setBusiness(await getManagedBusiness(businessId));
+      const [loadedBusiness, locations] = await Promise.all([
+        getManagedBusiness(businessId),
+        getLocations(businessId).catch(() => []),
+      ]);
+      setBusiness(loadedBusiness);
+      setHasPrimaryLocation(
+        locations.some(
+          (location) => location.isPrimary && location.status === 'ACTIVE',
+        ),
+      );
     } catch (requestError) {
       setBusiness(null);
       setError(
@@ -675,6 +691,12 @@ export function BusinessWorkspaceClient({
               </h2>
               <div className="mt-4 flex flex-wrap gap-3">
                 <Link
+                  href={`/businesses/manage/${business.id}/locations`}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+                >
+                  Locations
+                </Link>
+                <Link
                   href={`/businesses/${business.id}/bookings`}
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
                 >
@@ -701,7 +723,10 @@ export function BusinessWorkspaceClient({
             </section>
           </div>
           <aside className="space-y-6">
-            <SetupChecklist business={business} />
+            <SetupChecklist
+              business={business}
+              hasPrimaryLocation={hasPrimaryLocation}
+            />
             <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2">
                 <ShieldCheck

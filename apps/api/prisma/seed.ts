@@ -2,6 +2,7 @@ import {
   BookingMode,
   BusinessMemberRole,
   BusinessMemberStatus,
+  BusinessLocationStatus,
   BusinessStatus,
   BusinessVerificationSummary,
   LocationStatus,
@@ -633,6 +634,49 @@ async function seedDevelopmentDemoData(): Promise<void> {
     },
   });
 
+  await prisma.businessLocation.updateMany({
+    where: {
+      businessId: business.id,
+      isPrimary: true,
+      label: { not: 'Primary location' },
+    },
+    data: { isPrimary: false },
+  });
+
+  await prisma.businessLocation.upsert({
+    where: {
+      businessId_label: {
+        businessId: business.id,
+        label: 'Primary location',
+      },
+    },
+    create: {
+      businessId: business.id,
+      cityId: city.id,
+      label: 'Primary location',
+      addressLine1: 'Bole Road demo address',
+      neighborhood: 'Bole',
+      latitude: 8.99,
+      longitude: 38.79,
+      timezone: 'Africa/Addis_Ababa',
+      isPrimary: true,
+      status: BusinessLocationStatus.ACTIVE,
+    },
+    update: {
+      cityId: city.id,
+      destinationId: null,
+      addressLine1: 'Bole Road demo address',
+      addressLine2: null,
+      neighborhood: 'Bole',
+      postalCode: null,
+      latitude: 8.99,
+      longitude: 38.79,
+      timezone: 'Africa/Addis_Ababa',
+      isPrimary: true,
+      status: BusinessLocationStatus.ACTIVE,
+      archivedAt: null,
+    },
+  });
   await prisma.businessMember.upsert({
     create: {
       businessId: business.id,

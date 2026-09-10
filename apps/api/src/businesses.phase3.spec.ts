@@ -42,6 +42,8 @@ function prismaMock() {
   Object.assign(tx, {
     business: delegate(),
     businessCategory: delegate(),
+    businessLocation: delegate(),
+    businessLocationOperatingHour: delegate(),
     businessMember: delegate(),
     businessVerification: delegate(),
     city: delegate(),
@@ -94,6 +96,16 @@ describe('Phase 3 business services', () => {
           role: BusinessMemberRole.OWNER,
           status: BusinessMemberStatus.ACTIVE,
           userId,
+        }),
+      }),
+    );
+    expect(prisma.businessLocation.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          businessId,
+          cityId,
+          isPrimary: true,
+          label: 'Primary location',
         }),
       }),
     );
@@ -290,6 +302,9 @@ describe('Phase 3 business services', () => {
     managerPrisma.city.findUnique.mockResolvedValue({ id: cityId });
     managerPrisma.businessCategory.findFirst.mockResolvedValue({
       id: categoryId,
+    });
+    managerPrisma.businessLocation.findFirst.mockResolvedValue({
+      id: 'primary-location',
     });
     const managerService = new BusinessesService(
       managerPrisma as PrismaService,
