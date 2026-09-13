@@ -31,6 +31,7 @@ model User {
   submittedBusinessVerifications BusinessVerification[]   @relation("BusinessVerificationSubmittedBy")
   reviewedBusinessVerifications  BusinessVerification[]   @relation("BusinessVerificationReviewedBy")
   mediaAssets                    MediaAsset[]
+  uploadedVerificationDocuments  VerificationDocument[] @relation("VerificationDocumentUploadedBy")
 
   favorites            Favorite[]
   reviewsAuthored      Review[]               @relation("ReviewAuthor")
@@ -314,6 +315,7 @@ enum BusinessMemberStatus {
 }
 
 enum VerificationRequestStatus {
+  DRAFT
   PENDING
   APPROVED
   REJECTED
@@ -473,7 +475,7 @@ model BusinessVerification {
   businessId        String                    @map("business_id") @db.Uuid
   submittedByUserId String                    @map("submitted_by_user_id") @db.Uuid
   status            VerificationRequestStatus @default(PENDING)
-  submittedAt       DateTime                  @default(now()) @map("submitted_at")
+  submittedAt       DateTime?                 @map("submitted_at")
   reviewedAt        DateTime?                 @map("reviewed_at")
   reviewedByUserId  String?                   @map("reviewed_by_user_id") @db.Uuid
   rejectionReason   String?                   @map("rejection_reason")
@@ -502,12 +504,19 @@ model VerificationDocument {
   originalFilename String                   @map("original_filename") @db.VarChar(255)
   mimeType         String                   @map("mime_type") @db.VarChar(120)
   sizeBytes        Int                      @map("size_bytes")
+  status           MediaStatus              @default(PENDING_UPLOAD)
+  uploadedByUserId String?                  @map("uploaded_by_user_id") @db.Uuid
+  finalizedAt      DateTime?                @map("finalized_at")
   createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
 
   verification BusinessVerification @relation(fields: [verificationId], references: [id], onDelete: Restrict)
+  uploadedBy   User?                @relation("VerificationDocumentUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
 
   @@index([verificationId])
   @@index([type])
+  @@index([status])
+  @@index([uploadedByUserId])
   @@map("verification_documents")
 }
 

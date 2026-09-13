@@ -1,4 +1,5 @@
 export type AiProviderName = 'DISABLED' | 'OPENAI_COMPATIBLE';
+export type StorageProviderName = 'LOCAL' | 'S3';
 
 export interface AppConfig {
   aiApiKey: string;
@@ -20,6 +21,17 @@ export interface AppConfig {
   port: number;
   redisUrl: string;
   refreshTokenExpiresDays: number;
+  storageDevelopmentRoot: string;
+  storageProvider: StorageProviderName;
+  s3AccessKeyId: string;
+  s3BucketPrivate: string;
+  s3BucketPublic: string;
+  s3Endpoint: string;
+  s3ForcePathStyle: boolean;
+  s3PublicBaseUrl: string;
+  s3Region: string;
+  s3SecretAccessKey: string;
+  s3SignedUrlTtlSeconds: number;
 }
 
 export const appConfig = (): AppConfig => ({
@@ -48,4 +60,16 @@ export const appConfig = (): AppConfig => ({
   port: Number(process.env.PORT ?? 3001),
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
   refreshTokenExpiresDays: Number(process.env.REFRESH_TOKEN_EXPIRES_DAYS ?? 30),
+  storageDevelopmentRoot: process.env.STORAGE_DEVELOPMENT_ROOT ?? 'var/storage',
+  storageProvider:
+    (process.env.STORAGE_PROVIDER as StorageProviderName) ?? 'LOCAL',
+  s3AccessKeyId: process.env.S3_ACCESS_KEY_ID ?? '',
+  s3BucketPrivate: process.env.S3_BUCKET_PRIVATE ?? '',
+  s3BucketPublic: process.env.S3_BUCKET_PUBLIC ?? '',
+  s3Endpoint: process.env.S3_ENDPOINT ?? '',
+  s3ForcePathStyle: process.env.S3_FORCE_PATH_STYLE !== 'false',
+  s3PublicBaseUrl: process.env.S3_PUBLIC_BASE_URL ?? '',
+  s3Region: process.env.S3_REGION ?? '',
+  s3SecretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '',
+  s3SignedUrlTtlSeconds: Number(process.env.S3_SIGNED_URL_TTL_SECONDS ?? 300),
 });

@@ -101,14 +101,28 @@ function SetupChecklist({
       label: 'Contact information',
       complete: Boolean(business.phone || business.email || business.website),
     },
-    { label: 'Services', complete: false, note: 'Available in Phase 12D' },
-    { label: 'Media', complete: false, note: 'Available in Phase 12C' },
+    {
+      label: 'Services',
+      complete: (business.setup?.serviceCount ?? 0) > 0,
+      note:
+        (business.setup?.serviceCount ?? 0) > 0
+          ? undefined
+          : 'No service records yet.',
+    },
+    {
+      label: 'Media',
+      complete: (business.setup?.activeMediaCount ?? 0) > 0,
+      note:
+        (business.setup?.activeMediaCount ?? 0) > 0
+          ? undefined
+          : 'Add a logo, cover, or gallery image.',
+    },
     {
       label: 'Verification',
       complete: business.verificationSummary === 'VERIFIED',
       note:
         business.verificationSummary === 'NOT_SUBMITTED'
-          ? 'Documents and submission UI arrive in Phase 12C'
+          ? 'Upload the required private documents to submit for review.'
           : undefined,
     },
   ];
@@ -676,9 +690,8 @@ export function BusinessWorkspaceClient({
           ) : null}
           {business.verificationSummary === 'NOT_SUBMITTED' ? (
             <p className="mt-5 rounded-md bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-              Verification has not been submitted. Private document upload and
-              verification submission will be added in Phase 12C; this workspace
-              does not submit a document-less request.
+              Verification has not been submitted. Upload the required private
+              documents before sending a request for review.
             </p>
           ) : null}
         </section>
@@ -690,6 +703,18 @@ export function BusinessWorkspaceClient({
                 Available workspace areas
               </h2>
               <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  href={`/businesses/manage/${business.id}/media`}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+                >
+                  Media
+                </Link>
+                <Link
+                  href={`/businesses/manage/${business.id}/verification`}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+                >
+                  Verification
+                </Link>
                 <Link
                   href={`/businesses/manage/${business.id}/locations`}
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
@@ -716,9 +741,8 @@ export function BusinessWorkspaceClient({
                 </Link>
               </div>
               <p className="mt-4 text-sm leading-6 text-slate-600">
-                Services, media, availability, verification document handling,
-                reviews, and settings are deliberately deferred to later Phase
-                12 work.
+                Services, availability, reviews, and dashboard reporting remain
+                later Phase 12 work. Media and verification are available here.
               </p>
             </section>
           </div>

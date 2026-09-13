@@ -79,7 +79,7 @@ export class CreateBusinessLocationDto {
   @IsString()
   @MinLength(3)
   @MaxLength(64)
-  @Matches(/^[A-Za-z_+-]+(?:\/[A-Za-z_+\-]+)+$/)
+  @Matches(/^[A-Za-z_+-]+(?:\/[A-Za-z_+-]+)+$/)
   @IsOptional()
   timezone?: string;
 }
@@ -147,7 +147,7 @@ export class UpdateBusinessLocationDto {
   @IsString()
   @MinLength(3)
   @MaxLength(64)
-  @Matches(/^[A-Za-z_+-]+(?:\/[A-Za-z_+\-]+)+$/)
+  @Matches(/^[A-Za-z_+-]+(?:\/[A-Za-z_+-]+)+$/)
   @IsOptional()
   timezone?: string;
 

@@ -1,7 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { VerificationDocumentType } from '@prisma/client';
 
 export class SubmitBusinessVerificationDto {}
+
+export class UploadVerificationDocumentDto {
+  @ApiProperty({ enum: VerificationDocumentType })
+  @IsEnum(VerificationDocumentType)
+  type!: VerificationDocumentType;
+}
 
 export class ApproveBusinessVerificationDto {
   @ApiPropertyOptional({ maxLength: 5000 })
@@ -17,6 +30,7 @@ export class RejectBusinessVerificationDto {
   @MinLength(3)
   @MaxLength(5000)
   rejectionReason!: string;
+
   @ApiPropertyOptional({ maxLength: 5000 })
   @IsOptional()
   @IsString()

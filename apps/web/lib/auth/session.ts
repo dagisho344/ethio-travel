@@ -210,6 +210,66 @@ export async function authenticatedBackendJson<T>(
   const data = await backendJsonWithAccess<T>(path, auth.accessToken, init);
   return { data, auth };
 }
+async function backendResponseWithAccess(
+  path: string,
+  accessToken: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: {
+      ...(init.headers ?? {}),
+      authorization: `Bearer ${accessToken}`,
+    },
+    cache: 'no-store',
+  });
+  if (response.ok) return response;
+  const text = await response.text();
+  let data: BackendError | null = null;
+  if (text) {
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (typeof parsed === 'object' && parsed !== null) data = parsed;
+    } catch {
+      // The upstream response body is not exposed to the browser.
+    }
+  }
+  const message = Array.isArray(data?.message)
+    ? data.message.join(' ')
+    : data?.message;
+  throw new BffAuthError(response.status, message ?? 'Request failed.');
+}
+
+/**
+ * Uses the same HttpOnly-cookie refresh flow as authenticatedBackendJson while
+ * preserving multipart or binary response bodies for server-side BFF proxies.
+ */
+export async function authenticatedBackendResponse(
+  path: string,
+  init: RequestInit = {},
+): Promise<{ response: Response; auth?: BackendAuthResponse }> {
+  const tokens = await currentTokens();
+  if (tokens.accessToken) {
+    try {
+      return {
+        response: await backendResponseWithAccess(
+          path,
+          tokens.accessToken,
+          init,
+        ),
+      };
+    } catch (error) {
+      if (!(error instanceof BffAuthError) || error.status !== 401) throw error;
+    }
+  }
+  if (!tokens.refreshToken)
+    throw new BffAuthError(401, 'Authentication required.');
+  const auth = await refreshWithBackend(tokens.refreshToken);
+  return {
+    response: await backendResponseWithAccess(path, auth.accessToken, init),
+    auth,
+  };
+}
 export async function currentTokens() {
   const store = await cookies();
   return {

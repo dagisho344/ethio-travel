@@ -16,6 +16,9 @@ const SENSITIVE_HEADER_PATTERNS = [
   /refresh.*token/i,
   /api.*key/i,
   /webhook.*signature/i,
+  /^x-amz-/i,
+  /s3.*(secret|access)/i,
+  /(signed.*url|signature|credential|security-token)/i,
 ];
 
 export type SafeHeaders = Record<string, string | string[] | undefined>;
@@ -55,6 +58,9 @@ export function createHttpLoggerOptions(nodeEnv: string | undefined): Options {
         'req.headers.x-ethiotravel-signature',
         'req.headers.stripe-signature',
         'req.headers.refresh-token',
+        'req.headers.x-amz-security-token',
+        'req.headers.x-amz-credential',
+        'req.headers.x-amz-signature',
         'req.raw.headers.authorization',
         'req.raw.headers.cookie',
         'req.raw.headers.set-cookie',
@@ -65,6 +71,9 @@ export function createHttpLoggerOptions(nodeEnv: string | undefined): Options {
         'req.raw.headers.x-ethiotravel-signature',
         'req.raw.headers.stripe-signature',
         'req.raw.headers.refresh-token',
+        'req.raw.headers.x-amz-security-token',
+        'req.raw.headers.x-amz-credential',
+        'req.raw.headers.x-amz-signature',
         'res.headers.set-cookie',
       ],
     },

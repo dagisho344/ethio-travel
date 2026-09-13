@@ -91,6 +91,7 @@ describe('Phase 3 business routes', () => {
         findMineById: () => Promise.resolve({ id: 'verification' }),
         reject: () => Promise.resolve({ id: 'verification' }),
         submit: () => Promise.resolve({ id: 'verification' }),
+        submitCurrentDraft: () => Promise.resolve({ id: 'verification' }),
       })
       .overrideGuard(JwtAuthGuard)
       .useClass(TestJwtGuard)

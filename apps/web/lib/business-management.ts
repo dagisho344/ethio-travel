@@ -39,6 +39,7 @@ export type ManagedBusiness = {
   currentMember: { role: ManagedBusinessRole; status: 'ACTIVE' };
   createdAt: string;
   updatedAt: string;
+  setup?: { serviceCount: number; activeMediaCount: number };
 };
 
 export type BusinessDraftInput = {

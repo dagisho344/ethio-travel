@@ -6,6 +6,7 @@ import { AttractionsModule } from './attractions/attractions.module';
 import { AuthModule } from './auth/auth.module';
 import { BusinessCategoriesModule } from './business-categories/business-categories.module';
 import { BusinessMembersModule } from './business-members/business-members.module';
+import { BusinessMediaModule } from './business-media/business-media.module';
 import { BusinessLocationsModule } from './business-locations/business-locations.module';
 import { BusinessVerificationsModule } from './business-verifications/business-verifications.module';
 import { BusinessesModule } from './businesses/businesses.module';
@@ -27,6 +28,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { ServiceCategoriesModule } from './service-categories/service-categories.module';
 import { ServicesModule } from './services/services.module';
 import { SearchModule } from './search/search.module';
+import { StorageModule } from './storage/storage.module';
 import { TripsModule } from './trips/trips.module';
 import { RegionsModule } from './regions/regions.module';
 import { UsersModule } from './users/users.module';
@@ -42,6 +44,7 @@ import { UsersModule } from './users/users.module';
       pinoHttp: createHttpLoggerOptions(process.env.NODE_ENV),
     }),
     PrismaModule,
+    StorageModule,
     AiModule,
     RedisModule,
     HealthModule,
@@ -52,6 +55,7 @@ import { UsersModule } from './users/users.module';
     BusinessCategoriesModule,
     BusinessesModule,
     BusinessMembersModule,
+    BusinessMediaModule,
     BusinessLocationsModule,
     BusinessVerificationsModule,
     ServiceCategoriesModule,

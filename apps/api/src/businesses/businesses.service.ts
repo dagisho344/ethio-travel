@@ -12,6 +12,9 @@ import {
   BusinessStatus,
   BusinessVerificationSummary,
   LocationStatus,
+  MediaRole,
+  MediaStatus,
+  MediaVisibility,
   Prisma,
   PublicationStatus,
   UserStatus,
@@ -35,6 +38,13 @@ const publicInclude = {
   category: true,
   city: { include: { region: true } },
   destination: true,
+  media: {
+    where: {
+      media: { status: MediaStatus.READY, visibility: MediaVisibility.PUBLIC },
+    },
+    include: { media: true },
+    orderBy: [{ role: 'asc' }, { sortOrder: 'asc' }],
+  },
 } satisfies Prisma.BusinessInclude;
 type BusinessRecord = Prisma.BusinessGetPayload<{
   include: typeof publicInclude;
@@ -46,6 +56,7 @@ type CurrentBusinessMember = {
 };
 type MyBusinessRecord = BusinessRecord & {
   currentMember: CurrentBusinessMember;
+  setup?: { serviceCount: number; activeMediaCount: number };
 };
 
 @Injectable()
@@ -202,9 +213,18 @@ export class BusinessesService {
       BusinessMemberRole.STAFF,
     ]);
     const business = await this.findAdminById(businessId);
+    const [serviceCount, activeMediaCount] = await this.prisma.$transaction([
+      this.prisma.service.count({
+        where: { businessId, status: { not: 'ARCHIVED' } },
+      }),
+      this.prisma.businessMedia.count({
+        where: { businessId, media: { status: MediaStatus.READY } },
+      }),
+    ]);
     return {
       ...business,
       currentMember: { role: member.role, status: member.status },
+      setup: { serviceCount, activeMediaCount },
     };
   }
 
@@ -516,6 +536,26 @@ export class BusinessesService {
       destination: business.destination
         ? { name: business.destination.name, slug: business.destination.slug }
         : null,
+      media: {
+        logo: this.publicMediaForRole(business, MediaRole.LOGO),
+        hero: this.publicMediaForRole(business, MediaRole.HERO),
+      },
+    };
+  }
+
+  private publicMediaForRole(business: BusinessRecord, role: MediaRole) {
+    const attachment = business.media.find((item) => item.role === role);
+    if (!attachment) return null;
+    return {
+      id: attachment.media.id,
+      originalFilename: attachment.media.originalFilename,
+      mimeType: attachment.media.mimeType,
+      mediaType: attachment.media.mediaType,
+      width: attachment.media.width,
+      height: attachment.media.height,
+      altText: attachment.altText,
+      caption: attachment.caption,
+      accessPath: `/api/v1/media/public/${attachment.media.id}`,
     };
   }
 }

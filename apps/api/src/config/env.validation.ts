@@ -53,4 +53,52 @@ export const envValidationSchema = Joi.object({
     .uri({ scheme: ['redis', 'rediss'] })
     .required(),
   REFRESH_TOKEN_EXPIRES_DAYS: Joi.number().integer().min(1).default(30),
+  STORAGE_DEVELOPMENT_ROOT: Joi.string().max(1024).default('var/storage'),
+  STORAGE_PROVIDER: Joi.when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().valid('S3').required(),
+    otherwise: Joi.string().valid('LOCAL', 'S3').default('LOCAL'),
+  }),
+  S3_ACCESS_KEY_ID: Joi.when('STORAGE_PROVIDER', {
+    is: 'S3',
+    then: Joi.string().min(1).required(),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  S3_BUCKET_PRIVATE: Joi.when('STORAGE_PROVIDER', {
+    is: 'S3',
+    then: Joi.string().max(255).required(),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  S3_BUCKET_PUBLIC: Joi.when('STORAGE_PROVIDER', {
+    is: 'S3',
+    then: Joi.string().max(255).required(),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  S3_ENDPOINT: Joi.when('STORAGE_PROVIDER', {
+    is: 'S3',
+    then: Joi.string()
+      .uri({ scheme: ['http', 'https'] })
+      .required(),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  S3_FORCE_PATH_STYLE: Joi.boolean().default(true),
+  S3_PUBLIC_BASE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .allow('')
+    .optional(),
+  S3_REGION: Joi.when('STORAGE_PROVIDER', {
+    is: 'S3',
+    then: Joi.string().max(120).required(),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  S3_SECRET_ACCESS_KEY: Joi.when('STORAGE_PROVIDER', {
+    is: 'S3',
+    then: Joi.string().min(1).required(),
+    otherwise: Joi.string().allow('').optional(),
+  }),
+  S3_SIGNED_URL_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(60)
+    .max(3600)
+    .default(300),
 });

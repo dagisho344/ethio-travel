@@ -161,34 +161,20 @@ describe('Phase 3 business services', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('submits verification without documents and caches pending summary', async () => {
+  it('blocks document-less verification submission', async () => {
     const prisma = prismaMock();
     prisma.businessMember.findFirst.mockResolvedValue({ id: 'member' });
-    prisma.user.findFirst.mockResolvedValue({ id: userId });
-    prisma.business.findUnique.mockResolvedValue({
-      id: businessId,
-      status: BusinessStatus.DRAFT,
-    });
     const businesses = new BusinessesService(prisma as PrismaService);
     const service = new BusinessVerificationsService(
       prisma as PrismaService,
       businesses,
     );
 
-    await service.submit(userId, businessId);
-
-    expect(prisma.businessVerification.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          status: VerificationRequestStatus.PENDING,
-        }),
-      }),
+    await expect(service.submit(userId, businessId)).rejects.toBeInstanceOf(
+      ConflictException,
     );
-    expect(prisma.business.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { verificationSummary: BusinessVerificationSummary.PENDING },
-      }),
-    );
+    expect(prisma.businessVerification.create).not.toHaveBeenCalled();
+    expect(prisma.business.update).not.toHaveBeenCalled();
   });
 
   it('uses conditional review updates for approval', async () => {
@@ -200,6 +186,27 @@ describe('Phase 3 business services', () => {
     prisma.business.findUnique.mockResolvedValue({
       id: businessId,
       publishedAt: null,
+    });
+    prisma.businessVerification.findUniqueOrThrow.mockResolvedValue({
+      id: 'verification',
+      businessId,
+      status: VerificationRequestStatus.APPROVED,
+      submittedAt: new Date(),
+      reviewedAt: new Date(),
+      rejectionReason: null,
+      adminNotes: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      documents: [],
+      business: {
+        id: businessId,
+        name: 'Test business',
+        status: BusinessStatus.ACTIVE,
+        verificationSummary: BusinessVerificationSummary.VERIFIED,
+        locations: [],
+      },
+      submittedByUser: { id: userId, email: 'owner@example.com' },
+      reviewedByUser: { id: userId, email: 'admin@example.com' },
     });
     const businesses = new BusinessesService(prisma as PrismaService);
     const service = new BusinessVerificationsService(
