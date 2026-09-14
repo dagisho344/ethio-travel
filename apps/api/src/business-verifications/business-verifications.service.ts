@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   BusinessMemberRole,
@@ -20,6 +21,8 @@ import {
 import { randomUUID } from 'node:crypto';
 import { extname } from 'node:path';
 import { AuthenticatedUser } from '../auth/authenticated-user';
+import { AuditContext, AuditService } from '../audit/audit.service';
+import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from '../audit/audit.constants';
 import { BusinessesService } from '../businesses/businesses.service';
 import { paginate } from '../common/dto/pagination.dto';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -98,6 +101,7 @@ export class BusinessVerificationsService {
     private readonly businesses: BusinessesService,
     @Inject(STORAGE_PROVIDER) private readonly storage?: StorageProvider,
     private readonly notifications?: NotificationsService,
+    @Optional() private readonly audit?: AuditService,
   ) {}
 
   async getOrCreateDraft(userId: string, businessId: string) {
@@ -372,6 +376,7 @@ export class BusinessVerificationsService {
     admin: AuthenticatedUser,
     id: string,
     dto: ApproveBusinessVerificationDto,
+    context: AuditContext = {},
   ) {
     const verification = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.businessVerification.findUnique({
@@ -402,6 +407,17 @@ export class BusinessVerificationsService {
           publishedAt: business?.publishedAt ? undefined : now,
         },
       });
+      await this.audit?.record(tx, {
+        ...context,
+        action: AUDIT_ACTIONS.ADMIN_VERIFICATION_APPROVED,
+        actorUserId: admin.sub,
+        entityId: id,
+        entityType: AUDIT_ENTITY_TYPES.BUSINESS_VERIFICATION,
+        metadata: {
+          operation: 'APPROVE',
+          verificationStatus: VerificationRequestStatus.APPROVED,
+        },
+      });
       return tx.businessVerification.findUniqueOrThrow({
         where: { id },
         include: verificationInclude,
@@ -422,6 +438,7 @@ export class BusinessVerificationsService {
     admin: AuthenticatedUser,
     id: string,
     dto: RejectBusinessVerificationDto,
+    context: AuditContext = {},
   ) {
     const verification = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.businessVerification.findUnique({
@@ -447,6 +464,18 @@ export class BusinessVerificationsService {
           status: BusinessStatus.DRAFT,
           verificationSummary: BusinessVerificationSummary.REJECTED,
         },
+      });
+      await this.audit?.record(tx, {
+        ...context,
+        action: AUDIT_ACTIONS.ADMIN_VERIFICATION_REJECTED,
+        actorUserId: admin.sub,
+        entityId: id,
+        entityType: AUDIT_ENTITY_TYPES.BUSINESS_VERIFICATION,
+        metadata: {
+          operation: 'REJECT',
+          verificationStatus: VerificationRequestStatus.REJECTED,
+        },
+        reason: this.optional(dto.rejectionReason),
       });
       return tx.businessVerification.findUniqueOrThrow({
         where: { id },

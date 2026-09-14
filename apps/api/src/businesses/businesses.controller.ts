@@ -2,10 +2,12 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -14,6 +16,7 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Request } from 'express';
 import { AuthenticatedUser } from '../auth/authenticated-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -21,6 +24,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { AdminOnly } from '../common/utils/admin-only.decorator';
 import { AdminUpdateBusinessDto } from './dto/admin-update-business.dto';
+import { AdminActionReasonDto } from '../admin/dto/admin.dto';
 import {
   AdminBusinessQueryDto,
   BusinessQueryDto,
@@ -146,12 +150,46 @@ export class AdminBusinessesController {
   @Get(':id')
   @ApiOkResponse({ description: 'Business by id for administrators.' })
   findAdminById(@Param('id') id: string) {
-    return this.service.findAdminById(id);
+    return this.service.findAdminDetail(id);
   }
 
   @Patch(':id')
-  @ApiOkResponse({ description: 'Business updated by administrator.' })
+  @ApiOkResponse({ description: 'Business profile updated by administrator.' })
   updateAdmin(@Param('id') id: string, @Body() dto: AdminUpdateBusinessDto) {
     return this.service.updateAdmin(id, dto);
+  }
+
+  @Post(':id/suspend')
+  @HttpCode(200)
+  @ApiOkResponse({
+    description: 'Suspends a business without deleting history.',
+  })
+  suspend(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: AdminActionReasonDto,
+    @Req() request: Request,
+  ) {
+    return this.service.suspendByAdmin(actor, id, dto, {
+      correlationId: typeof request.id === 'string' ? request.id : undefined,
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
+  }
+
+  @Post(':id/restore')
+  @HttpCode(200)
+  @ApiOkResponse({ description: 'Restores a suspended business safely.' })
+  restore(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: AdminActionReasonDto,
+    @Req() request: Request,
+  ) {
+    return this.service.restoreByAdmin(actor, id, dto, {
+      correlationId: typeof request.id === 'string' ? request.id : undefined,
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
   }
 }

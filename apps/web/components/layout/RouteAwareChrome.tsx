@@ -1,7 +1,12 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { AdminPortalTopBar } from './AdminPortalTopBar';
 import { BusinessPortalTopBar } from './BusinessPortalTopBar';
+
+function isAdminPortalPath(pathname: string): boolean {
+  return pathname === '/admin' || pathname.startsWith('/admin/');
+}
 
 function isBusinessPortalPath(pathname: string): boolean {
   return (
@@ -23,16 +28,20 @@ export function RouteAwareChrome({
 }) {
   const pathname = usePathname();
   const isBusinessPortal = isBusinessPortalPath(pathname);
+  const isAdminPortal = isAdminPortalPath(pathname);
+  const nonBusinessFooter = isBusinessPortal ? null : footer;
 
   return (
     <>
-      {isBusinessPortal ? (
+      {isAdminPortal ? (
+        <AdminPortalTopBar authenticated={authenticated} />
+      ) : isBusinessPortal ? (
         <BusinessPortalTopBar authenticated={authenticated} />
       ) : (
         header
       )}
       {children}
-      {isBusinessPortal ? null : footer}
+      {isAdminPortal ? null : nonBusinessFooter}
     </>
   );
 }

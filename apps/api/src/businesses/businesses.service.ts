@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   BusinessMemberRole,
@@ -26,6 +27,10 @@ import {
 } from '../common/dto/pagination.dto';
 import { buildSlug } from '../common/utils/slug.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditContext, AuditService } from '../audit/audit.service';
+import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from '../audit/audit.constants';
+import { AuthenticatedUser } from '../auth/authenticated-user';
+import { AdminActionReasonDto } from '../admin/dto/admin.dto';
 import {
   AdminBusinessQueryDto,
   BusinessQueryDto,
@@ -61,7 +66,10 @@ type MyBusinessRecord = BusinessRecord & {
 
 @Injectable()
 export class BusinessesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly audit?: AuditService,
+  ) {}
 
   async create(
     userId: string,
@@ -329,10 +337,134 @@ export class BusinessesService {
     return business;
   }
 
+  async findAdminDetail(id: string) {
+    const business = await this.prisma.business.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        city: { include: { region: true } },
+        destination: true,
+        members: {
+          include: {
+            user: {
+              select: {
+                email: true,
+                id: true,
+                profile: { select: { firstName: true, lastName: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        locations: {
+          include: {
+            city: { select: { name: true } },
+            destination: { select: { name: true } },
+            operatingHours: { orderBy: { dayOfWeek: 'asc' } },
+          },
+          orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+        },
+        services: {
+          select: { id: true, name: true, status: true },
+          orderBy: { createdAt: 'desc' },
+        },
+        media: {
+          select: { media: { select: { status: true, visibility: true } } },
+        },
+        verifications: {
+          select: {
+            createdAt: true,
+            id: true,
+            rejectionReason: true,
+            reviewedAt: true,
+            status: true,
+            submittedAt: true,
+            documents: { select: { status: true, type: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        _count: { select: { bookings: true, payments: true, reviews: true } },
+      },
+    });
+    if (!business) throw new NotFoundException('Business not found.');
+    const recentAdminActions = this.audit
+      ? await this.audit.recentForEntity(AUDIT_ENTITY_TYPES.BUSINESS, id)
+      : [];
+    return {
+      business: {
+        category: business.category.name,
+        city: business.city.name,
+        createdAt: business.createdAt,
+        description: business.description,
+        destination: business.destination?.name ?? null,
+        id: business.id,
+        name: business.name,
+        status: business.status,
+        verificationSummary: business.verificationSummary,
+      },
+      counts: {
+        bookings: business._count.bookings,
+        payments: business._count.payments,
+        reviews: business._count.reviews,
+        services: business.services.length,
+      },
+      locations: business.locations.map((location) => ({
+        addressLine1: location.addressLine1,
+        city: location.city.name,
+        destination: location.destination?.name ?? null,
+        hours: location.operatingHours.map((hour) => ({
+          closesAt: hour.closesAt,
+          dayOfWeek: hour.dayOfWeek,
+          isClosed: hour.isClosed,
+          opensAt: hour.opensAt,
+        })),
+        id: location.id,
+        isPrimary: location.isPrimary,
+        label: location.label,
+        status: location.status,
+        timezone: location.timezone,
+      })),
+      media: {
+        publicReadyCount: business.media.filter(
+          (item) =>
+            item.media.status === MediaStatus.READY &&
+            item.media.visibility === MediaVisibility.PUBLIC,
+        ).length,
+        total: business.media.length,
+      },
+      members: business.members.map((member) => ({
+        createdAt: member.createdAt,
+        role: member.role,
+        status: member.status,
+        user: {
+          email: member.user.email,
+          firstName: member.user.profile?.firstName ?? null,
+          id: member.user.id,
+          lastName: member.user.profile?.lastName ?? null,
+        },
+      })),
+      services: business.services,
+      recentAdminActions,
+      verifications: business.verifications.map((verification) => ({
+        createdAt: verification.createdAt,
+        documentCount: verification.documents.length,
+        id: verification.id,
+        rejectionReason: verification.rejectionReason,
+        reviewedAt: verification.reviewedAt,
+        status: verification.status,
+        submittedAt: verification.submittedAt,
+      })),
+    };
+  }
   async updateAdmin(
     id: string,
     dto: AdminUpdateBusinessDto,
   ): Promise<BusinessRecord> {
+    if (dto.status !== undefined) {
+      throw new BadRequestException(
+        'Use the dedicated suspend or restore command to change business status.',
+      );
+    }
     const existing = await this.findAdminById(id);
     if (
       existing.status === BusinessStatus.ARCHIVED &&
@@ -416,6 +548,140 @@ export class BusinessesService {
     });
   }
 
+  async suspendByAdmin(
+    actor: AuthenticatedUser,
+    businessId: string,
+    dto: AdminActionReasonDto,
+    context: AuditContext,
+  ) {
+    const reason = this.requiredAdminReason(dto.reason);
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.business.findUnique({
+        where: { id: businessId },
+        select: { id: true, status: true, verificationSummary: true },
+      });
+      if (!existing) throw new NotFoundException('Business not found.');
+      if (
+        existing.status !== BusinessStatus.ACTIVE &&
+        existing.status !== BusinessStatus.DRAFT
+      ) {
+        throw new ConflictException(
+          'Only active or draft businesses can be suspended.',
+        );
+      }
+      const changed = await tx.business.updateMany({
+        where: { id: businessId, status: existing.status },
+        data: { status: BusinessStatus.SUSPENDED, suspendedAt: new Date() },
+      });
+      if (changed.count !== 1) {
+        throw new ConflictException(
+          'Business status changed. Refresh and try again.',
+        );
+      }
+      await this.recordBusinessStatusAudit(
+        tx,
+        actor,
+        businessId,
+        reason,
+        context,
+        existing.status,
+        BusinessStatus.SUSPENDED,
+        AUDIT_ACTIONS.ADMIN_BUSINESS_SUSPENDED,
+      );
+      return {
+        id: businessId,
+        status: BusinessStatus.SUSPENDED,
+        verificationSummary: existing.verificationSummary,
+      };
+    });
+  }
+
+  async restoreByAdmin(
+    actor: AuthenticatedUser,
+    businessId: string,
+    dto: AdminActionReasonDto,
+    context: AuditContext,
+  ) {
+    const reason = this.requiredAdminReason(dto.reason);
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.business.findUnique({
+        where: { id: businessId },
+        select: { id: true, status: true, verificationSummary: true },
+      });
+      if (!existing) throw new NotFoundException('Business not found.');
+      if (existing.status !== BusinessStatus.SUSPENDED) {
+        throw new ConflictException(
+          'Only suspended businesses can be restored.',
+        );
+      }
+      const nextStatus =
+        existing.verificationSummary === BusinessVerificationSummary.VERIFIED
+          ? BusinessStatus.ACTIVE
+          : BusinessStatus.DRAFT;
+      const changed = await tx.business.updateMany({
+        where: { id: businessId, status: BusinessStatus.SUSPENDED },
+        data: { status: nextStatus, suspendedAt: null },
+      });
+      if (changed.count !== 1) {
+        throw new ConflictException(
+          'Business status changed. Refresh and try again.',
+        );
+      }
+      await this.recordBusinessStatusAudit(
+        tx,
+        actor,
+        businessId,
+        reason,
+        context,
+        existing.status,
+        nextStatus,
+        AUDIT_ACTIONS.ADMIN_BUSINESS_RESTORED,
+      );
+      return {
+        id: businessId,
+        status: nextStatus,
+        verificationSummary: existing.verificationSummary,
+      };
+    });
+  }
+
+  private async recordBusinessStatusAudit(
+    tx: Prisma.TransactionClient,
+    actor: AuthenticatedUser,
+    businessId: string,
+    reason: string,
+    context: AuditContext,
+    previousStatus: BusinessStatus,
+    nextStatus: BusinessStatus,
+    action:
+      | typeof AUDIT_ACTIONS.ADMIN_BUSINESS_SUSPENDED
+      | typeof AUDIT_ACTIONS.ADMIN_BUSINESS_RESTORED,
+  ): Promise<void> {
+    if (!this.audit) return;
+    const base = {
+      ...context,
+      actorUserId: actor.sub,
+      entityId: businessId,
+      entityType: AUDIT_ENTITY_TYPES.BUSINESS,
+      metadata: { nextStatus, previousStatus },
+      reason,
+    } as const;
+    await this.audit.record(tx, { ...base, action });
+    await this.audit.record(tx, {
+      ...base,
+      action: AUDIT_ACTIONS.ADMIN_BUSINESS_STATUS_CHANGED,
+    });
+  }
+
+  private requiredAdminReason(value: string): string {
+    const reason = value.trim();
+    if (reason.length < 3 || reason.length > 1000) {
+      throw new BadRequestException(
+        'A reason between 3 and 1000 characters is required.',
+      );
+    }
+    return reason;
+  }
   async requireMembership(
     userId: string,
     businessId: string,

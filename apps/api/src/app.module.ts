@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
 import { AiModule } from './ai/ai.module';
+import { AdminModule } from './admin/admin.module';
+import { AuditModule } from './audit/audit.module';
 import { AttractionsModule } from './attractions/attractions.module';
 import { AuthModule } from './auth/auth.module';
 import { BusinessCategoriesModule } from './business-categories/business-categories.module';
@@ -46,6 +48,8 @@ import { UsersModule } from './users/users.module';
     }),
     PrismaModule,
     StorageModule,
+    AuditModule,
+    AdminModule,
     AiModule,
     RedisModule,
     HealthModule,

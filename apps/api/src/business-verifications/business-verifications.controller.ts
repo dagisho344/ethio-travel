@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Res,
   StreamableFile,
   UploadedFile,
@@ -20,7 +21,7 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthenticatedUser } from '../auth/authenticated-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -215,8 +216,13 @@ export class AdminBusinessVerificationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: ApproveBusinessVerificationDto,
+    @Req() request: Request,
   ) {
-    return this.service.approve(user, id, dto);
+    return this.service.approve(user, id, dto, {
+      correlationId: typeof request.id === 'string' ? request.id : undefined,
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
   }
 
   @Post(':id/reject')
@@ -226,7 +232,12 @@ export class AdminBusinessVerificationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body() dto: RejectBusinessVerificationDto,
+    @Req() request: Request,
   ) {
-    return this.service.reject(user, id, dto);
+    return this.service.reject(user, id, dto, {
+      correlationId: typeof request.id === 'string' ? request.id : undefined,
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
   }
 }

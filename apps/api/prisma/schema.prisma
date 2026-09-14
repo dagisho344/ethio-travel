@@ -13,6 +13,11 @@ enum UserStatus {
   DEACTIVATED
 }
 
+enum AuditOutcome {
+  SUCCESS
+  FAILURE
+}
+
 model User {
   id                             String                   @id @default(uuid()) @db.Uuid
   email                          String                   @unique
@@ -48,7 +53,7 @@ model User {
   aiConversations      AiConversation[]
   aiUsage              AiUsage[]
   aiSuggestions        AiSuggestion[]
-
+  auditActions         AuditLog[]              @relation("AuditActor")
   @@map("users")
 }
 
@@ -273,6 +278,28 @@ model Attraction {
   @@map("attractions")
 }
 
+model AuditLog {
+  id            String       @id @default(uuid()) @db.Uuid
+  actorUserId   String?      @map("actor_user_id") @db.Uuid
+  action        String       @db.VarChar(100)
+  entityType    String       @map("entity_type") @db.VarChar(80)
+  entityId      String?      @map("entity_id") @db.Uuid
+  outcome       AuditOutcome @default(SUCCESS)
+  reason        String?      @db.VarChar(1000)
+  metadata      Json?
+  ipAddress     String?      @map("ip_address") @db.VarChar(64)
+  userAgent     String?      @map("user_agent") @db.VarChar(512)
+  correlationId String?      @map("correlation_id") @db.VarChar(128)
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  actor User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId, createdAt])
+  @@index([action, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
 enum BusinessStatus {
   DRAFT
   ACTIVE
@@ -1276,8 +1303,7 @@ model Trip {
   primaryDestination Destination? @relation("TripPrimaryDestination", fields: [primaryDestinationId], references: [id], onDelete: Restrict)
   days               TripDay[]
   aiConversations    AiConversation[]
-  aiSuggestions      AiSuggestion[]
-
+  aiSuggestions        AiSuggestion[]
   @@index([userId, createdAt])
   @@index([userId, status, startDate])
   @@index([originCityId])
