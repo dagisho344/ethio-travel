@@ -63,8 +63,9 @@ void test('location workspace renders server-authorized controls and cascading r
 
 void test('workspace uses actual primary location records for setup progress', () => {
   const source = read('components/businesses/BusinessWorkspaceClient.tsx');
+  const overview = read('components/businesses/BusinessDashboardOverview.tsx');
   assert.match(source, /getLocations\(businessId\)/);
   assert.match(source, /location\.isPrimary && location\.status === 'ACTIVE'/);
   assert.match(source, /hasPrimaryLocation/);
-  assert.match(source, /\/businesses\/manage\/\$\{business\.id\}\/locations/);
+  assert.match(overview, /\/businesses\/manage\/\$\{business\.id\}\/locations/);
 });

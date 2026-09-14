@@ -7,39 +7,24 @@ import {
   requestErrorMessage,
 } from '../../lib/business-management';
 import type { ManagedBusiness } from '../../lib/business-management';
-import { getLocations } from '../../lib/business-locations';
-import { BusinessDashboardOverview } from './BusinessDashboardOverview';
+import { BusinessProfileEditor } from './BusinessProfileEditor';
 
-export function BusinessWorkspaceClient({
-  businessId,
-}: {
-  businessId: string;
-}) {
+export function BusinessProfileClient({ businessId }: { businessId: string }) {
   const [business, setBusiness] = useState<ManagedBusiness | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasPrimaryLocation, setHasPrimaryLocation] = useState(false);
 
   async function loadBusiness() {
     setLoading(true);
     setError(null);
     try {
-      const [loadedBusiness, locations] = await Promise.all([
-        getManagedBusiness(businessId),
-        getLocations(businessId).catch(() => []),
-      ]);
-      setBusiness(loadedBusiness);
-      setHasPrimaryLocation(
-        locations.some(
-          (location) => location.isPrimary && location.status === 'ACTIVE',
-        ),
-      );
+      setBusiness(await getManagedBusiness(businessId));
     } catch (requestError) {
       setBusiness(null);
       setError(
         requestErrorMessage(
           requestError,
-          'We could not load this business workspace.',
+          'We could not load this business profile.',
         ),
       );
     } finally {
@@ -56,7 +41,7 @@ export function BusinessWorkspaceClient({
       <section className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
         <span className="flex items-center gap-2">
           <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Loading dashboard…
+          Loading business profile…
         </span>
       </section>
     );
@@ -73,10 +58,5 @@ export function BusinessWorkspaceClient({
     );
   }
 
-  return (
-    <BusinessDashboardOverview
-      business={business}
-      hasPrimaryLocation={hasPrimaryLocation}
-    />
-  );
+  return <BusinessProfileEditor business={business} onSaved={loadBusiness} />;
 }

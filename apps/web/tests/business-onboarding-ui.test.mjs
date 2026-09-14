@@ -60,14 +60,16 @@ void test('onboarding uses real cascading data, validates fields, and protects a
 
 void test('workspace and My Businesses present server-authorized membership status and respect staff read-only access', () => {
   const workspace = read('components/businesses/BusinessWorkspaceClient.tsx');
+  const profile = read('components/businesses/BusinessProfileEditor.tsx');
+  const shell = read('components/businesses/BusinessWorkspaceShell.tsx');
   const list = read('components/businesses/MyBusinessesClient.tsx');
   assert.match(workspace, /getManagedBusiness/);
-  assert.match(workspace, /canEditBusiness/);
+  assert.match(profile, /canEditBusiness/);
   assert.match(
-    workspace,
+    profile,
     /Staff members can view this workspace but cannot change business details/,
   );
-  assert.match(workspace, /Verification has not been submitted/);
+  assert.match(shell, /NOT_SUBMITTED/);
   assert.match(list, /currentMember\.role/);
   assert.match(list, /nextBusinessAction/);
 });

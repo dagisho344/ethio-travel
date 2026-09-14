@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Compass } from 'lucide-react';
 import { HeaderNavigation } from './HeaderNavigation';
 import { RealtimeProvider } from '../realtime/RealtimeProvider';
+import { RouteAwareChrome } from './RouteAwareChrome';
 import { currentSessionSnapshot } from '../../lib/auth/session';
 import { Container } from '../ui/Container';
 
@@ -89,9 +90,13 @@ export async function PublicLayout({
   const session = await currentSessionSnapshot();
   return (
     <RealtimeProvider enabled={session.authenticated}>
-      <Header session={session} />
-      {children}
-      <Footer />
+      <RouteAwareChrome
+        authenticated={session.authenticated}
+        header={<Header session={session} />}
+        footer={<Footer />}
+      >
+        {children}
+      </RouteAwareChrome>
     </RealtimeProvider>
   );
 }
