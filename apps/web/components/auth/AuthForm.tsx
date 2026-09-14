@@ -19,8 +19,23 @@ class AuthRouteError extends Error {
 
 type AuthRouteResponse = {
   authenticated: boolean;
-  user: unknown;
+  hasBusinessWorkspace: boolean;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function parseAuthRouteResponse(value: unknown): AuthRouteResponse {
+  if (!isRecord(value) || typeof value.authenticated !== 'boolean') {
+    throw new AuthRouteError(502, 'The authentication response was invalid.');
+  }
+
+  return {
+    authenticated: value.authenticated,
+    hasBusinessWorkspace: value.hasBusinessWorkspace === true,
+  };
+}
 
 async function postAuthRoute(
   path: string,
@@ -40,15 +55,25 @@ async function postAuthRoute(
       data?.message ?? 'Request failed.',
     );
   }
-  return data as AuthRouteResponse;
+  return parseAuthRouteResponse(data);
+}
+
+function hasSafeReturnTo(value: string | null): value is string {
+  return Boolean(
+    value &&
+    value.startsWith('/') &&
+    !value.startsWith('//') &&
+    !value.startsWith('/login') &&
+    !value.startsWith('/register'),
+  );
 }
 
 function safeReturnTo(value: string | null): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//'))
-    return '/explore';
-  if (value.startsWith('/login') || value.startsWith('/register'))
-    return '/explore';
-  return value;
+  return hasSafeReturnTo(value) ? value : '/explore';
+}
+
+function defaultLoginDestination(auth: AuthRouteResponse): string {
+  return auth.hasBusinessWorkspace ? '/businesses/manage' : '/explore';
 }
 function textValue(form: FormData, key: string): string {
   const value = form.get(key);
@@ -182,7 +207,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             lastName,
           };
     try {
-      await postAuthRoute(
+      const auth = await postAuthRoute(
         mode === 'login' ? '/api/auth/login' : '/api/auth/register',
         body,
       );
@@ -190,7 +215,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
         const returnTo = new URLSearchParams(window.location.search).get(
           'returnTo',
         );
-        router.push(safeReturnTo(returnTo));
+        router.push(
+          hasSafeReturnTo(returnTo)
+            ? safeReturnTo(returnTo)
+            : defaultLoginDestination(auth),
+        );
         router.refresh();
         return;
       }

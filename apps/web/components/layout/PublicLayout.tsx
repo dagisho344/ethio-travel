@@ -18,9 +18,14 @@ const authenticatedLinks = [
   { href: '/messages', label: 'Messages' },
   { href: '/assistant', label: 'AI Assistant' },
 ];
-export async function Header() {
-  const session = await currentSessionSnapshot();
+type HeaderProps = {
+  session: Pick<
+    Awaited<ReturnType<typeof currentSessionSnapshot>>,
+    'authenticated' | 'hasBusinessWorkspace'
+  >;
+};
 
+export function Header({ session }: HeaderProps) {
   return (
     <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/95 backdrop-blur">
       <Container className="flex h-16 items-center gap-4 sm:gap-6">
@@ -36,6 +41,7 @@ export async function Header() {
         </Link>
         <HeaderNavigation
           authenticated={session.authenticated}
+          hasBusinessWorkspace={session.hasBusinessWorkspace}
           publicLinks={publicLinks}
           authenticatedLinks={authenticatedLinks}
         />
@@ -83,7 +89,7 @@ export async function PublicLayout({
   const session = await currentSessionSnapshot();
   return (
     <RealtimeProvider enabled={session.authenticated}>
-      <Header />
+      <Header session={session} />
       {children}
       <Footer />
     </RealtimeProvider>

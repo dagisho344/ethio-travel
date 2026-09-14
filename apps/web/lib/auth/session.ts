@@ -181,6 +181,39 @@ async function backendJsonWithAccess<T>(
   });
 }
 
+const BUSINESS_WORKSPACE_ROLE_NAMES = new Set([
+  'BUSINESS_OWNER',
+  'BUSINESS_STAFF',
+]);
+
+type BusinessWorkspacePage = {
+  data: unknown[];
+};
+
+/**
+ * Checks only server-derived information. Global business roles provide a
+ * fast-path; otherwise the existing active-membership endpoint is the source
+ * of truth. Probe failures deliberately do not change authentication state.
+ */
+export async function hasBusinessWorkspaceWithBackend(
+  accessToken: string,
+  user: SafeUser,
+): Promise<boolean> {
+  if (user.roles.some((role) => BUSINESS_WORKSPACE_ROLE_NAMES.has(role))) {
+    return true;
+  }
+
+  try {
+    const page = await backendJsonWithAccess<BusinessWorkspacePage>(
+      '/my/businesses?page=1&limit=1',
+      accessToken,
+    );
+    return Array.isArray(page.data) && page.data.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function authenticatedBackendJson<T>(
   path: string,
   init: RequestInit = {},
@@ -281,14 +314,29 @@ export async function currentTokens() {
 export async function currentSessionSnapshot(): Promise<{
   authenticated: boolean;
   user: SafeUser | null;
+  hasBusinessWorkspace: boolean;
 }> {
   const { accessToken } = await currentTokens();
-  if (!accessToken) return { authenticated: false, user: null };
+  if (!accessToken) {
+    return {
+      authenticated: false,
+      user: null,
+      hasBusinessWorkspace: false,
+    };
+  }
   try {
     const user = await getMeWithBackend(accessToken);
-    return { authenticated: true, user };
+    const hasBusinessWorkspace = await hasBusinessWorkspaceWithBackend(
+      accessToken,
+      user,
+    );
+    return { authenticated: true, user, hasBusinessWorkspace };
   } catch {
-    return { authenticated: false, user: null };
+    return {
+      authenticated: false,
+      user: null,
+      hasBusinessWorkspace: false,
+    };
   }
 }
 export async function authenticatedMeResponse(): Promise<NextResponse> {
