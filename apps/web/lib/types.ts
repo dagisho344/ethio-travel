@@ -280,6 +280,12 @@ export interface Payment {
   createdAt: string;
   updatedAt: string;
   booking: PaymentBookingSummary;
+  traveler: {
+    profile: {
+      firstName: string | null;
+      lastName: string | null;
+    } | null;
+  };
   transactions: PaymentTransaction[];
   refunds: PaymentRefund[];
 }
@@ -352,6 +358,12 @@ export interface Booking {
   updatedAt: string;
   service: BookingSummaryTarget;
   business: BookingSummaryTarget;
+  traveler: {
+    profile: {
+      firstName: string | null;
+      lastName: string | null;
+    } | null;
+  };
   history: BookingStatusHistoryItem[];
 }
 

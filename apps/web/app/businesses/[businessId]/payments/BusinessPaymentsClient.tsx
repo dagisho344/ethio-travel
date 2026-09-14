@@ -120,7 +120,7 @@ export function BusinessPaymentsClient() {
         </label>
         <div className="flex items-end">
           <Link
-            href={`/businesses/${params.businessId}/bookings`}
+            href={`/businesses/manage/${params.businessId}/bookings`}
             className="inline-flex rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
           >
             View bookings
@@ -161,6 +161,15 @@ export function BusinessPaymentsClient() {
                     <h2 className="mt-1 text-lg font-bold text-slate-950">
                       {payment.booking.service.name}
                     </h2>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Traveler:{' '}
+                      {[
+                        payment.traveler.profile?.firstName,
+                        payment.traveler.profile?.lastName,
+                      ]
+                        .filter((name): name is string => Boolean(name?.trim()))
+                        .join(' ') || 'Traveler'}
+                    </p>
                     <p className="mt-1 text-sm text-slate-600">
                       {paymentProviderLabel(payment.provider)} �{' '}
                       {formatPaymentDate(payment.createdAt)}

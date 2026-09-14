@@ -24,6 +24,10 @@ import {
   BookingStatusBadge,
   PaymentStatusBadge,
 } from '../../../../components/bookings/BookingStatusBadge';
+import {
+  canEditBusiness,
+  getManagedBusiness,
+} from '../../../../lib/business-management';
 
 type Action = 'confirm' | 'reject' | 'cancel' | 'complete' | 'no-show';
 
@@ -43,6 +47,7 @@ export function BusinessBookingsClient() {
   const [page, setPage] = useState<BusinessBookingListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState<string | null>(null);
+  const [canWrite, setCanWrite] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const status = searchParams.get('status') as BookingStatus | null;
   const currentPage = searchParams.get('page') ?? '1';
@@ -57,10 +62,13 @@ export function BusinessBookingsClient() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/businesses/${params.businessId}/bookings?${query}`,
-        { cache: 'no-store' },
-      );
+      const [response, business] = await Promise.all([
+        fetch(`/api/businesses/${params.businessId}/bookings?${query}`, {
+          cache: 'no-store',
+        }),
+        getManagedBusiness(params.businessId),
+      ]);
+      setCanWrite(canEditBusiness(business));
       if (response.status === 401) {
         router.replace(
           `/login?returnTo=${encodeURIComponent(`${pathname}?${query}`)}`,
@@ -187,6 +195,15 @@ export function BusinessBookingsClient() {
                     {booking.service.name}
                   </h2>
                   <p className="mt-1 text-sm text-slate-600">
+                    Traveler:{' '}
+                    {[
+                      booking.traveler.profile?.firstName,
+                      booking.traveler.profile?.lastName,
+                    ]
+                      .filter((name): name is string => Boolean(name?.trim()))
+                      .join(' ') || 'Traveler'}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
                     {formatBookingRange(booking)}
                   </p>
                 </div>
@@ -213,7 +230,7 @@ export function BusinessBookingsClient() {
                   </dd>
                 </div>
               </dl>
-              {businessActions(booking.bookingStatus).length ? (
+              {canWrite && businessActions(booking.bookingStatus).length ? (
                 <div className="mt-5 flex flex-wrap gap-2">
                   {businessActions(booking.bookingStatus).map((name) => (
                     <button
@@ -272,7 +289,7 @@ export function BusinessBookingsClient() {
       ) : null}
       <div className="mt-8 flex flex-wrap gap-4">
         <Link
-          href={`/businesses/${params.businessId}/payments`}
+          href={`/businesses/manage/${params.businessId}/payments`}
           className="text-sm font-semibold text-highland hover:text-highland/80"
         >
           View business payments

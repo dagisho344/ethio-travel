@@ -29,7 +29,6 @@ export class S3StorageProvider implements StorageProvider {
       endpoint: config.get('s3Endpoint', { infer: true }),
       forcePathStyle: config.get('s3ForcePathStyle', { infer: true }),
       region: config.get('s3Region', { infer: true }),
-
     });
   }
 

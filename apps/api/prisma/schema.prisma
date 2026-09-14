@@ -36,6 +36,7 @@ model User {
   favorites            Favorite[]
   reviewsAuthored      Review[]               @relation("ReviewAuthor")
   reviewsModerated     Review[]               @relation("ReviewModerator")
+  reviewResponsesAuthored ReviewResponse[]      @relation("ReviewResponseAuthor")
   bookingsAuthored     Booking[]              @relation("BookingTraveler")
   bookingStatusChanges BookingStatusHistory[] @relation("BookingStatusChangedBy")
   paymentsMade         Payment[]              @relation("PaymentTraveler")
@@ -382,6 +383,7 @@ model Business {
   media         BusinessMedia[]
   favorites     Favorite[]
   reviews       Review[]
+  reviewResponses ReviewResponse[]
   bookings      Booking[]
   payments      Payment[]
   conversations Conversation[]
@@ -807,6 +809,7 @@ model Review {
   service     Service?     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
   destination Destination? @relation(fields: [destinationId], references: [id], onDelete: Restrict)
   attraction  Attraction?  @relation(fields: [attractionId], references: [id], onDelete: Restrict)
+  responses   ReviewResponse[]
 
   @@index([status, createdAt])
   @@index([userId, createdAt])
@@ -817,6 +820,26 @@ model Review {
   @@index([destinationId, status])
   @@index([attractionId, status])
   @@map("reviews")
+}
+
+model ReviewResponse {
+  id           String    @id @default(uuid()) @db.Uuid
+  reviewId     String    @map("review_id") @db.Uuid
+  businessId   String    @map("business_id") @db.Uuid
+  authorUserId String    @map("author_user_id") @db.Uuid
+  body         String    @db.VarChar(2000)
+  archivedAt   DateTime? @map("archived_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  review   Review   @relation(fields: [reviewId], references: [id], onDelete: Restrict)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  author   User     @relation("ReviewResponseAuthor", fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@unique([reviewId, businessId])
+  @@index([businessId, archivedAt, createdAt])
+  @@index([authorUserId])
+  @@map("review_responses")
 }
 
 enum BookingMode {

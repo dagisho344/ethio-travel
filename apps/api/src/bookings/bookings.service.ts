@@ -60,6 +60,11 @@ const bookingSelect = Prisma.validator<Prisma.BookingSelect>()({
   updatedAt: true,
   service: { select: { id: true, name: true, slug: true } },
   business: { select: { id: true, name: true, slug: true } },
+  traveler: {
+    select: {
+      profile: { select: { firstName: true, lastName: true } },
+    },
+  },
   history: {
     orderBy: { createdAt: 'asc' },
     select: {

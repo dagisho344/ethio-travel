@@ -161,6 +161,10 @@ const publicReviewSelect = Prisma.validator<Prisma.ReviewSelect>()({
   author: {
     select: { profile: { select: { firstName: true, lastName: true } } },
   },
+  responses: {
+    where: { archivedAt: null },
+    select: { body: true, createdAt: true, updatedAt: true },
+  },
 });
 
 type MyReviewRecord = Prisma.ReviewGetPayload<{
@@ -250,6 +254,11 @@ export interface PublicReviewResponseDto {
   title: string | null;
   body: string | null;
   author: { displayName: string };
+  businessResponse: {
+    body: string;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
   publishedAt: Date | null;
   createdAt: Date;
 }
@@ -782,18 +791,30 @@ export class ReviewsService {
   private toPublicResponse(
     review: PublicReviewRecord,
   ): PublicReviewResponseDto {
+    const businessResponse = review.responses?.[0];
     return {
       id: review.id,
       rating: review.rating,
       title: review.title,
       body: review.body,
       author: { displayName: this.authorDisplayName(review) },
+      businessResponse: businessResponse
+        ? {
+            body: businessResponse.body,
+            createdAt: businessResponse.createdAt,
+            updatedAt: businessResponse.updatedAt,
+          }
+        : null,
       publishedAt: review.publishedAt,
       createdAt: review.createdAt,
     };
   }
 
-  private authorDisplayName(review: PublicReviewRecord): string {
+  private authorDisplayName(review: {
+    author: {
+      profile: { firstName: string | null; lastName: string | null } | null;
+    };
+  }): string {
     const firstName = review.author.profile?.firstName?.trim();
     const lastName = review.author.profile?.lastName?.trim();
     return [firstName, lastName].filter(Boolean).join(' ') || 'Traveler';

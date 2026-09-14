@@ -46,6 +46,11 @@ const paymentSelect = Prisma.validator<Prisma.PaymentSelect>()({
   failedAt: true,
   createdAt: true,
   updatedAt: true,
+  traveler: {
+    select: {
+      profile: { select: { firstName: true, lastName: true } },
+    },
+  },
   booking: {
     select: {
       id: true,

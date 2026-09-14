@@ -25,6 +25,7 @@ import { getJson } from '../../lib/api';
 import { getLocations } from '../../lib/business-locations';
 import type { PaginatedResponse } from '../../lib/types';
 import { Container } from '../ui/Container';
+import { BusinessDashboardOverview } from './BusinessDashboardOverview';
 
 type RegionOption = { id: string; name: string; slug: string };
 type CityOption = { id: string; name: string; slug: string; regionId: string };
@@ -695,6 +696,9 @@ export function BusinessWorkspaceClient({
             </p>
           ) : null}
         </section>
+        <div className="mt-6">
+          <BusinessDashboardOverview businessId={business.id} />
+        </div>
         <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_19rem]">
           <div className="space-y-6">
             <ProfileEditor business={business} onSaved={loadBusiness} />
@@ -722,13 +726,37 @@ export function BusinessWorkspaceClient({
                   Locations
                 </Link>
                 <Link
-                  href={`/businesses/${business.id}/bookings`}
+                  href={`/businesses/manage/${business.id}/services`}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+                >
+                  Services
+                </Link>
+                <Link
+                  href={`/businesses/manage/${business.id}/customers`}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+                >
+                  Customers
+                </Link>
+                <Link
+                  href={`/businesses/manage/${business.id}/reviews`}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+                >
+                  Reviews
+                </Link>
+                <Link
+                  href={`/businesses/manage/${business.id}/settings`}
+                  className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+                >
+                  Settings
+                </Link>
+                <Link
+                  href={`/businesses/manage/${business.id}/bookings`}
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
                 >
                   Bookings
                 </Link>
                 <Link
-                  href={`/businesses/${business.id}/payments`}
+                  href={`/businesses/manage/${business.id}/payments`}
                   className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
                 >
                   Payments
@@ -741,8 +769,9 @@ export function BusinessWorkspaceClient({
                 </Link>
               </div>
               <p className="mt-4 text-sm leading-6 text-slate-600">
-                Services, availability, reviews, and dashboard reporting remain
-                later Phase 12 work. Media and verification are available here.
+                Services, availability, bookings, customers, reviews, payments,
+                media, verification, and settings use the same server-side
+                membership checks as the rest of the workspace.
               </p>
             </section>
           </div>

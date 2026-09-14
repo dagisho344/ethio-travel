@@ -16,6 +16,15 @@ const allowedActions = new Set([
   'no-show',
 ]);
 
+async function actionBody(request: NextRequest): Promise<string> {
+  const input: unknown = await request.json().catch(() => null);
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    return '{}';
+  }
+  const note = (input as Record<string, unknown>).note;
+  return JSON.stringify(typeof note === 'string' ? { note } : {});
+}
+
 export async function POST(
   request: NextRequest,
   {
@@ -35,7 +44,7 @@ export async function POST(
       `/businesses/${businessId}/bookings/${id}/${action}`,
       {
         method: 'POST',
-        body: JSON.stringify(await request.json().catch(() => ({}))),
+        body: await actionBody(request),
       },
     );
     const response = NextResponse.json(result.data);
