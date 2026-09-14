@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -16,6 +17,7 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Request } from 'express';
 import { AuthenticatedUser } from '../auth/authenticated-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -31,6 +33,14 @@ import {
 import { ReviewModerationNoteDto } from './dto/review-moderation.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { ReviewsService } from './reviews.service';
+
+function auditContext(request: Request) {
+  return {
+    correlationId: typeof request.id === 'string' ? request.id : undefined,
+    ipAddress: request.ip,
+    userAgent: request.headers['user-agent'],
+  };
+}
 
 @ApiTags('reviews')
 @Controller()
@@ -112,8 +122,9 @@ export class AdminReviewsController {
   publish(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() request: Request,
   ) {
-    return this.service.publish(id, user.sub);
+    return this.service.publish(id, user.sub, auditContext(request));
   }
 
   @Post(':id/reject')
@@ -123,8 +134,14 @@ export class AdminReviewsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: ReviewModerationNoteDto,
+    @Req() request: Request,
   ) {
-    return this.service.reject(id, user.sub, dto.moderationNote);
+    return this.service.reject(
+      id,
+      user.sub,
+      dto.moderationNote,
+      auditContext(request),
+    );
   }
 
   @Post(':id/hide')
@@ -134,7 +151,32 @@ export class AdminReviewsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: ReviewModerationNoteDto,
+    @Req() request: Request,
   ) {
-    return this.service.hide(id, user.sub, dto.moderationNote);
+    return this.service.hide(
+      id,
+      user.sub,
+      dto.moderationNote,
+      auditContext(request),
+    );
+  }
+
+  @Post(':id/restore')
+  @HttpCode(200)
+  @ApiOkResponse({
+    description: 'Restore a hidden review to public visibility.',
+  })
+  restore(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ReviewModerationNoteDto,
+    @Req() request: Request,
+  ) {
+    return this.service.restore(
+      id,
+      user.sub,
+      dto.moderationNote,
+      auditContext(request),
+    );
   }
 }

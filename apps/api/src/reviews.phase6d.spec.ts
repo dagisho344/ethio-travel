@@ -175,6 +175,39 @@ describe('ReviewsService admin moderation', () => {
     });
   });
 
+  it('restores a hidden review through an audited, state-safe transition', async () => {
+    const prisma = prismaMock();
+    const audit = { record: jest.fn() };
+
+    await new ReviewsService(prisma, undefined, audit as any).restore(
+      reviewId,
+      adminId,
+      'Restored after review.',
+      {},
+    );
+
+    expect(prisma.review.updateMany).toHaveBeenCalledWith({
+      where: { id: reviewId, status: ReviewStatus.HIDDEN },
+      data: expect.objectContaining({
+        status: ReviewStatus.PUBLISHED,
+        moderationNote: 'Restored after review.',
+        hiddenAt: null,
+      }),
+    });
+    expect(audit.record).toHaveBeenCalledWith(
+      prisma,
+      expect.objectContaining({
+        action: 'ADMIN_REVIEW_RESTORED',
+        entityId: reviewId,
+        entityType: 'REVIEW',
+        metadata: expect.objectContaining({
+          previousStatus: ReviewStatus.HIDDEN,
+          nextStatus: ReviewStatus.PUBLISHED,
+        }),
+      }),
+    );
+  });
+
   it('returns conflict for invalid moderation transitions', async () => {
     const prisma = prismaMock(0);
     await expect(

@@ -62,6 +62,89 @@ export type AdminDashboard = {
   verifications: { approved: number; pending: number; rejected: number };
 };
 
+export type AdminDestination = {
+  cityId: string;
+  createdAt: string;
+  fullDescription: string;
+  id: string;
+  latitude: string | number;
+  longitude: string | number;
+  name: string;
+  shortDescription: string;
+  slug: string;
+  status: string;
+  travelInfo: Record<string, unknown> | null;
+  updatedAt: string;
+};
+
+export type AdminCity = {
+  id: string;
+  name: string;
+  status: string;
+};
+
+export type AdminCategory = {
+  code: string;
+  createdAt: string;
+  description: string | null;
+  id: string;
+  isActive: boolean;
+  name: string;
+  sortOrder: number;
+  updatedAt: string;
+};
+
+export type AdminReview = {
+  author: { displayName: string; id: string; status: string };
+  body: string | null;
+  businessResponse: {
+    body: string;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
+  createdAt: string;
+  id: string;
+  moderationNote: string | null;
+  rating: number;
+  status: string;
+  target: { id: string; name: string; type: string };
+  title: string | null;
+};
+
+export type AdminReport = {
+  assignedAdmin: { displayName: string; id: string } | null;
+  createdAt: string;
+  details?: string | null;
+  id: string;
+  reason: string;
+  reporter: { displayName: string; id: string; status: string };
+  resolution: string | null;
+  resolvedAt: string | null;
+  status: string;
+  target?: {
+    displayName?: string;
+    id: string;
+    name?: string;
+    rating?: number;
+    status: string;
+    type: string;
+  } | null;
+  targetId: string;
+  targetType: string;
+  updatedAt: string;
+};
+
+export type ModerationSummary = {
+  recentActions: AuditEntry[];
+  reports: {
+    dismissed: number;
+    open: number;
+    resolved: number;
+    underReview: number;
+  };
+  reviews: { hidden: number; pending: number };
+};
+
 export function displayName(user: {
   email: string;
   firstName: string | null;

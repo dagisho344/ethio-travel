@@ -2,13 +2,24 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { Request } from 'express';
+import { AuthenticatedUser } from '../auth/authenticated-user';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { PaginationQueryDto } from '../common/dto/pagination.dto';
@@ -17,6 +28,14 @@ import { DestinationsService } from './destinations.service';
 import { CreateDestinationDto } from './dto/create-destination.dto';
 import { DestinationQueryDto } from './dto/destination-query.dto';
 import { UpdateDestinationDto } from './dto/update-destination.dto';
+
+function auditContext(request: Request) {
+  return {
+    correlationId: typeof request.id === 'string' ? request.id : undefined,
+    ipAddress: request.ip,
+    userAgent: request.headers['user-agent'],
+  };
+}
 
 @ApiTags('destinations')
 @Controller()
@@ -64,6 +83,7 @@ export class DestinationsController {
 }
 
 @ApiTags('admin destinations')
+@ApiBearerAuth()
 @AdminOnly()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('admin/destinations')
@@ -84,13 +104,63 @@ export class AdminDestinationsController {
 
   @Post()
   @ApiCreatedResponse({ description: 'Destination created.' })
-  create(@Body() dto: CreateDestinationDto) {
-    return this.destinationsService.create(dto);
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateDestinationDto,
+    @Req() request: Request,
+  ) {
+    return this.destinationsService.createAdmin(
+      user.sub,
+      dto,
+      auditContext(request),
+    );
   }
 
   @Patch(':id')
   @ApiOkResponse({ description: 'Destination updated.' })
-  update(@Param('id') id: string, @Body() dto: UpdateDestinationDto) {
-    return this.destinationsService.update(id, dto);
+  update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateDestinationDto,
+    @Req() request: Request,
+  ) {
+    return this.destinationsService.updateAdmin(
+      id,
+      user.sub,
+      dto,
+      auditContext(request),
+    );
+  }
+
+  @Post(':id/publish')
+  @HttpCode(200)
+  @ApiOkResponse({ description: 'Publishes an eligible destination.' })
+  publish(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() request: Request,
+  ) {
+    return this.destinationsService.publish(
+      id,
+      user.sub,
+      auditContext(request),
+    );
+  }
+
+  @Post(':id/unpublish')
+  @HttpCode(200)
+  @ApiOkResponse({
+    description: 'Removes a destination from public discovery.',
+  })
+  unpublish(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() request: Request,
+  ) {
+    return this.destinationsService.unpublish(
+      id,
+      user.sub,
+      auditContext(request),
+    );
   }
 }

@@ -6,9 +6,13 @@ import {
   Building2,
   ChevronLeft,
   ClipboardList,
+  Flag,
   LayoutDashboard,
+  MapPinned,
   Menu,
+  MessageSquareWarning,
   ShieldCheck,
+  Tags,
   Users,
   X,
 } from 'lucide-react';
@@ -25,6 +29,14 @@ const adminLinks: AdminLink[] = [
   { href: '/admin/users', icon: Users, label: 'Users' },
   { href: '/admin/businesses', icon: Building2, label: 'Businesses' },
   { href: '/admin/verifications', icon: ShieldCheck, label: 'Verifications' },
+  { href: '/admin/destinations', icon: MapPinned, label: 'Destinations' },
+  { href: '/admin/categories', icon: Tags, label: 'Categories' },
+  {
+    href: '/admin/moderation',
+    icon: MessageSquareWarning,
+    label: 'Moderation',
+  },
+  { href: '/admin/reports', icon: Flag, label: 'Reports' },
   { href: '/admin/audit', icon: ClipboardList, label: 'Audit' },
 ];
 

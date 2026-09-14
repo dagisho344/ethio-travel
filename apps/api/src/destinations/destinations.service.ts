@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { LocationStatus, Prisma, PublicationStatus } from '@prisma/client';
+import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from '../audit/audit.constants';
+import { AuditContext, AuditService } from '../audit/audit.service';
 import {
   paginate,
   PaginatedResponse,
@@ -21,7 +23,10 @@ type DestinationRecord = Awaited<
 
 @Injectable()
 export class DestinationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit?: AuditService,
+  ) {}
 
   async findPublic(
     query: PaginationQueryDto & { cityId?: string },
@@ -157,6 +162,155 @@ export class DestinationsService {
       this.throwConflictOnDuplicate(error);
       throw error;
     }
+  }
+
+  async createAdmin(
+    actorUserId: string,
+    dto: CreateDestinationDto,
+    context: AuditContext,
+  ): Promise<DestinationRecord> {
+    await this.ensureCityExists(dto.cityId);
+    const slug = dto.slug ?? buildSlug(dto.name);
+    await this.ensureSlugAvailable(dto.cityId, slug);
+    const draftDto = { ...dto, status: undefined };
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const destination = await tx.destination.create({
+          data: this.createData(draftDto, slug, new Date()),
+        });
+        await this.audit?.record(tx, {
+          ...context,
+          action: AUDIT_ACTIONS.ADMIN_DESTINATION_CREATED,
+          actorUserId,
+          entityId: destination.id,
+          entityType: AUDIT_ENTITY_TYPES.DESTINATION,
+          metadata: {
+            destinationId: destination.id,
+            nextStatus: destination.status,
+          },
+        });
+        return destination;
+      });
+    } catch (error) {
+      this.throwConflictOnDuplicate(error);
+      throw error;
+    }
+  }
+
+  async updateAdmin(
+    id: string,
+    actorUserId: string,
+    dto: UpdateDestinationDto,
+    context: AuditContext,
+  ): Promise<DestinationRecord> {
+    const existing = await this.findAdminById(id);
+    const cityId = dto.cityId ?? existing.cityId;
+    if (dto.cityId) await this.ensureCityExists(dto.cityId);
+    const slug = dto.slug ?? (dto.name ? buildSlug(dto.name) : undefined);
+    if (slug && (slug !== existing.slug || cityId !== existing.cityId)) {
+      await this.ensureSlugAvailable(cityId, slug, id);
+    }
+    const updateDto = { ...dto, status: undefined };
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const destination = await tx.destination.update({
+          where: { id },
+          data: this.updateData(updateDto, slug, existing, new Date()),
+        });
+        await this.audit?.record(tx, {
+          ...context,
+          action: AUDIT_ACTIONS.ADMIN_DESTINATION_UPDATED,
+          actorUserId,
+          entityId: id,
+          entityType: AUDIT_ENTITY_TYPES.DESTINATION,
+          metadata: { destinationId: id },
+        });
+        return destination;
+      });
+    } catch (error) {
+      this.throwConflictOnDuplicate(error);
+      throw error;
+    }
+  }
+
+  async publish(
+    id: string,
+    actorUserId: string,
+    context: AuditContext,
+  ): Promise<DestinationRecord> {
+    const existing = await this.findAdminById(id);
+    if (existing.status === PublicationStatus.ARCHIVED) {
+      throw new ConflictException('Archived destinations cannot be published.');
+    }
+    await this.ensureCityPublishable(existing.cityId);
+    return this.transitionPublication(
+      id,
+      [PublicationStatus.DRAFT, PublicationStatus.INACTIVE],
+      PublicationStatus.PUBLISHED,
+      actorUserId,
+      context,
+      AUDIT_ACTIONS.ADMIN_DESTINATION_PUBLISHED,
+    );
+  }
+
+  async unpublish(
+    id: string,
+    actorUserId: string,
+    context: AuditContext,
+  ): Promise<DestinationRecord> {
+    return this.transitionPublication(
+      id,
+      [PublicationStatus.PUBLISHED],
+      PublicationStatus.INACTIVE,
+      actorUserId,
+      context,
+      AUDIT_ACTIONS.ADMIN_DESTINATION_UNPUBLISHED,
+    );
+  }
+
+  private async transitionPublication(
+    id: string,
+    previousStatuses: PublicationStatus[],
+    nextStatus: PublicationStatus,
+    actorUserId: string,
+    context: AuditContext,
+    action:
+      | typeof AUDIT_ACTIONS.ADMIN_DESTINATION_PUBLISHED
+      | typeof AUDIT_ACTIONS.ADMIN_DESTINATION_UNPUBLISHED,
+  ): Promise<DestinationRecord> {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.destination.findUnique({
+        where: { id },
+        select: { id: true, status: true },
+      });
+      if (!existing) throw new NotFoundException('Destination not found.');
+      const update = await tx.destination.updateMany({
+        where: { id, status: { in: previousStatuses } },
+        data: {
+          status: nextStatus,
+          publishedAt:
+            nextStatus === PublicationStatus.PUBLISHED ? new Date() : undefined,
+        },
+      });
+      if (update.count !== 1) {
+        throw new ConflictException(
+          'Destination is not in a valid state for this action.',
+        );
+      }
+      await this.audit?.record(tx, {
+        ...context,
+        action,
+        actorUserId,
+        entityId: id,
+        entityType: AUDIT_ENTITY_TYPES.DESTINATION,
+        metadata: {
+          destinationId: id,
+          nextStatus,
+          previousStatus: existing.status,
+        },
+      });
+      return tx.destination.findUniqueOrThrow({ where: { id } });
+    });
   }
 
   private createData(

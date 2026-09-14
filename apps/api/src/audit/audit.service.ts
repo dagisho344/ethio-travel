@@ -10,6 +10,11 @@ const SAFE_METADATA_KEYS = new Set([
   'previousStatus',
   'nextStatus',
   'verificationStatus',
+  'categoryType',
+  'destinationId',
+  'reviewId',
+  'reportId',
+  'targetType',
 ]);
 
 type SafeMetadataValue = boolean | null | number | string;

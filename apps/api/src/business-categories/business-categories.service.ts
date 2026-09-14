@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from '../audit/audit.constants';
+import { AuditContext, AuditService } from '../audit/audit.service';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { BusinessCategoryQueryDto } from './dto/business-category-query.dto';
@@ -16,7 +18,10 @@ type CategoryRecord = Awaited<
 
 @Injectable()
 export class BusinessCategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit?: AuditService,
+  ) {}
 
   async findPublic(
     query: BusinessCategoryQueryDto,
@@ -76,6 +81,67 @@ export class BusinessCategoriesService {
       return await this.prisma.businessCategory.update({
         where: { id },
         data: { ...dto, code: dto.code?.toUpperCase().trim() },
+      });
+    } catch (error) {
+      this.throwConflict(error);
+      throw error;
+    }
+  }
+
+  async createAdmin(
+    actorUserId: string,
+    dto: CreateBusinessCategoryDto,
+    context: AuditContext,
+  ): Promise<CategoryRecord> {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const category = await tx.businessCategory.create({
+          data: { ...dto, code: dto.code.toUpperCase().trim() },
+        });
+        await this.audit?.record(tx, {
+          ...context,
+          action: AUDIT_ACTIONS.ADMIN_BUSINESS_CATEGORY_CREATED,
+          actorUserId,
+          entityId: category.id,
+          entityType: AUDIT_ENTITY_TYPES.BUSINESS_CATEGORY,
+          metadata: {
+            categoryType: 'BUSINESS',
+            nextStatus: category.isActive ? 'ACTIVE' : 'INACTIVE',
+          },
+        });
+        return category;
+      });
+    } catch (error) {
+      this.throwConflict(error);
+      throw error;
+    }
+  }
+
+  async updateAdmin(
+    id: string,
+    actorUserId: string,
+    dto: UpdateBusinessCategoryDto,
+    context: AuditContext,
+  ): Promise<CategoryRecord> {
+    await this.findAdminById(id);
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const category = await tx.businessCategory.update({
+          where: { id },
+          data: { ...dto, code: dto.code?.toUpperCase().trim() },
+        });
+        await this.audit?.record(tx, {
+          ...context,
+          action: AUDIT_ACTIONS.ADMIN_BUSINESS_CATEGORY_UPDATED,
+          actorUserId,
+          entityId: id,
+          entityType: AUDIT_ENTITY_TYPES.BUSINESS_CATEGORY,
+          metadata: {
+            categoryType: 'BUSINESS',
+            nextStatus: category.isActive ? 'ACTIVE' : 'INACTIVE',
+          },
+        });
+        return category;
       });
     } catch (error) {
       this.throwConflict(error);

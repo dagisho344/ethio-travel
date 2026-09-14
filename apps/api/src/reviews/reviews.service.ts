@@ -11,6 +11,12 @@ import {
   ReviewStatus,
   UserStatus,
 } from '@prisma/client';
+import {
+  AUDIT_ACTIONS,
+  AUDIT_ENTITY_TYPES,
+  AuditAction,
+} from '../audit/audit.constants';
+import { AuditContext, AuditService } from '../audit/audit.service';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import {
   publicAttractionWhere,
@@ -149,6 +155,10 @@ const adminReviewSelect = Prisma.validator<Prisma.ReviewSelect>()({
       profile: { select: { firstName: true, lastName: true } },
     },
   },
+  responses: {
+    where: { archivedAt: null },
+    select: { body: true, createdAt: true, updatedAt: true },
+  },
   ...reviewTargetSelect,
 });
 const publicReviewSelect = Prisma.validator<Prisma.ReviewSelect>()({
@@ -270,6 +280,11 @@ export interface AdminReviewResponseDto extends MyReviewResponseDto {
     status: UserStatus;
     displayName: string;
   };
+  businessResponse: {
+    body: string;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
   moderatedById: string | null;
 }
 
@@ -284,6 +299,7 @@ export class ReviewsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications?: NotificationsService,
+    private readonly audit?: AuditService,
   ) {}
 
   async create(
@@ -454,16 +470,24 @@ export class ReviewsService {
   async publish(
     reviewId: string,
     adminId: string,
+    context?: AuditContext,
   ): Promise<AdminReviewResponseDto> {
-    await this.moderate(reviewId, adminId, ReviewStatus.PENDING, {
-      status: ReviewStatus.PUBLISHED,
-      moderatedAt: new Date(),
+    await this.moderate(
+      reviewId,
+      adminId,
+      ReviewStatus.PENDING,
+      {
+        status: ReviewStatus.PUBLISHED,
+        moderatedAt: new Date(),
 
-      moderationNote: null,
-      publishedAt: new Date(),
-      hiddenAt: null,
-      rejectedAt: null,
-    });
+        moderationNote: null,
+        publishedAt: new Date(),
+        hiddenAt: null,
+        rejectedAt: null,
+      },
+      AUDIT_ACTIONS.ADMIN_REVIEW_PUBLISHED,
+      context,
+    );
     await this.notifyReview(
       reviewId,
       adminId,
@@ -478,16 +502,24 @@ export class ReviewsService {
     reviewId: string,
     adminId: string,
     moderationNote: string,
+    context?: AuditContext,
   ): Promise<AdminReviewResponseDto> {
-    await this.moderate(reviewId, adminId, ReviewStatus.PENDING, {
-      status: ReviewStatus.REJECTED,
-      moderatedAt: new Date(),
+    await this.moderate(
+      reviewId,
+      adminId,
+      ReviewStatus.PENDING,
+      {
+        status: ReviewStatus.REJECTED,
+        moderatedAt: new Date(),
 
-      moderationNote: this.normalizeRequiredModerationNote(moderationNote),
-      publishedAt: null,
-      hiddenAt: null,
-      rejectedAt: new Date(),
-    });
+        moderationNote: this.normalizeRequiredModerationNote(moderationNote),
+        publishedAt: null,
+        hiddenAt: null,
+        rejectedAt: new Date(),
+      },
+      AUDIT_ACTIONS.ADMIN_REVIEW_REJECTED,
+      context,
+    );
     await this.notifyReview(
       reviewId,
       adminId,
@@ -502,22 +534,54 @@ export class ReviewsService {
     reviewId: string,
     adminId: string,
     moderationNote: string,
+    context?: AuditContext,
   ): Promise<AdminReviewResponseDto> {
-    await this.moderate(reviewId, adminId, ReviewStatus.PUBLISHED, {
-      status: ReviewStatus.HIDDEN,
-      moderatedAt: new Date(),
+    await this.moderate(
+      reviewId,
+      adminId,
+      ReviewStatus.PUBLISHED,
+      {
+        status: ReviewStatus.HIDDEN,
+        moderatedAt: new Date(),
 
-      moderationNote: this.normalizeRequiredModerationNote(moderationNote),
-      publishedAt: null,
-      hiddenAt: new Date(),
-      rejectedAt: null,
-    });
+        moderationNote: this.normalizeRequiredModerationNote(moderationNote),
+        publishedAt: null,
+        hiddenAt: new Date(),
+        rejectedAt: null,
+      },
+      AUDIT_ACTIONS.ADMIN_REVIEW_HIDDEN,
+      context,
+    );
     await this.notifyReview(
       reviewId,
       adminId,
       NotificationType.REVIEW_HIDDEN,
       'Review hidden',
       'Your review was hidden.',
+    );
+    return this.findAdminById(reviewId);
+  }
+
+  async restore(
+    reviewId: string,
+    adminId: string,
+    moderationNote: string,
+    context?: AuditContext,
+  ): Promise<AdminReviewResponseDto> {
+    await this.moderate(
+      reviewId,
+      adminId,
+      ReviewStatus.HIDDEN,
+      {
+        status: ReviewStatus.PUBLISHED,
+        moderatedAt: new Date(),
+        moderationNote: this.normalizeRequiredModerationNote(moderationNote),
+        publishedAt: new Date(),
+        hiddenAt: null,
+        rejectedAt: null,
+      },
+      AUDIT_ACTIONS.ADMIN_REVIEW_RESTORED,
+      context,
     );
     return this.findAdminById(reviewId);
   }
@@ -697,6 +761,8 @@ export class ReviewsService {
     adminId: string,
     fromStatus: ReviewStatus,
     data: Prisma.ReviewUpdateManyMutationInput,
+    action: AuditAction,
+    context?: AuditContext,
   ): Promise<void> {
     const result = await this.prisma.$transaction(async (tx) => {
       const updateResult = await tx.review.updateMany({
@@ -708,6 +774,22 @@ export class ReviewsService {
         where: { id: reviewId },
         data: { moderator: { connect: { id: adminId } } },
         select: { id: true },
+      });
+      await this.audit?.record(tx, {
+        ...(context ?? {}),
+        action,
+        actorUserId: adminId,
+        entityId: reviewId,
+        entityType: AUDIT_ENTITY_TYPES.REVIEW,
+        metadata: {
+          nextStatus: String(data.status),
+          previousStatus: fromStatus,
+          reviewId,
+        },
+        reason:
+          typeof data.moderationNote === 'string'
+            ? data.moderationNote
+            : undefined,
       });
       return updateResult;
     });
@@ -767,6 +849,13 @@ export class ReviewsService {
         status: review.author.status,
         displayName: this.authorDisplayName(review),
       },
+      businessResponse: review.responses?.[0]
+        ? {
+            body: review.responses[0].body,
+            createdAt: review.responses[0].createdAt,
+            updatedAt: review.responses[0].updatedAt,
+          }
+        : null,
       target: this.toTarget(review),
     };
   }

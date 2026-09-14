@@ -18,6 +18,20 @@ enum AuditOutcome {
   FAILURE
 }
 
+enum ReportTargetType {
+  BUSINESS
+  SERVICE
+  REVIEW
+  USER
+}
+
+enum ReportStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
 model User {
   id                             String                   @id @default(uuid()) @db.Uuid
   email                          String                   @unique
@@ -54,6 +68,8 @@ model User {
   aiUsage              AiUsage[]
   aiSuggestions        AiSuggestion[]
   auditActions         AuditLog[]              @relation("AuditActor")
+  reportsSubmitted     Report[]                @relation("ReportReporter")
+  reportsAssigned      Report[]                @relation("ReportAssignedAdmin")
   @@map("users")
 }
 
@@ -299,6 +315,30 @@ model AuditLog {
   @@index([action, createdAt])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+model Report {
+  id                  String           @id @default(uuid()) @db.Uuid
+  reporterUserId      String           @map("reporter_user_id") @db.Uuid
+  targetType          ReportTargetType @map("target_type")
+  targetId            String           @map("target_id") @db.Uuid
+  reason              String           @db.VarChar(120)
+  details             String?          @db.VarChar(2000)
+  status              ReportStatus     @default(OPEN)
+  assignedAdminUserId String?          @map("assigned_admin_user_id") @db.Uuid
+  resolution          String?          @db.VarChar(1000)
+  resolvedAt          DateTime?        @map("resolved_at")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  reporter      User  @relation("ReportReporter", fields: [reporterUserId], references: [id], onDelete: Restrict)
+  assignedAdmin User? @relation("ReportAssignedAdmin", fields: [assignedAdminUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([reporterUserId, createdAt])
+  @@index([targetType, targetId, createdAt])
+  @@index([assignedAdminUserId, createdAt])
+  @@map("reports")
 }
 enum BusinessStatus {
   DRAFT

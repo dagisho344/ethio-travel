@@ -53,12 +53,7 @@ export async function adminJson<T>(
 }
 
 export async function adminReasonBody(request: NextRequest): Promise<string> {
-  let input: unknown;
-  try {
-    input = await request.json();
-  } catch {
-    throw new BffAuthError(400, 'A reason is required.');
-  }
+  const input = await adminObject(request, 'A reason is required.');
   if (
     typeof input !== 'object' ||
     input === null ||
@@ -75,4 +70,72 @@ export async function adminReasonBody(request: NextRequest): Promise<string> {
     );
   }
   return JSON.stringify({ reason });
+}
+
+export async function adminModerationNoteBody(
+  request: NextRequest,
+): Promise<string> {
+  const input = await adminObject(request, 'A moderation reason is required.');
+  const note = input.moderationNote;
+  if (typeof note !== 'string') {
+    throw new BffAuthError(400, 'A moderation reason is required.');
+  }
+  const moderationNote = note.trim();
+  if (moderationNote.length < 3 || moderationNote.length > 1000) {
+    throw new BffAuthError(
+      400,
+      'A moderation reason must be between 3 and 1000 characters.',
+    );
+  }
+  return JSON.stringify({ moderationNote });
+}
+
+export async function adminResolutionBody(
+  request: NextRequest,
+): Promise<string> {
+  const input = await adminObject(request, 'A resolution is required.');
+  const value = input.resolution;
+  if (typeof value !== 'string') {
+    throw new BffAuthError(400, 'A resolution is required.');
+  }
+  const resolution = value.trim();
+  if (resolution.length < 3 || resolution.length > 1000) {
+    throw new BffAuthError(
+      400,
+      'A resolution must be between 3 and 1000 characters.',
+    );
+  }
+  return JSON.stringify({ resolution });
+}
+
+export async function adminAllowedBody(
+  request: NextRequest,
+  allowed: readonly string[],
+): Promise<string> {
+  const input = await adminObject(request, 'A valid request body is required.');
+  const body = Object.fromEntries(
+    allowed
+      .filter((key) => Object.prototype.hasOwnProperty.call(input, key))
+      .map((key) => [key, input[key]]),
+  );
+  if (!Object.keys(body).length) {
+    throw new BffAuthError(400, 'At least one allowed field is required.');
+  }
+  return JSON.stringify(body);
+}
+
+async function adminObject(
+  request: NextRequest,
+  message: string,
+): Promise<Record<string, unknown>> {
+  let input: unknown;
+  try {
+    input = await request.json();
+  } catch {
+    throw new BffAuthError(400, message);
+  }
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw new BffAuthError(400, message);
+  }
+  return input as Record<string, unknown>;
 }
