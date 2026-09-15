@@ -56,3 +56,17 @@ void test('profile menu keeps account routes separate and supports accessible di
   assert.match(navigation, /flex w-52.*flex-col items-stretch/);
   assert.match(navigation, /block w-full text-left/);
 });
+
+void test('only a server-derived ADMIN role adds Admin Dashboard to both account menus', () => {
+  const layout = read('components/layout/PublicLayout.tsx');
+  const navigation = read('components/layout/HeaderNavigation.tsx');
+
+  assert.match(layout, /session\.user\?\.roles\.includes\('ADMIN'\) === true/);
+  assert.match(navigation, /hasAdminDashboard/);
+  assert.match(
+    navigation,
+    /hasAdminDashboard\s*\? \[\{ href: '\/admin', label: 'Admin Dashboard' \}\]/,
+  );
+  assert.match(navigation, /\{accountLinks\.map\(\(link\) => \(/);
+  assert.doesNotMatch(navigation, /href: '\/admin\/payments'/);
+});

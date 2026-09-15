@@ -60,6 +60,11 @@ const publicReview = {
   publishedAt: new Date('2026-01-02T00:00:00.000Z'),
   createdAt: review.createdAt,
 };
+const auditUserAgent = 'EthioTravel review e2e';
+const auditRequestContext = {
+  ipAddress: '::ffff:127.0.0.1',
+  userAgent: auditUserAgent,
+};
 
 class TestJwtGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
@@ -311,30 +316,36 @@ describe('Phase 6C review routes', () => {
       .post(
         '/api/v1/admin/reviews/22222222-2222-4222-8222-222222222222/publish',
       )
+      .set('User-Agent', auditUserAgent)
       .expect(200);
     expect(reviewsService.publish).toHaveBeenCalledWith(
       '22222222-2222-4222-8222-222222222222',
       user.sub,
+      expect.objectContaining(auditRequestContext),
     );
 
     await request(httpServer)
       .post('/api/v1/admin/reviews/22222222-2222-4222-8222-222222222222/reject')
       .send({ moderationNote: '  Not enough detail  ' })
+      .set('User-Agent', auditUserAgent)
       .expect(200);
     expect(reviewsService.reject).toHaveBeenCalledWith(
       '22222222-2222-4222-8222-222222222222',
       user.sub,
       'Not enough detail',
+      expect.objectContaining(auditRequestContext),
     );
 
     await request(httpServer)
       .post('/api/v1/admin/reviews/22222222-2222-4222-8222-222222222222/hide')
       .send({ moderationNote: 'Policy issue' })
+      .set('User-Agent', auditUserAgent)
       .expect(200);
     expect(reviewsService.hide).toHaveBeenCalledWith(
       '22222222-2222-4222-8222-222222222222',
       user.sub,
       'Policy issue',
+      expect.objectContaining(auditRequestContext),
     );
   });
 

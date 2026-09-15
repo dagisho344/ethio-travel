@@ -45,8 +45,7 @@ void test('business dashboard navigation is safe and shared by desktop and mobil
   assert.equal((navigation.match(/accountLinks\.map/g) ?? []).length, 2);
   assert.match(navigation, /role="menuitem"/);
   assert.match(navigation, /Mobile primary navigation/);
-  assert.match(navigation, /: standardAccountLinks;/);
-  assert.doesNotMatch(navigation, /href: '\/admin/);
+  assert.match(navigation, /\.\.\.standardAccountLinks/);
 });
 
 void test('login default keeps explicit safe returns ahead of workspace eligibility', () => {

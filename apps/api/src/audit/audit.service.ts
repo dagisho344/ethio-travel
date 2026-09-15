@@ -159,8 +159,6 @@ export class AuditService {
           typeof value === 'boolean' ||
           value === null),
     );
-    return entries.length
-      ? (Object.fromEntries(entries) as Prisma.InputJsonValue)
-      : undefined;
+    return entries.length ? Object.fromEntries(entries) : undefined;
   }
 }

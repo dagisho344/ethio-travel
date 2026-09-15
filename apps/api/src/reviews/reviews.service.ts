@@ -760,7 +760,7 @@ export class ReviewsService {
     reviewId: string,
     adminId: string,
     fromStatus: ReviewStatus,
-    data: Prisma.ReviewUpdateManyMutationInput,
+    data: Prisma.ReviewUpdateManyMutationInput & { status: ReviewStatus },
     action: AuditAction,
     context?: AuditContext,
   ): Promise<void> {
@@ -782,7 +782,7 @@ export class ReviewsService {
         entityId: reviewId,
         entityType: AUDIT_ENTITY_TYPES.REVIEW,
         metadata: {
-          nextStatus: String(data.status),
+          nextStatus: data.status,
           previousStatus: fromStatus,
           reviewId,
         },

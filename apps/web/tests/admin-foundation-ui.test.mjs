@@ -16,12 +16,19 @@ void test('admin route chrome is distinct while public chrome remains available 
   const layout = read('app/admin/layout.tsx');
 
   assert.match(chrome, /pathname === '\/admin'/);
-  assert.match(chrome, /pathname\.startsWith\('\/admin\/\'/);
+  assert.match(chrome, /pathname\.startsWith\('\/admin\/'/);
   assert.match(chrome, /AdminPortalTopBar/);
   assert.match(chrome, /isAdminPortal \? null : nonBusinessFooter/);
   assert.match(topBar, /Admin Portal/);
   assert.match(topBar, /NotificationBell/);
   assert.match(topBar, /LogoutButton/);
+  assert.match(topBar, /border-slate-200 bg-white\/95 backdrop-blur/);
+  assert.match(
+    topBar,
+    /text-slate-700 transition hover:bg-slate-50 hover:text-highland/,
+  );
+  assert.match(topBar, /text-highland transition hover:bg-emerald-50/);
+  assert.doesNotMatch(topBar, /bg-slate-950/);
   assert.match(layout, /currentSessionSnapshot/);
   assert.match(layout, /roles\.includes\('ADMIN'\)/);
   assert.match(layout, /redirect\('\/explore'\)/);

@@ -22,11 +22,14 @@ const authenticatedLinks = [
 type HeaderProps = {
   session: Pick<
     Awaited<ReturnType<typeof currentSessionSnapshot>>,
-    'authenticated' | 'hasBusinessWorkspace'
+    'authenticated' | 'hasBusinessWorkspace' | 'user'
   >;
 };
 
 export function Header({ session }: HeaderProps) {
+  const hasAdminDashboard =
+    session.authenticated && session.user?.roles.includes('ADMIN') === true;
+
   return (
     <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/95 backdrop-blur">
       <Container className="flex h-16 items-center gap-4 sm:gap-6">
@@ -42,6 +45,7 @@ export function Header({ session }: HeaderProps) {
         </Link>
         <HeaderNavigation
           authenticated={session.authenticated}
+          hasAdminDashboard={hasAdminDashboard}
           hasBusinessWorkspace={session.hasBusinessWorkspace}
           publicLinks={publicLinks}
           authenticatedLinks={authenticatedLinks}

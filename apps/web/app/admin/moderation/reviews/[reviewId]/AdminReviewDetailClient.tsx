@@ -103,7 +103,9 @@ export function AdminReviewDetailClient({ reviewId }: { reviewId: string }) {
               <button
                 type="button"
                 disabled={publishing}
-                onClick={publish}
+                onClick={() => {
+                  void publish();
+                }}
                 className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {publishing ? 'Publishing…' : 'Publish'}

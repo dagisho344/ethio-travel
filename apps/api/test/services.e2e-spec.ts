@@ -6,6 +6,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { ServiceCategory } from '@prisma/client';
 import type { Server } from 'node:http';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -33,6 +34,28 @@ const page = {
   data: [serviceRecord],
   meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
 };
+const serviceCategoryRecord: ServiceCategory = {
+  code: 'ROOM',
+  createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  description: null,
+  id: '55555555-5555-4555-8555-555555555555',
+  isActive: true,
+  name: 'Room',
+  sortOrder: 0,
+  updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+};
+const createAdmin = jest
+  .fn<
+    Promise<ServiceCategory>,
+    Parameters<ServiceCategoriesService['createAdmin']>
+  >()
+  .mockResolvedValue(serviceCategoryRecord);
+const updateAdmin = jest
+  .fn<
+    Promise<ServiceCategory>,
+    Parameters<ServiceCategoriesService['updateAdmin']>
+  >()
+  .mockResolvedValue(serviceCategoryRecord);
 
 class TestJwtGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
@@ -58,9 +81,11 @@ describe('Phase 4 service routes', () => {
       .overrideProvider(ServiceCategoriesService)
       .useValue({
         create: () => Promise.resolve({ code: 'ROOM' }),
+        createAdmin,
         findAdmin: () => Promise.resolve(page),
         findPublic: () => Promise.resolve(page),
         update: () => Promise.resolve({ code: 'ROOM' }),
+        updateAdmin,
       })
       .overrideProvider(ServicesService)
       .useValue({
@@ -155,7 +180,7 @@ describe('Phase 4 service routes', () => {
       .send({ code: 'ROOM', name: 'Room' })
       .expect(201);
     await request(httpServer)
-      .patch('/api/v1/admin/service-categories/c')
+      .patch(`/api/v1/admin/service-categories/${serviceCategoryRecord.id}`)
       .send({ name: 'Room' })
       .expect(200);
     await request(httpServer).get('/api/v1/admin/services').expect(200);

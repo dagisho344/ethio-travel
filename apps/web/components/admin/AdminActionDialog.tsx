@@ -75,7 +75,12 @@ export function AdminActionDialog({
                 ? 'This preserves historical records but immediately changes access or public eligibility where applicable.'
                 : 'This restores the target only when its current lifecycle allows it.'}
             </p>
-            <form className="mt-5 space-y-4" onSubmit={submit}>
+            <form
+              className="mt-5 space-y-4"
+              onSubmit={(event) => {
+                void submit(event);
+              }}
+            >
               <label className="block text-sm font-semibold text-slate-800">
                 Reason
                 <textarea

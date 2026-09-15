@@ -102,7 +102,9 @@ export function AdminReportDetailClient({ reportId }: { reportId: string }) {
             <button
               type="button"
               disabled={starting}
-              onClick={startReview}
+              onClick={() => {
+                void startReview();
+              }}
               className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
               {starting ? 'Starting…' : 'Start review'}

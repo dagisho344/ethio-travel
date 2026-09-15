@@ -14,6 +14,7 @@ type NavigationLink = {
 
 type HeaderNavigationProps = {
   authenticated: boolean;
+  hasAdminDashboard: boolean;
   hasBusinessWorkspace: boolean;
   publicLinks: NavigationLink[];
   authenticatedLinks: NavigationLink[];
@@ -44,6 +45,7 @@ function linkClass(active: boolean): string {
 
 export function HeaderNavigation({
   authenticated,
+  hasAdminDashboard,
   hasBusinessWorkspace,
   publicLinks,
   authenticatedLinks,
@@ -57,13 +59,15 @@ export function HeaderNavigation({
   const navigationLinks = authenticated
     ? [...publicLinks, ...authenticatedLinks]
     : publicLinks;
-  const accountLinks =
-    authenticated && hasBusinessWorkspace
-      ? [
-          { href: '/businesses/manage', label: 'Business Dashboard' },
-          ...standardAccountLinks,
-        ]
-      : standardAccountLinks;
+  const accountLinks = [
+    ...(authenticated && hasAdminDashboard
+      ? [{ href: '/admin', label: 'Admin Dashboard' }]
+      : []),
+    ...(authenticated && hasBusinessWorkspace
+      ? [{ href: '/businesses/manage', label: 'Business Dashboard' }]
+      : []),
+    ...standardAccountLinks,
+  ];
 
   useEffect(() => {
     function handlePointerDown(event: PointerEvent) {

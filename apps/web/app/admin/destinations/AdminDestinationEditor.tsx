@@ -184,7 +184,9 @@ export function AdminDestinationEditor({
       ) : null}
       {editable ? (
         <form
-          onSubmit={save}
+          onSubmit={(event) => {
+            void save(event);
+          }}
           className="space-y-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
         >
           <div className="grid gap-4 sm:grid-cols-2">
@@ -318,7 +320,9 @@ export function AdminDestinationEditor({
               <button
                 type="button"
                 disabled={saving}
-                onClick={publication}
+                onClick={() => {
+                  void publication();
+                }}
                 className="rounded-md bg-emerald-700 px-3 py-2 font-semibold text-white disabled:opacity-60"
               >
                 Confirm {confirm}

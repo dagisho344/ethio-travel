@@ -75,7 +75,12 @@ export function AdminNoteActionDialog({
               This action preserves historical content and creates an audit
               record.
             </p>
-            <form onSubmit={submit} className="mt-5 space-y-4">
+            <form
+              onSubmit={(event) => {
+                void submit(event);
+              }}
+              className="mt-5 space-y-4"
+            >
               <label className="block text-sm font-semibold text-slate-800">
                 {field === 'resolution'
                   ? 'Resolution note'

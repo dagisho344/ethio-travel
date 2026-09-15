@@ -4,7 +4,7 @@ import {
   BusinessVerificationSummary,
   UserStatus,
 } from '@prisma/client';
-import { AuditService } from './audit/audit.service';
+import { AuditService, AuditWrite } from './audit/audit.service';
 import { AUDIT_ACTIONS } from './audit/audit.constants';
 import { AdminService } from './admin/admin.service';
 import { JwtStrategy } from './auth/strategies/jwt.strategy';
@@ -20,6 +20,22 @@ const admin = {
 const userId = '22222222-2222-4222-8222-222222222222';
 const businessId = '33333333-3333-4333-8333-333333333333';
 
+type MutationResult = { count: number };
+type SessionFindFirstInput = {
+  select: { id: true };
+  where: {
+    expiresAt: { gt: Date };
+    id: string;
+    revokedAt: null;
+    user: { status: UserStatus };
+    userId: string;
+  };
+};
+type SessionUpdateInput = {
+  data: { revokedAt: Date };
+  where: { revokedAt: null; userId: string };
+};
+
 function transactionPrisma(transaction: Record<string, unknown>) {
   return {
     $transaction: jest.fn(
@@ -29,20 +45,32 @@ function transactionPrisma(transaction: Record<string, unknown>) {
   } as unknown as PrismaService;
 }
 
+function auditService(
+  record: jest.Mock<Promise<void>, [unknown, AuditWrite]>,
+): AuditService {
+  return { record } as unknown as AuditService;
+}
+
 describe('Phase 13A administrator safety', () => {
   it('revokes existing sessions when an administrator suspends an active user and audits the transition', async () => {
+    const sessionUpdateMany = jest
+      .fn<Promise<MutationResult>, [SessionUpdateInput]>()
+      .mockResolvedValue({ count: 1 });
     const transaction = {
-      session: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      session: { updateMany: sessionUpdateMany },
       user: {
         findUnique: jest
-          .fn()
+          .fn<Promise<{ id: string; status: UserStatus } | null>, [unknown]>()
           .mockResolvedValue({ id: userId, status: UserStatus.ACTIVE }),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        updateMany: jest
+          .fn<Promise<MutationResult>, [unknown]>()
+          .mockResolvedValue({ count: 1 }),
       },
     };
-    const audit = {
-      record: jest.fn().mockResolvedValue(undefined),
-    } as unknown as AuditService;
+    const auditRecord = jest
+      .fn<Promise<void>, [unknown, AuditWrite]>()
+      .mockResolvedValue(undefined);
+    const audit = auditService(auditRecord);
     const service = new AdminService(transactionPrisma(transaction), audit);
 
     await expect(
@@ -53,11 +81,13 @@ describe('Phase 13A administrator safety', () => {
         {},
       ),
     ).resolves.toEqual({ id: userId, status: UserStatus.SUSPENDED });
-    expect(transaction.session.updateMany).toHaveBeenCalledWith({
-      data: { revokedAt: expect.any(Date) },
-      where: { revokedAt: null, userId },
-    });
-    expect(audit.record).toHaveBeenCalledWith(
+    const updateCall = sessionUpdateMany.mock.calls[0];
+    expect(updateCall).toBeDefined();
+    if (!updateCall) throw new Error('Expected session revocation update.');
+    const [updateInput] = updateCall;
+    expect(updateInput.where).toEqual({ revokedAt: null, userId });
+    expect(updateInput.data.revokedAt).toBeInstanceOf(Date);
+    expect(auditRecord).toHaveBeenCalledWith(
       transaction,
       expect.objectContaining({ action: AUDIT_ACTIONS.ADMIN_USER_SUSPENDED }),
     );
@@ -81,9 +111,10 @@ describe('Phase 13A administrator safety', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
-    const audit = {
-      record: jest.fn().mockResolvedValue(undefined),
-    } as unknown as AuditService;
+    const auditRecord = jest
+      .fn<Promise<void>, [unknown, AuditWrite]>()
+      .mockResolvedValue(undefined);
+    const audit = auditService(auditRecord);
     const service = new BusinessesService(
       transactionPrisma(transaction),
       audit,
@@ -105,7 +136,7 @@ describe('Phase 13A administrator safety', () => {
       data: { status: BusinessStatus.DRAFT, suspendedAt: null },
       where: { id: businessId, status: BusinessStatus.SUSPENDED },
     });
-    expect(audit.record).toHaveBeenCalledWith(
+    expect(auditRecord).toHaveBeenCalledWith(
       transaction,
       expect.objectContaining({
         action: AUDIT_ACTIONS.ADMIN_BUSINESS_RESTORED,
@@ -114,7 +145,9 @@ describe('Phase 13A administrator safety', () => {
   });
 
   it('rejects a previously issued JWT when its session is revoked or user is no longer active', async () => {
-    const findFirst = jest.fn().mockResolvedValue(null);
+    const findFirst = jest
+      .fn<Promise<null>, [SessionFindFirstInput]>()
+      .mockResolvedValue(null);
     const strategy = new JwtStrategy(
       { get: jest.fn().mockReturnValue('test-access-secret') } as never,
       { session: { findFirst } } as unknown as PrismaService,
@@ -122,13 +155,11 @@ describe('Phase 13A administrator safety', () => {
     await expect(strategy.validate(admin)).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
-    expect(findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          revokedAt: null,
-          user: { status: UserStatus.ACTIVE },
-        }),
-      }),
-    );
+    const lookupCall = findFirst.mock.calls[0];
+    expect(lookupCall).toBeDefined();
+    if (!lookupCall) throw new Error('Expected active-session lookup.');
+    const [lookupInput] = lookupCall;
+    expect(lookupInput.where.revokedAt).toBeNull();
+    expect(lookupInput.where.user).toEqual({ status: UserStatus.ACTIVE });
   });
 });

@@ -100,7 +100,12 @@ function CategoryPanel({
           {error}
         </p>
       ) : null}
-      <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
+      <form
+        onSubmit={(event) => {
+          void submit(event);
+        }}
+        className="grid gap-3 sm:grid-cols-2"
+      >
         <label className="text-sm font-semibold">
           Code
           <input
