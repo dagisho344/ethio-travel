@@ -5,6 +5,7 @@ import {
   HttpCode,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -18,7 +19,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AdminOnly } from '../common/utils/admin-only.decorator';
 import { AdminService } from './admin.service';
-import { AdminActionReasonDto, AdminUsersQueryDto } from './dto/admin.dto';
+import {
+  AdminActionReasonDto,
+  AdminUsersQueryDto,
+  UpdatePlatformSettingsDto,
+} from './dto/admin.dto';
 
 function auditContext(request: Request) {
   return {
@@ -40,6 +45,32 @@ export class AdminController {
   @ApiOkResponse({ description: 'Bounded administrator dashboard summary.' })
   dashboard() {
     return this.admin.dashboard();
+  }
+
+  @Get('analytics')
+  @ApiOkResponse({
+    description: 'Bounded administrator analytics from database aggregates.',
+  })
+  analytics() {
+    return this.admin.analytics();
+  }
+
+  @Get('settings')
+  @ApiOkResponse({ description: 'Safe, non-secret platform settings.' })
+  settings() {
+    return this.admin.settings();
+  }
+
+  @Patch('settings')
+  @ApiOkResponse({
+    description: 'Updates typed non-secret platform support settings.',
+  })
+  updateSettings(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() dto: UpdatePlatformSettingsDto,
+    @Req() request: Request,
+  ) {
+    return this.admin.updateSettings(actor, dto, auditContext(request));
   }
 
   @Get('users')

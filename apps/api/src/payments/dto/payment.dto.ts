@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   IsUUID,
   MaxLength,
   Min,
@@ -46,6 +47,33 @@ export class PaymentQueryDto extends PaginationQueryDto {
   @IsDateString()
   @IsOptional()
   to?: string;
+}
+
+export class AdminPaymentQueryDto extends PaymentQueryDto {
+  @ApiPropertyOptional({ maxLength: 32 })
+  @IsString()
+  @MaxLength(32)
+  @IsOptional()
+  reference?: string;
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsString()
+  @MaxLength(120)
+  @IsOptional()
+  traveler?: string;
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsString()
+  @MaxLength(120)
+  @IsOptional()
+  business?: string;
+
+  @ApiPropertyOptional({ minLength: 3, maxLength: 3 })
+  @IsString()
+  @MaxLength(3)
+  @Matches(/^[A-Z]{3}$/)
+  @IsOptional()
+  currency?: string;
 }
 
 export class RefundPaymentDto {

@@ -13,12 +13,14 @@ function read(path) {
 void test('payment BFF routes proxy through secure session helpers', () => {
   const bookingPayments = read('app/api/bookings/[id]/payments/route.ts');
   const adminRefund = read('app/api/admin/payments/[id]/refund/route.ts');
+  const adminBff = read('app/api/admin/bff.ts');
   assert.match(bookingPayments, /authenticatedBackendJson/);
   assert.match(bookingPayments, /validateSameOrigin\(request\)/);
   assert.match(bookingPayments, /\/bookings\/\$\{id\}\/payments/);
-  assert.match(adminRefund, /authenticatedBackendJson/);
-  assert.match(adminRefund, /validateSameOrigin\(request\)/);
-  assert.match(adminRefund, /\/admin\/payments\/\$\{id\}\/refund/);
+  assert.match(adminRefund, /adminJson/);
+  assert.match(adminRefund, /adminUuid/);
+  assert.match(adminRefund, /'\/admin\/payments\/'.*'\/refund'/s);
+  assert.match(adminBff, /validateSameOrigin/);
 });
 
 void test('payment BFF exposes traveler business and admin payment endpoints', () => {
@@ -31,11 +33,12 @@ void test('payment BFF exposes traveler business and admin payment endpoints', (
     read('app/api/businesses/[businessId]/payments/[paymentId]/route.ts'),
     /\/businesses\/\$\{businessId\}\/payments\/\$\{paymentId\}/,
   );
-  assert.match(read('app/api/admin/payments/route.ts'), /\/admin\/payments/);
-  assert.match(
-    read('app/api/admin/payments/[id]/route.ts'),
-    /\/admin\/payments\/\$\{id\}/,
-  );
+  const adminList = read('app/api/admin/payments/route.ts');
+  const adminDetail = read('app/api/admin/payments/[id]/route.ts');
+  assert.match(adminList, /adminJson/);
+  assert.match(adminList, /\/admin\/payments/);
+  assert.match(adminDetail, /adminUuid/);
+  assert.match(adminDetail, /'\/admin\/payments\/'.*adminUuid/s);
 });
 
 void test('payment create body forwards only provider-independent idempotency input', () => {
@@ -116,7 +119,10 @@ void test('admin payments include list detail and refund controls', () => {
   const detail = read('app/admin/payments/[id]/AdminPaymentDetailClient.tsx');
   const refund = read('components/payments/RefundForm.tsx');
   assert.match(listPage, /currentTokens/);
-  assert.match(list, /Booking ID/);
+  assert.match(list, /Booking reference/);
+  assert.match(list, /Traveler/);
+  assert.match(list, /Business/);
+  assert.match(list, /Currency/);
   assert.match(list, /\/api\/admin\/payments/);
   assert.match(detail, /RefundForm/);
   assert.match(refund, /Full refund/);

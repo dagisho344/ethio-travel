@@ -21,11 +21,15 @@ import {
   NotificationType,
 } from '@prisma/client';
 import { BusinessesService } from '../businesses/businesses.service';
+import { AuditContext, AuditService } from '../audit/audit.service';
+import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from '../audit/audit.constants';
+import { AuthenticatedUser } from '../auth/authenticated-user';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
   CreatePaymentDto,
+  AdminPaymentQueryDto,
   PaymentQueryDto,
   RefundPaymentDto,
 } from './dto/payment.dto';
@@ -125,6 +129,7 @@ export class PaymentsService {
     private readonly config: ConfigService,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     private readonly notifications?: NotificationsService,
+    private readonly audit?: AuditService,
   ) {}
 
   async createForBooking(
@@ -317,18 +322,26 @@ export class PaymentsService {
   }
 
   async findAdmin(
-    query: PaymentQueryDto,
+    query: AdminPaymentQueryDto,
   ): Promise<PaginatedResponse<PaymentRecord>> {
-    return this.paginated(this.queryWhere(query), query);
+    return this.paginated(this.adminQueryWhere(query), query);
   }
 
-  async findAdminById(id: string): Promise<PaymentRecord> {
+  async findAdminById(id: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { id },
       select: paymentSelect,
     });
     if (!payment) throw new NotFoundException('Payment not found.');
-    return payment;
+    return {
+      ...payment,
+      auditTrail: this.audit
+        ? await this.audit.recentForEntity(
+            AUDIT_ENTITY_TYPES.PAYMENT,
+            payment.id,
+          )
+        : [],
+    };
   }
 
   async processWebhook(
@@ -348,6 +361,10 @@ export class PaymentsService {
     paymentId: string,
     dto: RefundPaymentDto,
     headerIdempotencyKey?: string,
+    adminAudit?: {
+      actor: AuthenticatedUser;
+      context: AuditContext;
+    },
   ): Promise<PaymentRecord> {
     const idempotencyKey = this.normalizeIdempotencyKey(
       headerIdempotencyKey ?? dto.idempotencyKey,
@@ -411,6 +428,20 @@ export class PaymentsService {
           amount: payment.amount,
           currency: payment.currency,
         };
+        if (adminAudit && this.audit) {
+          await this.audit.record(tx, {
+            ...adminAudit.context,
+            action: AUDIT_ACTIONS.ADMIN_PAYMENT_REFUND_REQUESTED,
+            actorUserId: adminAudit.actor.sub,
+            entityId: payment.id,
+            entityType: AUDIT_ENTITY_TYPES.PAYMENT,
+            metadata: {
+              currency: payment.currency,
+              paymentId: payment.id,
+            },
+            reason: this.trim(dto.reason),
+          });
+        }
         return undefined;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
@@ -663,6 +694,77 @@ export class PaymentsService {
             }
           : undefined,
     };
+  }
+
+  private adminQueryWhere(
+    query: AdminPaymentQueryDto,
+  ): Prisma.PaymentWhereInput {
+    this.validateQueryRange(query.from, query.to);
+    const where: Prisma.PaymentWhereInput[] = [this.queryWhere(query)];
+    const reference = this.trim(query.reference);
+    if (reference) {
+      where.push({
+        booking: {
+          reference: {
+            contains: reference,
+            mode: Prisma.QueryMode.insensitive,
+          },
+        },
+      });
+    }
+    const traveler = this.trim(query.traveler);
+    if (traveler) {
+      where.push({
+        traveler: {
+          OR: [
+            {
+              email: {
+                contains: traveler,
+                mode: Prisma.QueryMode.insensitive,
+              },
+            },
+            {
+              profile: {
+                is: {
+                  OR: [
+                    {
+                      firstName: {
+                        contains: traveler,
+                        mode: Prisma.QueryMode.insensitive,
+                      },
+                    },
+                    {
+                      lastName: {
+                        contains: traveler,
+                        mode: Prisma.QueryMode.insensitive,
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+    }
+    const business = this.trim(query.business);
+    if (business) {
+      where.push({
+        business: {
+          name: { contains: business, mode: Prisma.QueryMode.insensitive },
+        },
+      });
+    }
+    if (query.currency) where.push({ currency: query.currency });
+    return { AND: where };
+  }
+
+  private validateQueryRange(from?: string, to?: string): void {
+    if (from && to && new Date(from) > new Date(to)) {
+      throw new BadRequestException(
+        'Payment start date must be before end date.',
+      );
+    }
   }
 
   private assertPayableBooking(booking: {

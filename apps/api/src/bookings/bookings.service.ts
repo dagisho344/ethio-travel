@@ -19,6 +19,8 @@ import {
 } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { BusinessesService } from '../businesses/businesses.service';
+import { AuditService } from '../audit/audit.service';
+import { AUDIT_ENTITY_TYPES } from '../audit/audit.constants';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import { publicServiceWhere } from '../common/utils/public-visibility.util';
 import { PrismaService } from '../prisma/prisma.service';
@@ -32,6 +34,7 @@ import {
 } from './dto/availability.dto';
 import {
   AvailabilityQueryDto,
+  AdminBookingQueryDto,
   BookingActionDto,
   BookingQueryDto,
   CreateBookingDto,
@@ -77,8 +80,26 @@ const bookingSelect = Prisma.validator<Prisma.BookingSelect>()({
   },
 });
 
+const adminBookingSelect = Prisma.validator<Prisma.BookingSelect>()({
+  ...bookingSelect,
+  payments: {
+    orderBy: { createdAt: 'asc' },
+    select: {
+      amount: true,
+      createdAt: true,
+      currency: true,
+      id: true,
+      paidAt: true,
+      status: true,
+    },
+  },
+});
+
 type BookingRecord = Prisma.BookingGetPayload<{
   select: typeof bookingSelect;
+}>;
+type AdminBookingRecord = Prisma.BookingGetPayload<{
+  select: typeof adminBookingSelect;
 }>;
 type ServiceWithBooking = Prisma.ServiceGetPayload<{
   include: {
@@ -114,6 +135,7 @@ export class BookingsService {
     private readonly prisma: PrismaService,
     private readonly businesses: BusinessesService,
     private readonly notifications?: NotificationsService,
+    private readonly audit?: AuditService,
   ) {}
 
   async availability(serviceId: string, query: AvailabilityQueryDto) {
@@ -394,15 +416,13 @@ export class BookingsService {
   }
 
   async findAdmin(
-    query: BookingQueryDto,
-  ): Promise<PaginatedResponse<BookingRecord>> {
-    const where: Prisma.BookingWhereInput = {
-      bookingStatus: this.status(query.status),
-    };
+    query: AdminBookingQueryDto,
+  ): Promise<PaginatedResponse<AdminBookingRecord>> {
+    const where = this.adminWhere(query);
     const [data, total] = await this.prisma.$transaction([
       this.prisma.booking.findMany({
         where,
-        select: bookingSelect,
+        select: adminBookingSelect,
         orderBy: { createdAt: 'desc' },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -410,6 +430,23 @@ export class BookingsService {
       this.prisma.booking.count({ where }),
     ]);
     return paginate(data, total, query.page, query.limit);
+  }
+
+  async findAdminById(id: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id },
+      select: adminBookingSelect,
+    });
+    if (!booking) throw new NotFoundException('Booking not found.');
+    return {
+      ...booking,
+      auditTrail: this.audit
+        ? await this.audit.recentForEntity(
+            AUDIT_ENTITY_TYPES.BOOKING,
+            booking.id,
+          )
+        : [],
+    };
   }
 
   async getConfig(userId: string, serviceId: string) {
@@ -936,6 +973,101 @@ export class BookingsService {
         'Blocked override cannot include capacity.',
       );
   }
+  private adminWhere(query: AdminBookingQueryDto): Prisma.BookingWhereInput {
+    this.validateAdminRange(query.startFrom, query.startTo, 'Booking start');
+    this.validateAdminRange(
+      query.createdFrom,
+      query.createdTo,
+      'Booking creation',
+    );
+    const filters: Prisma.BookingWhereInput[] = [];
+    const status = this.status(query.status);
+    if (status) filters.push({ bookingStatus: status });
+    const reference = this.trim(query.reference);
+    if (reference)
+      filters.push({
+        reference: { contains: reference, mode: Prisma.QueryMode.insensitive },
+      });
+    const traveler = this.trim(query.traveler);
+    if (traveler) {
+      filters.push({
+        traveler: {
+          OR: [
+            {
+              email: {
+                contains: traveler,
+                mode: Prisma.QueryMode.insensitive,
+              },
+            },
+            {
+              profile: {
+                is: {
+                  OR: [
+                    {
+                      firstName: {
+                        contains: traveler,
+                        mode: Prisma.QueryMode.insensitive,
+                      },
+                    },
+                    {
+                      lastName: {
+                        contains: traveler,
+                        mode: Prisma.QueryMode.insensitive,
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      });
+    }
+    const business = this.trim(query.business);
+    if (business) {
+      filters.push({
+        business: {
+          name: { contains: business, mode: Prisma.QueryMode.insensitive },
+        },
+      });
+    }
+    const service = this.trim(query.service);
+    if (service) {
+      filters.push({
+        service: {
+          name: { contains: service, mode: Prisma.QueryMode.insensitive },
+        },
+      });
+    }
+    if (query.startFrom || query.startTo) {
+      filters.push({
+        startAt: {
+          gte: query.startFrom ? new Date(query.startFrom) : undefined,
+          lte: query.startTo ? new Date(query.startTo) : undefined,
+        },
+      });
+    }
+    if (query.createdFrom || query.createdTo) {
+      filters.push({
+        createdAt: {
+          gte: query.createdFrom ? new Date(query.createdFrom) : undefined,
+          lte: query.createdTo ? new Date(query.createdTo) : undefined,
+        },
+      });
+    }
+    return filters.length ? { AND: filters } : {};
+  }
+
+  private validateAdminRange(
+    from: string | undefined,
+    to: string | undefined,
+    label: string,
+  ): void {
+    if (from && to && new Date(from) > new Date(to)) {
+      throw new BadRequestException(`${label} start must be before end.`);
+    }
+  }
+
   private status(value?: string): BookingStatus | undefined {
     if (!value) return undefined;
     if (Object.values(BookingStatus).includes(value as BookingStatus))

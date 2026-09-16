@@ -111,8 +111,15 @@ export async function adminResolutionBody(
 export async function adminAllowedBody(
   request: NextRequest,
   allowed: readonly string[],
+  rejectUnknown = false,
 ): Promise<string> {
   const input = await adminObject(request, 'A valid request body is required.');
+  if (
+    rejectUnknown &&
+    Object.keys(input).some((key) => !allowed.includes(key))
+  ) {
+    throw new BffAuthError(400, 'The request contains an unsupported field.');
+  }
   const body = Object.fromEntries(
     allowed
       .filter((key) => Object.prototype.hasOwnProperty.call(input, key))

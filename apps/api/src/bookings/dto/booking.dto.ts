@@ -1,7 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { BookingStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDateString,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -76,6 +78,57 @@ export class BookingQueryDto {
   @IsString()
   @IsOptional()
   status?: string;
+}
+
+export class AdminBookingQueryDto extends BookingQueryDto {
+  @ApiPropertyOptional({ enum: BookingStatus })
+  @IsEnum(BookingStatus)
+  @IsOptional()
+  declare status?: BookingStatus;
+
+  @ApiPropertyOptional({ maxLength: 32 })
+  @IsString()
+  @MaxLength(32)
+  @IsOptional()
+  reference?: string;
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsString()
+  @MaxLength(120)
+  @IsOptional()
+  traveler?: string;
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsString()
+  @MaxLength(120)
+  @IsOptional()
+  business?: string;
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsString()
+  @MaxLength(120)
+  @IsOptional()
+  service?: string;
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsDateString()
+  @IsOptional()
+  startFrom?: string;
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsDateString()
+  @IsOptional()
+  startTo?: string;
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsDateString()
+  @IsOptional()
+  createdFrom?: string;
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsDateString()
+  @IsOptional()
+  createdTo?: string;
 }
 
 export class BookingActionDto {

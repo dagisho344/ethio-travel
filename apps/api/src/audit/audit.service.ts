@@ -15,6 +15,10 @@ const SAFE_METADATA_KEYS = new Set([
   'reviewId',
   'reportId',
   'targetType',
+  'bookingId',
+  'paymentId',
+  'currency',
+  'settingNames',
 ]);
 
 type SafeMetadataValue = boolean | null | number | string;

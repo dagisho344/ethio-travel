@@ -4,14 +4,18 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Building2,
+  CalendarDays,
+  BarChart3,
   ChevronLeft,
   ClipboardList,
+  CreditCard,
   Flag,
   LayoutDashboard,
   MapPinned,
   Menu,
   MessageSquareWarning,
   ShieldCheck,
+  Settings,
   Tags,
   Users,
   X,
@@ -24,20 +28,63 @@ type AdminLink = {
   label: string;
 };
 
-const adminLinks: AdminLink[] = [
-  { href: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/admin/users', icon: Users, label: 'Users' },
-  { href: '/admin/businesses', icon: Building2, label: 'Businesses' },
-  { href: '/admin/verifications', icon: ShieldCheck, label: 'Verifications' },
-  { href: '/admin/destinations', icon: MapPinned, label: 'Destinations' },
-  { href: '/admin/categories', icon: Tags, label: 'Categories' },
+type AdminNavigationGroup = {
+  label?: string;
+  links: AdminLink[];
+};
+
+const adminNavigation: AdminNavigationGroup[] = [
   {
-    href: '/admin/moderation',
-    icon: MessageSquareWarning,
-    label: 'Moderation',
+    links: [{ href: '/admin', icon: LayoutDashboard, label: 'Dashboard' }],
   },
-  { href: '/admin/reports', icon: Flag, label: 'Reports' },
-  { href: '/admin/audit', icon: ClipboardList, label: 'Audit' },
+  {
+    label: 'Platform',
+    links: [
+      { href: '/admin/users', icon: Users, label: 'Users' },
+      { href: '/admin/businesses', icon: Building2, label: 'Businesses' },
+      {
+        href: '/admin/verifications',
+        icon: ShieldCheck,
+        label: 'Verifications',
+      },
+    ],
+  },
+  {
+    label: 'Content',
+    links: [
+      { href: '/admin/destinations', icon: MapPinned, label: 'Destinations' },
+      { href: '/admin/categories', icon: Tags, label: 'Categories' },
+    ],
+  },
+  {
+    label: 'Moderation',
+    links: [
+      {
+        href: '/admin/moderation',
+        icon: MessageSquareWarning,
+        label: 'Moderation',
+      },
+      { href: '/admin/reports', icon: Flag, label: 'Reports' },
+    ],
+  },
+  {
+    label: 'Operations',
+    links: [
+      { href: '/admin/bookings', icon: CalendarDays, label: 'Bookings' },
+      { href: '/admin/payments', icon: CreditCard, label: 'Payments' },
+    ],
+  },
+  {
+    label: 'Insights',
+    links: [{ href: '/admin/analytics', icon: BarChart3, label: 'Analytics' }],
+  },
+  {
+    label: 'System',
+    links: [
+      { href: '/admin/audit', icon: ClipboardList, label: 'Audit' },
+      { href: '/admin/settings', icon: Settings, label: 'Settings' },
+    ],
+  },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -49,26 +96,38 @@ function AdminNavigation({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
     <nav aria-label="Administrator navigation" className="space-y-1">
-      {adminLinks.map((item) => {
-        const Icon = item.icon;
-        const active = isActive(pathname, item.href);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={active ? 'page' : undefined}
-            onClick={onNavigate}
-            className={`flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
-              active
-                ? 'bg-emerald-50 text-emerald-900'
-                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
-            }`}
-          >
-            <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-            {item.label}
-          </Link>
-        );
-      })}
+      {adminNavigation.map((group, groupIndex) => (
+        <div
+          key={group.label ?? 'dashboard'}
+          className={groupIndex ? 'pt-3' : undefined}
+        >
+          {group.label ? (
+            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {group.label}
+            </p>
+          ) : null}
+          {group.links.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(pathname, item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? 'page' : undefined}
+                onClick={onNavigate}
+                className={`flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+                  active
+                    ? 'bg-emerald-50 text-emerald-900'
+                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }

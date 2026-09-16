@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { AlertCircle, CreditCard, ReceiptText, RotateCcw } from 'lucide-react';
-import { PaymentStatusBadge } from '../bookings/BookingStatusBadge';
+import {
+  BookingStatusBadge,
+  PaymentStatusBadge,
+} from '../bookings/BookingStatusBadge';
 import { formatMoney } from '../../lib/bookings';
 import {
   formatPaymentDate,
@@ -15,13 +18,17 @@ import type { Payment } from '../../lib/types';
 
 export function PaymentSummary({
   payment,
+  bookingHref,
   showBookingLink = false,
 }: {
   payment: Payment;
+  bookingHref?: string;
   showBookingLink?: boolean;
 }) {
   const refunded = refundedAmount(payment);
   const remaining = refundableBalance(payment);
+  const resolvedBookingHref =
+    bookingHref ?? (showBookingLink ? '/bookings/' + payment.bookingId : null);
 
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -37,7 +44,20 @@ export function PaymentSummary({
             {payment.booking.reference} � {payment.booking.service.name}
           </p>
         </div>
-        <PaymentStatusBadge status={payment.status} />
+        <div className="flex flex-wrap gap-3">
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Booking status
+            </p>
+            <BookingStatusBadge status={payment.booking.bookingStatus} />
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Payment status
+            </p>
+            <PaymentStatusBadge status={payment.status} />
+          </div>
+        </div>
       </div>
 
       {payment.provider === 'DEVELOPMENT' ? (
@@ -86,9 +106,9 @@ export function PaymentSummary({
         </div>
       </dl>
 
-      {showBookingLink ? (
+      {resolvedBookingHref ? (
         <Link
-          href={`/bookings/${payment.bookingId}`}
+          href={resolvedBookingHref}
           className="mt-4 inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
         >
           View booking

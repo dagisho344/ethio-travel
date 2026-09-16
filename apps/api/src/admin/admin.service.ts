@@ -1,12 +1,20 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
+  BookingStatus,
   BusinessStatus,
+  BusinessVerificationSummary,
+  PaymentRefundStatus,
+  PaymentStatus,
   Prisma,
+  PublicationStatus,
+  ReportStatus,
+  ReviewStatus,
   UserStatus,
   VerificationRequestStatus,
 } from '@prisma/client';
@@ -15,7 +23,18 @@ import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from '../audit/audit.constants';
 import { AuthenticatedUser } from '../auth/authenticated-user';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { AdminActionReasonDto, AdminUsersQueryDto } from './dto/admin.dto';
+import {
+  AdminActionReasonDto,
+  AdminUsersQueryDto,
+  UpdatePlatformSettingsDto,
+} from './dto/admin.dto';
+
+const PLATFORM_SETTINGS_KEY = 'PRIMARY';
+const capturedPaymentStatuses = [
+  PaymentStatus.PAID,
+  PaymentStatus.PARTIALLY_REFUNDED,
+  PaymentStatus.REFUNDED,
+];
 
 const adminUserInclude = {
   profile: true,
@@ -117,6 +136,182 @@ export class AdminService {
         ),
       },
     };
+  }
+
+  async analytics() {
+    const recentSince = new Date();
+    recentSince.setUTCDate(recentSince.getUTCDate() - 30);
+    const [
+      userGroups,
+      recentRegistrations,
+      businessGroups,
+      businessVerificationGroups,
+      bookingGroups,
+      recentBookingVolume,
+      paymentGroups,
+      capturedByCurrency,
+      refundedByCurrency,
+      publishedDestinations,
+      publishedReviews,
+      reportGroups,
+      pendingVerifications,
+    ] = await Promise.all([
+      this.prisma.user.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.user.count({ where: { createdAt: { gte: recentSince } } }),
+      this.prisma.business.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.business.groupBy({
+        by: ['verificationSummary'],
+        _count: { _all: true },
+      }),
+      this.prisma.booking.groupBy({
+        by: ['bookingStatus'],
+        _count: { _all: true },
+      }),
+      this.prisma.booking.count({ where: { createdAt: { gte: recentSince } } }),
+      this.prisma.payment.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.payment.groupBy({
+        by: ['currency'],
+        where: { status: { in: capturedPaymentStatuses } },
+        _sum: { amount: true },
+      }),
+      this.prisma.paymentRefund.groupBy({
+        by: ['currency'],
+        where: { status: PaymentRefundStatus.SUCCEEDED },
+        _sum: { amount: true },
+      }),
+      this.prisma.destination.count({
+        where: { status: PublicationStatus.PUBLISHED },
+      }),
+      this.prisma.review.count({ where: { status: ReviewStatus.PUBLISHED } }),
+      this.prisma.report.groupBy({ by: ['status'], _count: { _all: true } }),
+      this.prisma.businessVerification.count({
+        where: { status: VerificationRequestStatus.PENDING },
+      }),
+    ]);
+
+    return {
+      businesses: {
+        active: this.groupCount(businessGroups, BusinessStatus.ACTIVE),
+        draft: this.groupCount(businessGroups, BusinessStatus.DRAFT),
+        pendingVerification: this.groupCountBy(
+          businessVerificationGroups,
+          'verificationSummary',
+          BusinessVerificationSummary.PENDING,
+        ),
+        rejectedVerification: this.groupCountBy(
+          businessVerificationGroups,
+          'verificationSummary',
+          BusinessVerificationSummary.REJECTED,
+        ),
+        suspended: this.groupCount(businessGroups, BusinessStatus.SUSPENDED),
+        total: this.totalCount(businessGroups),
+        verified: this.groupCountBy(
+          businessVerificationGroups,
+          'verificationSummary',
+          BusinessVerificationSummary.VERIFIED,
+        ),
+      },
+      bookings: {
+        cancelled:
+          this.groupCountBy(
+            bookingGroups,
+            'bookingStatus',
+            BookingStatus.CANCELLED_BY_BUSINESS,
+          ) +
+          this.groupCountBy(
+            bookingGroups,
+            'bookingStatus',
+            BookingStatus.CANCELLED_BY_TRAVELER,
+          ),
+        completed: this.groupCountBy(
+          bookingGroups,
+          'bookingStatus',
+          BookingStatus.COMPLETED,
+        ),
+        confirmed: this.groupCountBy(
+          bookingGroups,
+          'bookingStatus',
+          BookingStatus.CONFIRMED,
+        ),
+        pending: this.groupCountBy(
+          bookingGroups,
+          'bookingStatus',
+          BookingStatus.PENDING,
+        ),
+        recentVolume: recentBookingVolume,
+        total: this.totalCount(bookingGroups),
+      },
+      content: {
+        openReports: this.groupCount(reportGroups, ReportStatus.OPEN),
+        pendingVerifications,
+        publishedDestinations,
+        publishedReviews,
+      },
+      payments: {
+        byStatus: {
+          failed: this.groupCount(paymentGroups, PaymentStatus.FAILED),
+          paid: this.groupCount(paymentGroups, PaymentStatus.PAID),
+          partiallyRefunded: this.groupCount(
+            paymentGroups,
+            PaymentStatus.PARTIALLY_REFUNDED,
+          ),
+          pending: this.groupCount(paymentGroups, PaymentStatus.PENDING),
+          refunded: this.groupCount(paymentGroups, PaymentStatus.REFUNDED),
+        },
+        revenueByCurrency: this.currencyTotals(
+          capturedByCurrency,
+          refundedByCurrency,
+        ),
+      },
+      users: {
+        active: this.groupCount(userGroups, UserStatus.ACTIVE),
+        deactivated: this.groupCount(userGroups, UserStatus.DEACTIVATED),
+        recentRegistrations,
+        suspended: this.groupCount(userGroups, UserStatus.SUSPENDED),
+        total: this.totalCount(userGroups),
+      },
+    };
+  }
+
+  async settings() {
+    const settings = await this.prisma.platformSettings.findUnique({
+      where: { singletonKey: PLATFORM_SETTINGS_KEY },
+    });
+    return this.toSettings(settings);
+  }
+
+  async updateSettings(
+    actor: AuthenticatedUser,
+    dto: UpdatePlatformSettingsDto,
+    context: AuditContext,
+  ) {
+    const data = this.settingsData(dto);
+    const settingNames = Object.keys(data);
+    if (!settingNames.length) {
+      throw new BadRequestException('At least one setting is required.');
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.platformSettings.findUnique({
+        where: { singletonKey: PLATFORM_SETTINGS_KEY },
+      });
+      const settings = existing
+        ? await tx.platformSettings.update({
+            where: { id: existing.id },
+            data,
+          })
+        : await tx.platformSettings.create({
+            data: { singletonKey: PLATFORM_SETTINGS_KEY, ...data },
+          });
+      await this.audit.record(tx, {
+        ...context,
+        action: AUDIT_ACTIONS.ADMIN_SYSTEM_SETTINGS_UPDATED,
+        actorUserId: actor.sub,
+        entityId: settings.id,
+        entityType: AUDIT_ENTITY_TYPES.PLATFORM_SETTINGS,
+        metadata: { settingNames: settingNames.join(',') },
+      });
+      return this.toSettings(settings);
+    });
   }
 
   async listUsers(
@@ -301,9 +496,94 @@ export class AdminService {
 
   private groupCount<T extends string>(
     records: Array<{ status: T; _count: { _all: number } }>,
-    status: T,
+    value: T,
   ): number {
-    return records.find((record) => record.status === status)?._count._all ?? 0;
+    return records.find((record) => record.status === value)?._count._all ?? 0;
+  }
+
+  private groupCountBy<T extends string, K extends string>(
+    records: Array<Record<K, T> & { _count: { _all: number } }>,
+    property: K,
+    value: T,
+  ): number {
+    return (
+      records.find((record) => record[property] === value)?._count._all ?? 0
+    );
+  }
+
+  private totalCount(records: Array<{ _count: { _all: number } }>): number {
+    return records.reduce((total, item) => total + item._count._all, 0);
+  }
+
+  private currencyTotals(
+    captured: Array<{
+      currency: string;
+      _sum: { amount: Prisma.Decimal | null };
+    }>,
+    refunded: Array<{
+      currency: string;
+      _sum: { amount: Prisma.Decimal | null };
+    }>,
+  ) {
+    const totals = new Map<
+      string,
+      { gross: Prisma.Decimal; refunded: Prisma.Decimal }
+    >();
+    for (const item of captured) {
+      totals.set(item.currency, {
+        gross: item._sum.amount ?? new Prisma.Decimal(0),
+        refunded: new Prisma.Decimal(0),
+      });
+    }
+    for (const item of refunded) {
+      const current = totals.get(item.currency) ?? {
+        gross: new Prisma.Decimal(0),
+        refunded: new Prisma.Decimal(0),
+      };
+      current.refunded = item._sum.amount ?? new Prisma.Decimal(0);
+      totals.set(item.currency, current);
+    }
+    return [...totals.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([currency, totalsForCurrency]) => ({
+        currency,
+        gross: totalsForCurrency.gross.toString(),
+        net: totalsForCurrency.gross.sub(totalsForCurrency.refunded).toString(),
+        refunded: totalsForCurrency.refunded.toString(),
+      }));
+  }
+
+  private settingsData(dto: UpdatePlatformSettingsDto): {
+    supportEmail?: string | null;
+    supportMessage?: string | null;
+    supportPhone?: string | null;
+  } {
+    const data: {
+      supportEmail?: string | null;
+      supportMessage?: string | null;
+      supportPhone?: string | null;
+    } = {};
+    if (dto.supportEmail !== undefined) data.supportEmail = dto.supportEmail;
+    if (dto.supportPhone !== undefined) data.supportPhone = dto.supportPhone;
+    if (dto.supportMessage !== undefined)
+      data.supportMessage = dto.supportMessage;
+    return data;
+  }
+
+  private toSettings(
+    settings: {
+      supportEmail: string | null;
+      supportMessage: string | null;
+      supportPhone: string | null;
+      updatedAt: Date;
+    } | null,
+  ) {
+    return {
+      supportEmail: settings?.supportEmail ?? null,
+      supportMessage: settings?.supportMessage ?? null,
+      supportPhone: settings?.supportPhone ?? null,
+      updatedAt: settings?.updatedAt ?? null,
+    };
   }
 
   private requiredReason(value: string): string {

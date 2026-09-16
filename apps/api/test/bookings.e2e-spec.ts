@@ -2,6 +2,7 @@ import {
   CanActivate,
   ExecutionContext,
   INestApplication,
+  NotFoundException,
   UnauthorizedException,
   ValidationPipe,
 } from '@nestjs/common';
@@ -77,6 +78,7 @@ describe('Phase 7A booking routes', () => {
     deleteOverride: jest.fn(() => Promise.resolve()),
     deleteRule: jest.fn(() => Promise.resolve()),
     findAdmin: jest.fn(() => Promise.resolve(page)),
+    findAdminById: jest.fn(() => Promise.resolve(booking)),
     findBusinessBooking: jest.fn(() => Promise.resolve(booking)),
     findBusinessBookings: jest.fn(() => Promise.resolve(page)),
     findMine: jest.fn(() => Promise.resolve(page)),
@@ -231,11 +233,51 @@ describe('Phase 7A booking routes', () => {
   });
 
   it('requires ADMIN role for admin booking inspection', async () => {
-    currentRoles = ['TRAVELER'];
-    await request(httpServer).get('/api/v1/admin/bookings').expect(403);
+    for (const roles of [
+      ['TRAVELER'],
+      ['BUSINESS_OWNER'],
+      ['BUSINESS_STAFF'],
+    ]) {
+      currentRoles = roles;
+      await request(httpServer).get('/api/v1/admin/bookings').expect(403);
+      await request(httpServer)
+        .get(`/api/v1/admin/bookings/${bookingId}`)
+        .expect(403);
+    }
 
     currentRoles = ['ADMIN'];
-    await request(httpServer).get('/api/v1/admin/bookings').expect(200);
-    expect(bookingsService.findAdmin).toHaveBeenCalled();
+    await request(httpServer)
+      .get(
+        '/api/v1/admin/bookings?status=PENDING&reference=ETB&traveler=traveler&business=Demo&service=Stay&startFrom=2030-01-01T00:00:00.000Z&startTo=2030-01-02T00:00:00.000Z',
+      )
+      .expect(200);
+    expect(bookingsService.findAdmin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        business: 'Demo',
+        reference: 'ETB',
+        service: 'Stay',
+        status: 'PENDING',
+        traveler: 'traveler',
+      }),
+    );
+    await request(httpServer)
+      .get('/api/v1/admin/bookings/not-a-uuid')
+      .expect(400);
+    await request(httpServer)
+      .get(`/api/v1/admin/bookings/${bookingId}`)
+      .expect(200);
+    expect(bookingsService.findAdminById).toHaveBeenCalledWith(bookingId);
+  });
+
+  it('returns the existing not-found response for a missing admin booking', async () => {
+    const missingBookingId = '77777777-7777-4777-8777-777777777777';
+    currentRoles = ['ADMIN'];
+    bookingsService.findAdminById.mockRejectedValueOnce(
+      new NotFoundException('Booking not found.'),
+    );
+
+    await request(httpServer)
+      .get(`/api/v1/admin/bookings/${missingBookingId}`)
+      .expect(404);
   });
 });

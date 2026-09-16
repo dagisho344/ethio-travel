@@ -10,13 +10,15 @@ function read(path) {
   return readFileSync(join(root, path), 'utf8');
 }
 
-void test('Admin Portal navigation exposes only implemented Phase 13B content and moderation routes', () => {
+void test('Admin Portal navigation exposes implemented content, moderation, and operations routes', () => {
   const shell = read('components/admin/AdminWorkspaceShell.tsx');
   for (const label of ['Destinations', 'Categories', 'Moderation', 'Reports']) {
     assert.match(shell, new RegExp(`label: '${label}'`));
   }
-  assert.doesNotMatch(shell, /label: 'Payments'/);
-  assert.doesNotMatch(shell, /label: 'Analytics'/);
+  assert.match(shell, /label: 'Bookings'/);
+  assert.match(shell, /label: 'Payments'/);
+  assert.match(shell, /label: 'Analytics'/);
+  assert.match(shell, /label: 'Settings'/);
   assert.match(shell, /aria-current=\{active \? 'page' : undefined\}/);
   assert.match(shell, /event\.key !== 'Escape'/);
 });

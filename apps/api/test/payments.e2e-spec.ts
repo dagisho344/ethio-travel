@@ -2,6 +2,7 @@ import {
   CanActivate,
   ExecutionContext,
   INestApplication,
+  NotFoundException,
   UnauthorizedException,
   ValidationPipe,
 } from '@nestjs/common';
@@ -39,6 +40,17 @@ const page = {
   meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
 };
 
+type AdminRefundContext = {
+  actor: AuthenticatedUser;
+  context: {
+    correlationId?: string;
+    ipAddress?: string;
+    userAgent?: string | string[] | undefined;
+  };
+};
+type RefundDto = { amount: number; idempotencyKey?: string; reason?: string };
+type RefundResult = typeof payment & { status: string };
+
 class TestJwtGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     if (!allowAuth) throw new UnauthorizedException();
@@ -53,6 +65,12 @@ class TestJwtGuard implements CanActivate {
 describe('Phase 8A payment routes', () => {
   let app: INestApplication | undefined;
   let httpServer: Server;
+  const refund = jest
+    .fn<
+      Promise<RefundResult>,
+      [string, RefundDto, string | undefined, AdminRefundContext]
+    >()
+    .mockResolvedValue({ ...payment, status: 'REFUNDED' });
   const paymentsService = {
     createForBooking: jest.fn(() => Promise.resolve(payment)),
     findForBooking: jest.fn(() => Promise.resolve(page)),
@@ -62,7 +80,7 @@ describe('Phase 8A payment routes', () => {
     findAdmin: jest.fn(() => Promise.resolve(page)),
     findAdminById: jest.fn(() => Promise.resolve(payment)),
     processWebhook: jest.fn(() => Promise.resolve({ received: true })),
-    refund: jest.fn(() => Promise.resolve({ ...payment, status: 'REFUNDED' })),
+    refund,
   };
 
   beforeAll(async () => {
@@ -152,7 +170,19 @@ describe('Phase 8A payment routes', () => {
       .expect(200);
 
     currentRoles = ['ADMIN'];
-    await request(httpServer).get('/api/v1/admin/payments').expect(200);
+    await request(httpServer)
+      .get(
+        '/api/v1/admin/payments?reference=ETB&traveler=traveler&business=Demo&currency=ETB&from=2030-01-01T00:00:00.000Z&to=2030-01-02T00:00:00.000Z',
+      )
+      .expect(200);
+    expect(paymentsService.findAdmin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        business: 'Demo',
+        currency: 'ETB',
+        reference: 'ETB',
+        traveler: 'traveler',
+      }),
+    );
     await request(httpServer)
       .get(`/api/v1/admin/payments/${paymentId}`)
       .expect(200);
@@ -160,14 +190,49 @@ describe('Phase 8A payment routes', () => {
       .post(`/api/v1/admin/payments/${paymentId}/refund`)
       .send({ amount: 10, reason: 'Duplicate charge' })
       .expect(200);
+    const refundCall = refund.mock.calls[0];
+    expect(refundCall).toBeDefined();
+    if (!refundCall) throw new Error('Expected administrator refund call.');
+    const [calledPaymentId, dto, idempotencyKey, audit] = refundCall;
+    expect(calledPaymentId).toBe(paymentId);
+    expect(dto).toEqual({ amount: 10, reason: 'Duplicate charge' });
+    expect(idempotencyKey).toBeUndefined();
+    expect(audit.actor.sub).toBe(user.sub);
+    expect(audit.context).toEqual(expect.objectContaining({}));
   });
 
   it('requires ADMIN role for admin payment inspection and refunds', async () => {
-    currentRoles = ['TRAVELER'];
-    await request(httpServer).get('/api/v1/admin/payments').expect(403);
+    for (const roles of [
+      ['TRAVELER'],
+      ['BUSINESS_OWNER'],
+      ['BUSINESS_STAFF'],
+    ]) {
+      currentRoles = roles;
+      await request(httpServer).get('/api/v1/admin/payments').expect(403);
+      await request(httpServer)
+        .get(`/api/v1/admin/payments/${paymentId}`)
+        .expect(403);
+      await request(httpServer)
+        .post(`/api/v1/admin/payments/${paymentId}/refund`)
+        .send({ amount: 10 })
+        .expect(403);
+    }
+
+    currentRoles = ['ADMIN'];
     await request(httpServer)
-      .post(`/api/v1/admin/payments/${paymentId}/refund`)
-      .send({ amount: 10 })
-      .expect(403);
+      .get('/api/v1/admin/payments/not-a-uuid')
+      .expect(400);
+  });
+
+  it('returns the existing not-found response for a missing admin payment', async () => {
+    const missingPaymentId = '55555555-5555-4555-8555-555555555555';
+    currentRoles = ['ADMIN'];
+    paymentsService.findAdminById.mockRejectedValueOnce(
+      new NotFoundException('Payment not found.'),
+    );
+
+    await request(httpServer)
+      .get(`/api/v1/admin/payments/${missingPaymentId}`)
+      .expect(404);
   });
 });

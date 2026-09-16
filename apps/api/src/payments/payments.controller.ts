@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -16,17 +17,27 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Request } from 'express';
 import { AuthenticatedUser } from '../auth/authenticated-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AdminOnly } from '../common/utils/admin-only.decorator';
 import {
+  AdminPaymentQueryDto,
   CreatePaymentDto,
   PaymentQueryDto,
   RefundPaymentDto,
 } from './dto/payment.dto';
 import { PaymentsService } from './payments.service';
+
+function auditContext(request: Request) {
+  return {
+    correlationId: typeof request.id === 'string' ? request.id : undefined,
+    ipAddress: request.ip,
+    userAgent: request.headers['user-agent'],
+  };
+}
 
 @ApiTags('payments')
 @Controller()
@@ -123,7 +134,7 @@ export class AdminPaymentsController {
 
   @Get()
   @ApiOkResponse({ description: 'Paginated payment inspection.' })
-  findAdmin(@Query() query: PaymentQueryDto) {
+  findAdmin(@Query() query: AdminPaymentQueryDto) {
     return this.service.findAdmin(query);
   }
 
@@ -137,10 +148,15 @@ export class AdminPaymentsController {
   @HttpCode(200)
   @ApiOkResponse({ description: 'Admin refund for a paid payment.' })
   refund(
+    @CurrentUser() actor: AuthenticatedUser,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: RefundPaymentDto,
+    @Req() request: Request,
     @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.service.refund(id, dto, idempotencyKey);
+    return this.service.refund(id, dto, idempotencyKey, {
+      actor,
+      context: auditContext(request),
+    });
   }
 }

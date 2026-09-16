@@ -3,13 +3,13 @@ import { adminError, adminJson, adminUuid } from '../../bff';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ bookingId: string }> },
 ) {
   try {
-    const { id } = await params;
+    const { bookingId } = await params;
     return await adminJson(
       request,
-      '/admin/payments/' + adminUuid(id, 'Payment'),
+      '/admin/bookings/' + adminUuid(bookingId, 'Booking'),
     );
   } catch (error) {
     return adminError(error);

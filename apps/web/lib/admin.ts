@@ -1,3 +1,5 @@
+import type { Booking, Payment } from './types';
+
 export type AdminPage<T> = {
   data: T[];
   meta: { page: number; total: number; totalPages: number };
@@ -143,6 +145,77 @@ export type ModerationSummary = {
     underReview: number;
   };
   reviews: { hidden: number; pending: number };
+};
+
+export type AdminBooking = Booking & {
+  auditTrail: AuditEntry[];
+  payments: Array<{
+    amount: string | number;
+    createdAt: string;
+    currency: string;
+    id: string;
+    paidAt: string | null;
+    status: string;
+  }>;
+};
+
+export type AdminPayment = Payment & {
+  auditTrail: AuditEntry[];
+};
+
+export type AdminAnalytics = {
+  businesses: {
+    active: number;
+    draft: number;
+    pendingVerification: number;
+    rejectedVerification: number;
+    suspended: number;
+    total: number;
+    verified: number;
+  };
+  bookings: {
+    cancelled: number;
+    completed: number;
+    confirmed: number;
+    pending: number;
+    recentVolume: number;
+    total: number;
+  };
+  content: {
+    openReports: number;
+    pendingVerifications: number;
+    publishedDestinations: number;
+    publishedReviews: number;
+  };
+  payments: {
+    byStatus: {
+      failed: number;
+      paid: number;
+      partiallyRefunded: number;
+      pending: number;
+      refunded: number;
+    };
+    revenueByCurrency: Array<{
+      currency: string;
+      gross: string;
+      net: string;
+      refunded: string;
+    }>;
+  };
+  users: {
+    active: number;
+    deactivated: number;
+    recentRegistrations: number;
+    suspended: number;
+    total: number;
+  };
+};
+
+export type PlatformSettings = {
+  supportEmail: string | null;
+  supportMessage: string | null;
+  supportPhone: string | null;
+  updatedAt: string | null;
 };
 
 export function displayName(user: {

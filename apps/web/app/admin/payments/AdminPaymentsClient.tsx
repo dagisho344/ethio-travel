@@ -28,6 +28,12 @@ export function AdminPaymentsClient() {
   const status = searchParams.get('status') as PaymentStatus | null;
   const provider = searchParams.get('provider') as PaymentProvider | null;
   const bookingId = searchParams.get('bookingId') ?? '';
+  const reference = searchParams.get('reference') ?? '';
+  const traveler = searchParams.get('traveler') ?? '';
+  const business = searchParams.get('business') ?? '';
+  const currency = searchParams.get('currency') ?? '';
+  const from = searchParams.get('from') ?? '';
+  const to = searchParams.get('to') ?? '';
   const currentPage = searchParams.get('page') ?? '1';
 
   const query = useMemo(() => {
@@ -35,8 +41,25 @@ export function AdminPaymentsClient() {
     if (status) next.set('status', status);
     if (provider) next.set('provider', provider);
     if (bookingId) next.set('bookingId', bookingId);
+    if (reference) next.set('reference', reference);
+    if (traveler) next.set('traveler', traveler);
+    if (business) next.set('business', business);
+    if (currency) next.set('currency', currency);
+    if (from) next.set('from', from);
+    if (to) next.set('to', to);
     return next.toString();
-  }, [bookingId, currentPage, provider, status]);
+  }, [
+    bookingId,
+    business,
+    currency,
+    currentPage,
+    from,
+    provider,
+    reference,
+    status,
+    to,
+    traveler,
+  ]);
 
   useEffect(() => {
     const load = async () => {
@@ -80,7 +103,7 @@ export function AdminPaymentsClient() {
 
   return (
     <div>
-      <div className="mb-6 grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[1fr_1fr_1.5fr_auto] lg:items-end">
+      <div className="mb-6 grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-4">
         <label className="text-sm font-semibold text-slate-700">
           Payment status
           <select
@@ -114,14 +137,80 @@ export function AdminPaymentsClient() {
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Booking ID
+          Booking reference
           <input
-            value={bookingId}
+            value={reference}
             onChange={(event) =>
               update({
-                bookingId: event.target.value.trim() || null,
+                reference: event.target.value.trim() || null,
                 page: null,
               })
+            }
+            placeholder="ETB-..."
+            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
+          />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Traveler
+          <input
+            value={traveler}
+            onChange={(event) =>
+              update({
+                traveler: event.target.value.trim() || null,
+                page: null,
+              })
+            }
+            placeholder="Name or email"
+            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
+          />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Business
+          <input
+            value={business}
+            onChange={(event) =>
+              update({
+                business: event.target.value.trim() || null,
+                page: null,
+              })
+            }
+            placeholder="Business name"
+            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
+          />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Currency
+          <input
+            value={currency}
+            maxLength={3}
+            onChange={(event) =>
+              update({
+                currency: event.target.value.trim().toUpperCase() || null,
+                page: null,
+              })
+            }
+            placeholder="ETB"
+            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
+          />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Created from
+          <input
+            type="date"
+            value={from}
+            onChange={(event) =>
+              update({ from: event.target.value || null, page: null })
+            }
+            className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
+          />
+        </label>
+        <label className="text-sm font-semibold text-slate-700">
+          Created to
+          <input
+            type="date"
+            value={to}
+            onChange={(event) =>
+              update({ to: event.target.value || null, page: null })
             }
             className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
           />
@@ -130,10 +219,16 @@ export function AdminPaymentsClient() {
           type="button"
           onClick={() =>
             update({
-              status: null,
-              provider: null,
+              business: null,
               bookingId: null,
+              currency: null,
+              from: null,
               page: null,
+              provider: null,
+              reference: null,
+              status: null,
+              to: null,
+              traveler: null,
             })
           }
           className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"

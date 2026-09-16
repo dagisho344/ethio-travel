@@ -34,6 +34,7 @@ import {
 } from './dto/availability.dto';
 import {
   AvailabilityQueryDto,
+  AdminBookingQueryDto,
   BookingActionDto,
   BookingQueryDto,
   CreateBookingDto,
@@ -341,7 +342,13 @@ export class AdminBookingsController {
   @ApiOkResponse({
     description: 'Paginated booking inspection for administrators.',
   })
-  findAdmin(@Query() query: BookingQueryDto) {
+  findAdmin(@Query() query: AdminBookingQueryDto) {
     return this.service.findAdmin(query);
+  }
+
+  @Get(':id')
+  @ApiOkResponse({ description: 'Safe booking investigation detail.' })
+  findAdminById(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.service.findAdminById(id);
   }
 }

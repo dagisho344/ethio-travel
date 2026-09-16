@@ -5,21 +5,21 @@ const allowedQuery = [
   'page',
   'limit',
   'status',
-  'provider',
-  'bookingId',
   'reference',
   'traveler',
   'business',
-  'currency',
-  'from',
-  'to',
+  'service',
+  'startFrom',
+  'startTo',
+  'createdFrom',
+  'createdTo',
 ] as const;
 
 export async function GET(request: NextRequest) {
   try {
     return await adminJson(
       request,
-      '/admin/payments' + safeAdminQuery(request, allowedQuery),
+      '/admin/bookings' + safeAdminQuery(request, allowedQuery),
     );
   } catch (error) {
     return adminError(error);

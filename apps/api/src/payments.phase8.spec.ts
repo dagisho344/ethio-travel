@@ -15,6 +15,9 @@ import {
   Prisma,
   UserStatus,
 } from '@prisma/client';
+import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from './audit/audit.constants';
+import { AuditWrite } from './audit/audit.service';
+import { AuthenticatedUser } from './auth/authenticated-user';
 import { PaymentsService } from './payments/payments.service';
 
 const travelerId = '11111111-1111-4111-8111-111111111111';
@@ -22,6 +25,12 @@ const otherTravelerId = '99999999-9999-4999-8999-999999999999';
 const bookingId = '22222222-2222-4222-8222-222222222222';
 const businessId = '33333333-3333-4333-8333-333333333333';
 const paymentId = '44444444-4444-4444-8444-444444444444';
+const admin: AuthenticatedUser = {
+  email: 'admin@example.com',
+  roles: ['ADMIN'],
+  sessionId: 'admin-session',
+  sub: '55555555-5555-4555-8555-555555555555',
+};
 
 function booking(overrides = {}) {
   return {
@@ -164,13 +173,20 @@ function setup() {
       Promise.resolve({ providerRefundId: 'dev_ref_1', succeeded: true }),
     ),
   };
+  const audit = {
+    record: jest
+      .fn<Promise<void>, [unknown, AuditWrite]>()
+      .mockResolvedValue(undefined),
+  };
   const service = new PaymentsService(
     prisma as never,
     businesses as never,
     config as never,
     gateway,
+    undefined,
+    audit as never,
   );
-  return { service, prisma, tx, businesses, gateway };
+  return { service, prisma, tx, businesses, gateway, audit };
 }
 
 describe('PaymentsService', () => {
@@ -425,5 +441,49 @@ describe('PaymentsService', () => {
     await expect(
       service.refund(paymentId, { amount: 100 }, undefined),
     ).rejects.toThrow('exceeds refundable balance');
+  });
+
+  it('audits a new administrator refund request with safe metadata only', async () => {
+    const { service, tx, audit } = setup();
+    const reason = 'Duplicate booking charge';
+    tx.payment.findUnique.mockResolvedValue(
+      payment({ status: PaymentStatus.PAID, refunds: [] }),
+    );
+    tx.paymentRefund.create.mockResolvedValue({ id: 'refund-id' });
+    tx.paymentRefund.aggregate.mockResolvedValue({
+      _sum: { amount: new Prisma.Decimal(50) },
+    });
+    tx.payment.findUniqueOrThrow.mockResolvedValue(
+      payment({ status: PaymentStatus.PARTIALLY_REFUNDED }),
+    );
+
+    await service.refund(paymentId, { amount: 50, reason }, undefined, {
+      actor: admin,
+      context: {
+        correlationId: 'refund-audit-test',
+        ipAddress: '127.0.0.1',
+        userAgent: 'Phase13CTest',
+      },
+    });
+
+    const auditCall = audit.record.mock.calls[0];
+    expect(auditCall).toBeDefined();
+    if (!auditCall) throw new Error('Expected refund audit record.');
+    const [auditTransaction, auditWrite] = auditCall;
+    expect(auditTransaction).toBe(tx);
+    expect(auditWrite).toEqual(
+      expect.objectContaining({
+        action: AUDIT_ACTIONS.ADMIN_PAYMENT_REFUND_REQUESTED,
+        actorUserId: admin.sub,
+        entityId: paymentId,
+        entityType: AUDIT_ENTITY_TYPES.PAYMENT,
+        metadata: { currency: 'ETB', paymentId },
+        reason,
+      }),
+    );
+    expect(auditWrite.metadata).toEqual({ currency: 'ETB', paymentId });
+    expect(auditWrite.metadata).not.toHaveProperty('providerPaymentId');
+    expect(auditWrite.metadata).not.toHaveProperty('providerPayload');
+    expect(auditWrite.metadata).not.toHaveProperty('cardNumber');
   });
 });

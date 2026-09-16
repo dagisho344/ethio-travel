@@ -317,6 +317,18 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model PlatformSettings {
+  id                String   @id @default(uuid()) @db.Uuid
+  singletonKey      String   @unique @default("PRIMARY") @map("singleton_key") @db.VarChar(32)
+  supportEmail      String?  @map("support_email") @db.VarChar(254)
+  supportPhone      String?  @map("support_phone") @db.VarChar(50)
+  supportMessage    String?  @map("support_message") @db.VarChar(500)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_settings")
+}
+
 model Report {
   id                  String           @id @default(uuid()) @db.Uuid
   reporterUserId      String           @map("reporter_user_id") @db.Uuid
