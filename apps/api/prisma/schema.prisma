@@ -50,26 +50,27 @@ model User {
   submittedBusinessVerifications BusinessVerification[]   @relation("BusinessVerificationSubmittedBy")
   reviewedBusinessVerifications  BusinessVerification[]   @relation("BusinessVerificationReviewedBy")
   mediaAssets                    MediaAsset[]
-  uploadedVerificationDocuments  VerificationDocument[] @relation("VerificationDocumentUploadedBy")
+  uploadedVerificationDocuments  VerificationDocument[]   @relation("VerificationDocumentUploadedBy")
 
-  favorites            Favorite[]
-  reviewsAuthored      Review[]               @relation("ReviewAuthor")
-  reviewsModerated     Review[]               @relation("ReviewModerator")
-  reviewResponsesAuthored ReviewResponse[]      @relation("ReviewResponseAuthor")
-  bookingsAuthored     Booking[]              @relation("BookingTraveler")
-  bookingStatusChanges BookingStatusHistory[] @relation("BookingStatusChangedBy")
-  paymentsMade         Payment[]              @relation("PaymentTraveler")
-  conversationMembers  ConversationMember[]
-  messagesSent         Message[]              @relation("MessageSender")
-  notificationsReceived Notification[]         @relation("NotificationRecipient")
-  notificationsActed   Notification[]         @relation("NotificationActor")
-  trips                Trip[]
-  aiConversations      AiConversation[]
-  aiUsage              AiUsage[]
-  aiSuggestions        AiSuggestion[]
-  auditActions         AuditLog[]              @relation("AuditActor")
-  reportsSubmitted     Report[]                @relation("ReportReporter")
-  reportsAssigned      Report[]                @relation("ReportAssignedAdmin")
+  favorites               Favorite[]
+  reviewsAuthored         Review[]               @relation("ReviewAuthor")
+  reviewsModerated        Review[]               @relation("ReviewModerator")
+  reviewResponsesAuthored ReviewResponse[]       @relation("ReviewResponseAuthor")
+  bookingsAuthored        Booking[]              @relation("BookingTraveler")
+  bookingStatusChanges    BookingStatusHistory[] @relation("BookingStatusChangedBy")
+  paymentsMade            Payment[]              @relation("PaymentTraveler")
+  conversationMembers     ConversationMember[]
+  messagesSent            Message[]              @relation("MessageSender")
+  notificationsReceived   Notification[]         @relation("NotificationRecipient")
+  notificationsActed      Notification[]         @relation("NotificationActor")
+  trips                   Trip[]
+  aiConversations         AiConversation[]
+  aiUsage                 AiUsage[]
+  aiSuggestions           AiSuggestion[]
+  auditActions            AuditLog[]             @relation("AuditActor")
+  reportsSubmitted        Report[]               @relation("ReportReporter")
+  reportsAssigned         Report[]               @relation("ReportAssignedAdmin")
+
   @@map("users")
 }
 
@@ -201,22 +202,24 @@ model Region {
 }
 
 model City {
-  id           String         @id @default(uuid()) @db.Uuid
-  regionId     String         @map("region_id") @db.Uuid
-  name         String         @db.VarChar(160)
-  slug         String         @db.VarChar(180)
-  description  String?
-  latitude     Decimal        @db.Decimal(9, 6)
-  longitude    Decimal        @db.Decimal(9, 6)
-  status       LocationStatus @default(DRAFT)
-  createdAt    DateTime       @default(now()) @map("created_at")
-  updatedAt    DateTime       @updatedAt @map("updated_at")
-  region            Region             @relation(fields: [regionId], references: [id], onDelete: Restrict)
-  destinations      Destination[]
-  businesses        Business[]         @relation("BusinessCity")
-  businessLocations BusinessLocation[] @relation("BusinessLocationCity")
-  originTrips       Trip[]             @relation("TripOriginCity")
-  destinationTrips Trip[]     @relation("TripDestinationCity")
+  id                  String             @id @default(uuid()) @db.Uuid
+  regionId            String             @map("region_id") @db.Uuid
+  name                String             @db.VarChar(160)
+  slug                String             @db.VarChar(180)
+  description         String?
+  latitude            Decimal            @db.Decimal(9, 6)
+  longitude           Decimal            @db.Decimal(9, 6)
+  status              LocationStatus     @default(DRAFT)
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  region              Region             @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  destinations        Destination[]
+  businesses          Business[]         @relation("BusinessCity")
+  businessLocations   BusinessLocation[] @relation("BusinessLocationCity")
+  originTrips         Trip[]             @relation("TripOriginCity")
+  destinationTrips    Trip[]             @relation("TripDestinationCity")
+  transportRoutesFrom TransportRoute[]   @relation("TransportRouteOriginCity")
+  transportRoutesTo   TransportRoute[]   @relation("TransportRouteDestinationCity")
 
   @@unique([regionId, slug])
   @@index([regionId])
@@ -227,28 +230,28 @@ model City {
 }
 
 model Destination {
-  id               String             @id @default(uuid()) @db.Uuid
-  cityId           String             @map("city_id") @db.Uuid
-  name             String             @db.VarChar(180)
-  slug             String             @db.VarChar(200)
-  shortDescription String             @map("short_description") @db.VarChar(300)
-  fullDescription  String             @map("full_description")
-  latitude         Decimal            @db.Decimal(9, 6)
-  longitude        Decimal            @db.Decimal(9, 6)
-  travelInfo       Json?              @map("travel_info")
-  status           PublicationStatus  @default(DRAFT)
-  publishedAt      DateTime?          @map("published_at")
-  archivedAt       DateTime?          @map("archived_at")
-  createdAt        DateTime           @default(now()) @map("created_at")
-  updatedAt        DateTime           @updatedAt @map("updated_at")
+  id                String             @id @default(uuid()) @db.Uuid
+  cityId            String             @map("city_id") @db.Uuid
+  name              String             @db.VarChar(180)
+  slug              String             @db.VarChar(200)
+  shortDescription  String             @map("short_description") @db.VarChar(300)
+  fullDescription   String             @map("full_description")
+  latitude          Decimal            @db.Decimal(9, 6)
+  longitude         Decimal            @db.Decimal(9, 6)
+  travelInfo        Json?              @map("travel_info")
+  status            PublicationStatus  @default(DRAFT)
+  publishedAt       DateTime?          @map("published_at")
+  archivedAt        DateTime?          @map("archived_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
   city              City               @relation(fields: [cityId], references: [id], onDelete: Restrict)
   attractions       Attraction[]
   businesses        Business[]         @relation("BusinessDestination")
   businessLocations BusinessLocation[] @relation("BusinessLocationDestination")
   media             DestinationMedia[]
 
-  favorites Favorite[]
-  reviews   Review[]
+  favorites    Favorite[]
+  reviews      Review[]
   primaryTrips Trip[]     @relation("TripPrimaryDestination")
   tripItems    TripItem[] @relation("TripItemDestination")
 
@@ -318,13 +321,13 @@ model AuditLog {
 }
 
 model PlatformSettings {
-  id                String   @id @default(uuid()) @db.Uuid
-  singletonKey      String   @unique @default("PRIMARY") @map("singleton_key") @db.VarChar(32)
-  supportEmail      String?  @map("support_email") @db.VarChar(254)
-  supportPhone      String?  @map("support_phone") @db.VarChar(50)
-  supportMessage    String?  @map("support_message") @db.VarChar(500)
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(uuid()) @db.Uuid
+  singletonKey   String   @unique @default("PRIMARY") @map("singleton_key") @db.VarChar(32)
+  supportEmail   String?  @map("support_email") @db.VarChar(254)
+  supportPhone   String?  @map("support_phone") @db.VarChar(50)
+  supportMessage String?  @map("support_message") @db.VarChar(500)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("platform_settings")
 }
@@ -352,6 +355,7 @@ model Report {
   @@index([assignedAdminUserId, createdAt])
   @@map("reports")
 }
+
 enum BusinessStatus {
   DRAFT
   ACTIVE
@@ -452,21 +456,21 @@ model Business {
   createdAt           DateTime                    @default(now()) @map("created_at")
   updatedAt           DateTime                    @updatedAt @map("updated_at")
 
-  city          City                   @relation("BusinessCity", fields: [cityId], references: [id], onDelete: Restrict)
-  destination   Destination?           @relation("BusinessDestination", fields: [destinationId], references: [id], onDelete: SetNull)
-  category      BusinessCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  members       BusinessMember[]
-  locations     BusinessLocation[]
-  verifications BusinessVerification[]
-  services      Service[]
-  media         BusinessMedia[]
-  favorites     Favorite[]
-  reviews       Review[]
+  city            City                   @relation("BusinessCity", fields: [cityId], references: [id], onDelete: Restrict)
+  destination     Destination?           @relation("BusinessDestination", fields: [destinationId], references: [id], onDelete: SetNull)
+  category        BusinessCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  members         BusinessMember[]
+  locations       BusinessLocation[]
+  verifications   BusinessVerification[]
+  services        Service[]
+  media           BusinessMedia[]
+  favorites       Favorite[]
+  reviews         Review[]
   reviewResponses ReviewResponse[]
-  bookings      Booking[]
-  payments      Payment[]
-  conversations Conversation[]
-  tripItems     TripItem[]
+  bookings        Booking[]
+  payments        Payment[]
+  conversations   Conversation[]
+  tripItems       TripItem[]
 
   @@unique([cityId, slug])
   @@index([cityId])
@@ -499,9 +503,9 @@ model BusinessLocation {
   createdAt     DateTime               @default(now()) @map("created_at")
   updatedAt     DateTime               @updatedAt @map("updated_at")
 
-  business       Business                       @relation(fields: [businessId], references: [id], onDelete: Restrict)
-  city           City                           @relation("BusinessLocationCity", fields: [cityId], references: [id], onDelete: Restrict)
-  destination    Destination?                   @relation("BusinessLocationDestination", fields: [destinationId], references: [id], onDelete: Restrict)
+  business       Business                        @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  city           City                            @relation("BusinessLocationCity", fields: [cityId], references: [id], onDelete: Restrict)
+  destination    Destination?                    @relation("BusinessLocationDestination", fields: [destinationId], references: [id], onDelete: Restrict)
   operatingHours BusinessLocationOperatingHour[]
 
   @@unique([businessId, label])
@@ -530,6 +534,7 @@ model BusinessLocationOperatingHour {
   @@index([locationId, dayOfWeek])
   @@map("business_location_operating_hours")
 }
+
 model BusinessMember {
   id         String               @id @default(uuid()) @db.Uuid
   businessId String               @map("business_id") @db.Uuid
@@ -700,6 +705,10 @@ model Service {
   availabilityOverrides ServiceAvailabilityOverride[]
   bookings              Booking[]
   tripItems             TripItem[]
+  accommodationDetail   AccommodationDetail?
+  restaurantDetail      RestaurantDetail?
+  tourDetail            TourDetail?
+  transportDetail       TransportDetail?
 
   @@unique([businessId, slug])
   @@index([businessId])
@@ -711,6 +720,181 @@ model Service {
   @@index([latitude, longitude])
   @@index([status, categoryId, pricingModel])
   @@map("services")
+}
+
+model AccommodationDetail {
+  id           String   @id @default(uuid()) @db.Uuid
+  serviceId    String   @unique @map("service_id") @db.Uuid
+  starClass    Int?     @map("star_class")
+  checkInTime  String?  @map("check_in_time") @db.Char(5)
+  checkOutTime String?  @map("check_out_time") @db.Char(5)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  service   Service    @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  roomTypes RoomType[]
+
+  @@map("accommodation_details")
+}
+
+model RoomType {
+  id                    String   @id @default(uuid()) @db.Uuid
+  accommodationDetailId String   @map("accommodation_detail_id") @db.Uuid
+  name                  String   @db.VarChar(180)
+  description           String?  @db.VarChar(1000)
+  capacity              Int
+  basePrice             Decimal  @map("base_price") @db.Decimal(12, 2)
+  currency              String   @db.Char(3)
+  quantity              Int
+  isActive              Boolean  @default(true) @map("is_active")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  accommodationDetail AccommodationDetail @relation(fields: [accommodationDetailId], references: [id], onDelete: Restrict)
+
+  @@index([accommodationDetailId])
+  @@index([accommodationDetailId, isActive])
+  @@map("room_types")
+}
+
+model RestaurantDetail {
+  id                   String   @id @default(uuid()) @db.Uuid
+  serviceId            String   @unique @map("service_id") @db.Uuid
+  cuisineTypes         String[] @default([]) @map("cuisine_types") @db.VarChar(80)
+  reservationSupported Boolean  @default(false) @map("reservation_supported")
+  deliverySupported    Boolean  @default(false) @map("delivery_supported")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  service Service          @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  menus   RestaurantMenu[]
+
+  @@map("restaurant_details")
+}
+
+model RestaurantMenu {
+  id                 String   @id @default(uuid()) @db.Uuid
+  restaurantDetailId String   @map("restaurant_detail_id") @db.Uuid
+  name               String   @db.VarChar(180)
+  description        String?  @db.VarChar(1000)
+  isActive           Boolean  @default(true) @map("is_active")
+  sortOrder          Int      @default(0) @map("sort_order")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  restaurantDetail RestaurantDetail     @relation(fields: [restaurantDetailId], references: [id], onDelete: Restrict)
+  items            RestaurantMenuItem[]
+
+  @@index([restaurantDetailId])
+  @@index([restaurantDetailId, isActive])
+  @@index([restaurantDetailId, sortOrder])
+  @@map("restaurant_menus")
+}
+
+model RestaurantMenuItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  menuId      String   @map("menu_id") @db.Uuid
+  section     String?  @db.VarChar(120)
+  name        String   @db.VarChar(180)
+  description String?  @db.VarChar(1000)
+  price       Decimal  @db.Decimal(12, 2)
+  currency    String   @db.Char(3)
+  available   Boolean  @default(true)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  menu RestaurantMenu @relation(fields: [menuId], references: [id], onDelete: Restrict)
+
+  @@index([menuId])
+  @@index([menuId, available])
+  @@index([menuId, sortOrder])
+  @@map("restaurant_menu_items")
+}
+
+model TourDetail {
+  id           String   @id @default(uuid()) @db.Uuid
+  serviceId    String   @unique @map("service_id") @db.Uuid
+  durationDays Int?     @map("duration_days")
+  difficulty   String?  @db.VarChar(40)
+  meetingPoint String?  @map("meeting_point") @db.VarChar(240)
+  inclusions   String[] @default([]) @db.VarChar(300)
+  exclusions   String[] @default([]) @db.VarChar(300)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  service        Service             @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  itineraryItems TourItineraryItem[]
+
+  @@map("tour_details")
+}
+
+model TourItineraryItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  tourDetailId String   @map("tour_detail_id") @db.Uuid
+  dayNumber    Int      @map("day_number")
+  title        String   @db.VarChar(180)
+  description  String?  @db.VarChar(2000)
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tourDetail TourDetail @relation(fields: [tourDetailId], references: [id], onDelete: Restrict)
+
+  @@unique([tourDetailId, dayNumber, sortOrder])
+  @@index([tourDetailId, sortOrder])
+  @@map("tour_itinerary_items")
+}
+
+model TransportDetail {
+  id           String   @id @default(uuid()) @db.Uuid
+  serviceId    String   @unique @map("service_id") @db.Uuid
+  mode         String?  @db.VarChar(40)
+  operatorName String?  @map("operator_name") @db.VarChar(180)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  service Service          @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  routes  TransportRoute[]
+
+  @@map("transport_details")
+}
+
+model TransportRoute {
+  id                String   @id @default(uuid()) @db.Uuid
+  transportDetailId String   @map("transport_detail_id") @db.Uuid
+  originCityId      String   @map("origin_city_id") @db.Uuid
+  destinationCityId String   @map("destination_city_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  transportDetail TransportDetail     @relation(fields: [transportDetailId], references: [id], onDelete: Restrict)
+  originCity      City                @relation("TransportRouteOriginCity", fields: [originCityId], references: [id], onDelete: Restrict)
+  destinationCity City                @relation("TransportRouteDestinationCity", fields: [destinationCityId], references: [id], onDelete: Restrict)
+  schedules       TransportSchedule[]
+
+  @@index([transportDetailId])
+  @@index([originCityId, destinationCityId])
+  @@map("transport_routes")
+}
+
+model TransportSchedule {
+  id          String   @id @default(uuid()) @db.Uuid
+  routeId     String   @map("route_id") @db.Uuid
+  departureAt DateTime @map("departure_at")
+  arrivalAt   DateTime @map("arrival_at")
+  fare        Decimal  @db.Decimal(12, 2)
+  currency    String   @db.Char(3)
+  capacity    Int
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  route TransportRoute @relation(fields: [routeId], references: [id], onDelete: Restrict)
+
+  @@index([routeId, departureAt])
+  @@index([isActive, departureAt])
+  @@map("transport_schedules")
 }
 
 model MediaAsset {
@@ -882,12 +1066,12 @@ model Review {
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
-  author      User         @relation("ReviewAuthor", fields: [userId], references: [id], onDelete: Restrict)
-  moderator   User?        @relation("ReviewModerator", fields: [moderatedById], references: [id], onDelete: SetNull)
-  business    Business?    @relation(fields: [businessId], references: [id], onDelete: Restrict)
-  service     Service?     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
-  destination Destination? @relation(fields: [destinationId], references: [id], onDelete: Restrict)
-  attraction  Attraction?  @relation(fields: [attractionId], references: [id], onDelete: Restrict)
+  author      User             @relation("ReviewAuthor", fields: [userId], references: [id], onDelete: Restrict)
+  moderator   User?            @relation("ReviewModerator", fields: [moderatedById], references: [id], onDelete: SetNull)
+  business    Business?        @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  service     Service?         @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  destination Destination?     @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+  attraction  Attraction?      @relation(fields: [attractionId], references: [id], onDelete: Restrict)
   responses   ReviewResponse[]
 
   @@index([status, createdAt])
@@ -1174,6 +1358,7 @@ model Notification {
   @@index([type, createdAt])
   @@map("notifications")
 }
+
 enum PaymentProvider {
   DEVELOPMENT
   STRIPE
@@ -1349,13 +1534,14 @@ model Trip {
   createdAt            DateTime   @default(now()) @map("created_at")
   updatedAt            DateTime   @updatedAt @map("updated_at")
 
-  user               User         @relation(fields: [userId], references: [id], onDelete: Restrict)
-  originCity         City?        @relation("TripOriginCity", fields: [originCityId], references: [id], onDelete: Restrict)
-  destinationCity    City?        @relation("TripDestinationCity", fields: [destinationCityId], references: [id], onDelete: Restrict)
-  primaryDestination Destination? @relation("TripPrimaryDestination", fields: [primaryDestinationId], references: [id], onDelete: Restrict)
+  user               User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  originCity         City?            @relation("TripOriginCity", fields: [originCityId], references: [id], onDelete: Restrict)
+  destinationCity    City?            @relation("TripDestinationCity", fields: [destinationCityId], references: [id], onDelete: Restrict)
+  primaryDestination Destination?     @relation("TripPrimaryDestination", fields: [primaryDestinationId], references: [id], onDelete: Restrict)
   days               TripDay[]
   aiConversations    AiConversation[]
-  aiSuggestions        AiSuggestion[]
+  aiSuggestions      AiSuggestion[]
+
   @@index([userId, createdAt])
   @@index([userId, status, startDate])
   @@index([originCityId])
@@ -1399,12 +1585,12 @@ model TripItem {
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
 
-  tripDay     TripDay     @relation(fields: [tripDayId], references: [id], onDelete: Restrict)
-  destination Destination? @relation("TripItemDestination", fields: [destinationId], references: [id], onDelete: Restrict)
-  attraction  Attraction?  @relation(fields: [attractionId], references: [id], onDelete: Restrict)
-  business    Business?    @relation(fields: [businessId], references: [id], onDelete: Restrict)
-  service     Service?     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
-  booking     Booking?     @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  tripDay              TripDay        @relation(fields: [tripDayId], references: [id], onDelete: Restrict)
+  destination          Destination?   @relation("TripItemDestination", fields: [destinationId], references: [id], onDelete: Restrict)
+  attraction           Attraction?    @relation(fields: [attractionId], references: [id], onDelete: Restrict)
+  business             Business?      @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  service              Service?       @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  booking              Booking?       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
   aiSuggestionsApplied AiSuggestion[] @relation("AiSuggestionAppliedTripItem")
 
   @@unique([tripDayId, position])
@@ -1475,17 +1661,17 @@ model AiMessage {
 }
 
 model AiUsage {
-  id             String        @id @default(uuid()) @db.Uuid
-  userId         String        @map("user_id") @db.Uuid
-  conversationId String?       @map("conversation_id") @db.Uuid
-  provider       String        @db.VarChar(80)
-  model          String        @db.VarChar(160)
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  conversationId String?  @map("conversation_id") @db.Uuid
+  provider       String   @db.VarChar(80)
+  model          String   @db.VarChar(160)
   intent         AiIntent
-  inputTokens    Int?          @map("input_tokens")
-  outputTokens   Int?          @map("output_tokens")
-  durationMs     Int?          @map("duration_ms")
+  inputTokens    Int?     @map("input_tokens")
+  outputTokens   Int?     @map("output_tokens")
+  durationMs     Int?     @map("duration_ms")
   success        Boolean
-  createdAt      DateTime      @default(now()) @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   user         User            @relation(fields: [userId], references: [id], onDelete: Restrict)
   conversation AiConversation? @relation(fields: [conversationId], references: [id], onDelete: Restrict)
@@ -1497,28 +1683,27 @@ model AiUsage {
 }
 
 model AiSuggestion {
-  id                  String             @id @default(uuid()) @db.Uuid
-  userId              String             @map("user_id") @db.Uuid
-  tripId              String             @map("trip_id") @db.Uuid
-  conversationId      String?            @map("conversation_id") @db.Uuid
-  tripItemType        TripItemType       @map("trip_item_type")
-  targetEntityId      String             @map("target_entity_id") @db.Uuid
-  titleSnapshot       String             @map("title_snapshot") @db.VarChar(180)
-  reason              String             @db.VarChar(1000)
-  suggestedDayNumber  Int                @map("suggested_day_number")
-  suggestedDate       DateTime           @map("suggested_date") @db.Date
-  notes               String?            @db.VarChar(1000)
-  status              AiSuggestionStatus @default(PENDING)
-  appliedTripItemId   String?            @map("applied_trip_item_id") @db.Uuid
-  createdAt           DateTime           @default(now()) @map("created_at")
-  updatedAt           DateTime           @updatedAt @map("updated_at")
-  appliedAt           DateTime?          @map("applied_at")
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @map("user_id") @db.Uuid
+  tripId             String             @map("trip_id") @db.Uuid
+  conversationId     String?            @map("conversation_id") @db.Uuid
+  tripItemType       TripItemType       @map("trip_item_type")
+  targetEntityId     String             @map("target_entity_id") @db.Uuid
+  titleSnapshot      String             @map("title_snapshot") @db.VarChar(180)
+  reason             String             @db.VarChar(1000)
+  suggestedDayNumber Int                @map("suggested_day_number")
+  suggestedDate      DateTime           @map("suggested_date") @db.Date
+  notes              String?            @db.VarChar(1000)
+  status             AiSuggestionStatus @default(PENDING)
+  appliedTripItemId  String?            @map("applied_trip_item_id") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  appliedAt          DateTime?          @map("applied_at")
 
   user            User            @relation(fields: [userId], references: [id], onDelete: Restrict)
   trip            Trip            @relation(fields: [tripId], references: [id], onDelete: Restrict)
   conversation    AiConversation? @relation(fields: [conversationId], references: [id], onDelete: Restrict)
   appliedTripItem TripItem?       @relation("AiSuggestionAppliedTripItem", fields: [appliedTripItemId], references: [id], onDelete: Restrict)
-
 
   @@index([userId, tripId, status, createdAt])
   @@index([tripId, suggestedDate])
