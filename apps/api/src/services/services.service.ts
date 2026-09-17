@@ -27,6 +27,11 @@ import { BusinessesService } from '../businesses/businesses.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ACCOMMODATION_SERVICE_CATEGORY_FAMILY } from '../accommodations/accommodation.constants';
 import {
+  MAX_RESTAURANT_MENU_ITEMS,
+  MAX_RESTAURANT_MENUS,
+  RESTAURANT_SERVICE_CATEGORY_FAMILY,
+} from '../restaurants/restaurant.constants';
+import {
   CreateServiceDto,
   ServiceAttributesDto,
 } from './dto/create-service.dto';
@@ -78,6 +83,34 @@ const publicServiceInclude = Prisma.validator<Prisma.ServiceInclude>()({
           capacity: true,
           basePrice: true,
           currency: true,
+        },
+      },
+    },
+  },
+  restaurantDetail: {
+    select: {
+      cuisineTypes: true,
+      reservationSupported: true,
+      deliverySupported: true,
+      menus: {
+        where: { isActive: true },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        take: MAX_RESTAURANT_MENUS,
+        select: {
+          name: true,
+          description: true,
+          items: {
+            where: { available: true },
+            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+            take: MAX_RESTAURANT_MENU_ITEMS,
+            select: {
+              section: true,
+              name: true,
+              description: true,
+              price: true,
+              currency: true,
+            },
+          },
         },
       },
     },
@@ -803,6 +836,27 @@ export class ServicesService {
                 capacity: room.capacity,
                 basePrice: room.basePrice.toString(),
                 currency: room.currency,
+              })),
+            }
+          : null,
+      restaurant:
+        service.category.family === RESTAURANT_SERVICE_CATEGORY_FAMILY &&
+        service.restaurantDetail
+          ? {
+              cuisineTypes: service.restaurantDetail.cuisineTypes,
+              reservationSupported:
+                service.restaurantDetail.reservationSupported,
+              deliverySupported: service.restaurantDetail.deliverySupported,
+              menus: service.restaurantDetail.menus.map((menu) => ({
+                name: menu.name,
+                description: menu.description,
+                items: menu.items.map((item) => ({
+                  section: item.section,
+                  name: item.name,
+                  description: item.description,
+                  price: item.price.toString(),
+                  currency: item.currency,
+                })),
               })),
             }
           : null,

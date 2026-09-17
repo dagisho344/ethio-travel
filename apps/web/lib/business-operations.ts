@@ -125,6 +125,67 @@ export type RoomTypeInput = {
   quantity: number;
 };
 
+export type ManagedRestaurantMenuItem = {
+  id: string;
+  section: string | null;
+  name: string;
+  description: string | null;
+  price: string;
+  currency: string;
+  available: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ManagedRestaurantMenu = {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  items: ManagedRestaurantMenuItem[];
+};
+
+export type ManagedRestaurant = {
+  service: {
+    id: string;
+    name: string;
+    status: ManagedService['status'];
+    category: { code: string; name: string };
+  };
+  detail: {
+    id: string;
+    cuisineTypes: string[];
+    reservationSupported: boolean;
+    deliverySupported: boolean;
+  } | null;
+  menus: ManagedRestaurantMenu[];
+};
+
+export type RestaurantDetailInput = {
+  cuisineTypes?: string[];
+  reservationSupported?: boolean;
+  deliverySupported?: boolean;
+};
+
+export type RestaurantMenuInput = {
+  name: string;
+  description?: string | null;
+  sortOrder?: number;
+};
+
+export type RestaurantMenuItemInput = {
+  section?: string | null;
+  name: string;
+  description?: string | null;
+  price: string;
+  currency: string;
+  sortOrder?: number;
+};
+
 export function getBusinessDashboard(
   businessId: string,
 ): Promise<BusinessDashboard> {
@@ -241,6 +302,91 @@ export function roomTypeAction(
 ): Promise<ManagedRoomType> {
   return bffJson(
     `/api/businesses/manage/${businessId}/services/${serviceId}/accommodation/rooms/${roomTypeId}/${action}`,
+    { method: 'POST' },
+  );
+}
+export function getManagedRestaurant(
+  businessId: string,
+  serviceId: string,
+): Promise<ManagedRestaurant> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/restaurant`,
+  );
+}
+export function updateManagedRestaurant(
+  businessId: string,
+  serviceId: string,
+  input: RestaurantDetailInput,
+): Promise<ManagedRestaurant> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/restaurant`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+export function createManagedRestaurantMenu(
+  businessId: string,
+  serviceId: string,
+  input: RestaurantMenuInput,
+): Promise<ManagedRestaurantMenu> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/restaurant/menus`,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+export function updateManagedRestaurantMenu(
+  businessId: string,
+  serviceId: string,
+  menuId: string,
+  input: Partial<RestaurantMenuInput>,
+): Promise<ManagedRestaurantMenu> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/restaurant/menus/${menuId}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+export function restaurantMenuAction(
+  businessId: string,
+  serviceId: string,
+  menuId: string,
+  action: 'activate' | 'deactivate',
+): Promise<ManagedRestaurantMenu> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/restaurant/menus/${menuId}/${action}`,
+    { method: 'POST' },
+  );
+}
+export function createManagedRestaurantMenuItem(
+  businessId: string,
+  serviceId: string,
+  menuId: string,
+  input: RestaurantMenuItemInput,
+): Promise<ManagedRestaurantMenuItem> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/restaurant/menus/${menuId}/items`,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+export function updateManagedRestaurantMenuItem(
+  businessId: string,
+  serviceId: string,
+  menuId: string,
+  itemId: string,
+  input: Partial<RestaurantMenuItemInput>,
+): Promise<ManagedRestaurantMenuItem> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/restaurant/menus/${menuId}/items/${itemId}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+export function restaurantMenuItemAction(
+  businessId: string,
+  serviceId: string,
+  menuId: string,
+  itemId: string,
+  action: 'available' | 'unavailable',
+): Promise<ManagedRestaurantMenuItem> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/restaurant/menus/${menuId}/items/${itemId}/${action}`,
     { method: 'POST' },
   );
 }

@@ -100,6 +100,50 @@ export async function strictAllowedJsonBody(
   return JSON.stringify(body);
 }
 
+export async function strictAllowedJsonBodyWithStringArrays(
+  request: NextRequest,
+  scalarKeys: readonly string[],
+  stringArrayKeys: readonly string[],
+): Promise<string> {
+  const input: unknown = await request.json().catch(() => null);
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw new BffAuthError(400, 'A valid request body is required.');
+  }
+  const record = input as Record<string, unknown>;
+  const allowedKeys = new Set([...scalarKeys, ...stringArrayKeys]);
+  for (const key of Object.keys(record)) {
+    if (!allowedKeys.has(key)) {
+      throw new BffAuthError(400, `Unsupported field: ${key}.`);
+    }
+  }
+
+  const body: Record<string, string | number | boolean | null | string[]> = {};
+  for (const key of scalarKeys) {
+    const value = record[key];
+    if (value === undefined) continue;
+    if (
+      typeof value !== 'string' &&
+      typeof value !== 'number' &&
+      typeof value !== 'boolean' &&
+      value !== null
+    ) {
+      throw new BffAuthError(400, `Invalid value for ${key}.`);
+    }
+    body[key] = value;
+  }
+  for (const key of stringArrayKeys) {
+    const value = record[key];
+    if (value === undefined) continue;
+    if (
+      !Array.isArray(value) ||
+      !value.every((item) => typeof item === 'string')
+    ) {
+      throw new BffAuthError(400, `Invalid string array for ${key}.`);
+    }
+    body[key] = value;
+  }
+  return JSON.stringify(body);
+}
 export function queryFrom(
   request: NextRequest,
   keys: readonly string[],

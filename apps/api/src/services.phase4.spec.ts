@@ -18,6 +18,10 @@ import { BusinessesService } from './businesses/businesses.service';
 import { assertMediaRoleAllowed, toPublicMedia } from './media/media-policy';
 import { PrismaService } from './prisma/prisma.service';
 import { CreateServiceDto } from './services/dto/create-service.dto';
+import {
+  MAX_RESTAURANT_MENU_ITEMS,
+  MAX_RESTAURANT_MENUS,
+} from './restaurants/restaurant.constants';
 import { ServicesService } from './services/services.service';
 
 const userId = '11111111-1111-4111-8111-111111111111';
@@ -378,6 +382,102 @@ describe('Phase 4 services', () => {
             select: expect.objectContaining({
               roomTypes: expect.objectContaining({ where: { isActive: true } }),
             }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('projects only active menus and available items for eligible RESTAURANT-family services', async () => {
+    const prisma = prismaMock();
+    prisma.service.findMany.mockResolvedValue([
+      serviceRecord({
+        status: ServiceStatus.PUBLISHED,
+        category: {
+          id: categoryId,
+          code: 'RESTAURANT_SPECIAL',
+          family: ServiceCategoryFamily.RESTAURANT,
+          name: 'An arbitrary display name',
+          isActive: true,
+        },
+        restaurantDetail: {
+          cuisineTypes: ['Ethiopian', 'Wolaita'],
+          reservationSupported: true,
+          deliverySupported: false,
+          menus: [
+            {
+              name: 'Main menu',
+              description: 'Local dishes.',
+              items: [
+                {
+                  section: 'Mains',
+                  name: 'Kocho',
+                  description: 'Traditional preparation.',
+                  price: new Prisma.Decimal('250.00'),
+                  currency: 'ETB',
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    ]);
+    prisma.service.count.mockResolvedValue(1);
+
+    const result = await service(prisma).findPublic({ page: 1, limit: 20 });
+
+    expect(result.data[0]?.restaurant).toEqual({
+      cuisineTypes: ['Ethiopian', 'Wolaita'],
+      reservationSupported: true,
+      deliverySupported: false,
+      menus: [
+        {
+          name: 'Main menu',
+          description: 'Local dishes.',
+          items: [
+            {
+              section: 'Mains',
+              name: 'Kocho',
+              description: 'Traditional preparation.',
+              price: '250',
+              currency: 'ETB',
+            },
+          ],
+        },
+      ],
+    });
+    expect(result.data[0]?.restaurant?.menus[0]).not.toHaveProperty('isActive');
+    expect(result.data[0]?.restaurant?.menus[0]?.items[0]).not.toHaveProperty(
+      'available',
+    );
+    expect(prisma.service.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          restaurantDetail: expect.objectContaining({
+            select: expect.objectContaining({
+              menus: expect.objectContaining({
+                where: { isActive: true },
+                take: MAX_RESTAURANT_MENUS,
+                select: expect.objectContaining({
+                  items: expect.objectContaining({
+                    where: { available: true },
+                    take: MAX_RESTAURANT_MENU_ITEMS,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    );
+
+    expect(prisma.service.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: ServiceStatus.PUBLISHED,
+          business: expect.objectContaining({
+            status: BusinessStatus.ACTIVE,
+            verificationSummary: BusinessVerificationSummary.VERIFIED,
           }),
         }),
       }),

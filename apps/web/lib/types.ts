@@ -90,6 +90,22 @@ export interface Service {
       currency: string;
     }>;
   } | null;
+  restaurant?: {
+    cuisineTypes: string[];
+    reservationSupported: boolean;
+    deliverySupported: boolean;
+    menus: Array<{
+      name: string;
+      description: string | null;
+      items: Array<{
+        section: string | null;
+        name: string;
+        description: string | null;
+        price: string;
+        currency: string;
+      }>;
+    }>;
+  } | null;
 }
 export type SearchResultType =
   'destination' | 'attraction' | 'business' | 'service';
