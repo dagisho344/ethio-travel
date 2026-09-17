@@ -32,6 +32,10 @@ import {
   RESTAURANT_SERVICE_CATEGORY_FAMILY,
 } from '../restaurants/restaurant.constants';
 import {
+  MAX_TOUR_ITINERARY_ITEMS,
+  TOUR_SERVICE_CATEGORY_FAMILY,
+} from '../tours/tour.constants';
+import {
   CreateServiceDto,
   ServiceAttributesDto,
 } from './dto/create-service.dto';
@@ -111,6 +115,28 @@ const publicServiceInclude = Prisma.validator<Prisma.ServiceInclude>()({
               currency: true,
             },
           },
+        },
+      },
+    },
+  },
+  tourDetail: {
+    select: {
+      durationDays: true,
+      difficulty: true,
+      meetingPoint: true,
+      inclusions: true,
+      exclusions: true,
+      itineraryItems: {
+        orderBy: [
+          { dayNumber: 'asc' },
+          { sortOrder: 'asc' },
+          { createdAt: 'asc' },
+        ],
+        take: MAX_TOUR_ITINERARY_ITEMS,
+        select: {
+          dayNumber: true,
+          title: true,
+          description: true,
         },
       },
     },
@@ -857,6 +883,22 @@ export class ServicesService {
                   price: item.price.toString(),
                   currency: item.currency,
                 })),
+              })),
+            }
+          : null,
+      tour:
+        service.category.family === TOUR_SERVICE_CATEGORY_FAMILY &&
+        service.tourDetail
+          ? {
+              durationDays: service.tourDetail.durationDays,
+              difficulty: service.tourDetail.difficulty,
+              meetingPoint: service.tourDetail.meetingPoint,
+              inclusions: service.tourDetail.inclusions,
+              exclusions: service.tourDetail.exclusions,
+              itinerary: service.tourDetail.itineraryItems.map((item) => ({
+                dayNumber: item.dayNumber,
+                title: item.title,
+                description: item.description,
               })),
             }
           : null,

@@ -390,6 +390,92 @@ export function restaurantMenuItemAction(
     { method: 'POST' },
   );
 }
+export type ManagedTourItineraryItem = {
+  id: string;
+  dayNumber: number;
+  title: string;
+  description: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ManagedTour = {
+  service: {
+    id: string;
+    name: string;
+    status: ManagedService['status'];
+    category: { code: string; name: string };
+  };
+  detail: {
+    id: string;
+    durationDays: number | null;
+    difficulty: string | null;
+    meetingPoint: string | null;
+    inclusions: string[];
+    exclusions: string[];
+  } | null;
+  itinerary: ManagedTourItineraryItem[];
+};
+
+export type TourDetailInput = {
+  durationDays?: number;
+  difficulty?: string;
+  meetingPoint?: string;
+  inclusions?: string[];
+  exclusions?: string[];
+};
+
+export type TourItineraryItemInput = {
+  dayNumber: number;
+  title: string;
+  description?: string | null;
+  sortOrder?: number;
+};
+
+export function getManagedTour(
+  businessId: string,
+  serviceId: string,
+): Promise<ManagedTour> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/tour`,
+  );
+}
+
+export function updateManagedTour(
+  businessId: string,
+  serviceId: string,
+  input: TourDetailInput,
+): Promise<ManagedTour> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/tour`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function createManagedTourItineraryItem(
+  businessId: string,
+  serviceId: string,
+  input: TourItineraryItemInput,
+): Promise<ManagedTourItineraryItem> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/tour/itinerary`,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function updateManagedTourItineraryItem(
+  businessId: string,
+  serviceId: string,
+  itemId: string,
+  input: Partial<TourItineraryItemInput>,
+): Promise<ManagedTourItineraryItem> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/tour/itinerary/${itemId}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
 export function operationError(error: unknown, fallback: string): string {
   if (!(error instanceof BffRequestError)) return fallback;
   if (error.status === 403)

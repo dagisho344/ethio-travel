@@ -396,6 +396,14 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                       Restaurant
                     </Link>
                   ) : null}
+                  {service.category.family === 'TOUR' ? (
+                    <Link
+                      href={`/businesses/manage/${businessId}/services/${service.id}/tour`}
+                      className="rounded-md border border-sky-200 px-3 py-2 text-sm font-semibold text-sky-800"
+                    >
+                      Tour
+                    </Link>
+                  ) : null}
                   {canWrite && service.status !== 'ARCHIVED' ? (
                     <>
                       <button

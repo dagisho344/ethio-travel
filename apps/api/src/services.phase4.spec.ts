@@ -23,6 +23,7 @@ import {
   MAX_RESTAURANT_MENUS,
 } from './restaurants/restaurant.constants';
 import { ServicesService } from './services/services.service';
+import { MAX_TOUR_ITINERARY_ITEMS } from './tours/tour.constants';
 
 const userId = '11111111-1111-4111-8111-111111111111';
 const businessId = '22222222-2222-4222-8222-222222222222';
@@ -486,6 +487,79 @@ describe('Phase 4 services', () => {
 });
 
 describe('Phase 4 media policy', () => {
+  describe('Phase 14D public Tour projection', () => {
+    it('projects only safe bounded itinerary content for eligible TOUR-family services', async () => {
+      const prisma = prismaMock();
+      prisma.service.findMany.mockResolvedValue([
+        serviceRecord({
+          status: ServiceStatus.PUBLISHED,
+          category: {
+            id: categoryId,
+            code: 'TOUR_SPECIAL',
+            family: ServiceCategoryFamily.TOUR,
+            name: 'An arbitrary display name',
+            isActive: true,
+          },
+          tourDetail: {
+            durationDays: 3,
+            difficulty: 'Moderate',
+            meetingPoint: 'Sodo bus station',
+            inclusions: ['Guide'],
+            exclusions: ['Lunch'],
+            itineraryItems: [
+              {
+                dayNumber: 1,
+                title: 'Arrival',
+                description: 'Meet the guide.',
+              },
+            ],
+          },
+        }),
+      ]);
+      prisma.service.count.mockResolvedValue(1);
+
+      const result = await service(prisma).findPublic({ page: 1, limit: 20 });
+
+      expect(result.data[0]?.tour).toEqual({
+        durationDays: 3,
+        difficulty: 'Moderate',
+        meetingPoint: 'Sodo bus station',
+        inclusions: ['Guide'],
+        exclusions: ['Lunch'],
+        itinerary: [
+          {
+            dayNumber: 1,
+            title: 'Arrival',
+            description: 'Meet the guide.',
+          },
+        ],
+      });
+      expect(result.data[0]?.tour?.itinerary[0]).not.toHaveProperty(
+        'sortOrder',
+      );
+      expect(prisma.service.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            tourDetail: expect.objectContaining({
+              select: expect.objectContaining({
+                itineraryItems: expect.objectContaining({
+                  take: MAX_TOUR_ITINERARY_ITEMS,
+                }),
+              }),
+            }),
+          }),
+          where: expect.objectContaining({
+            status: ServiceStatus.PUBLISHED,
+            business: expect.objectContaining({
+              status: BusinessStatus.ACTIVE,
+              verificationSummary: BusinessVerificationSummary.VERIFIED,
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
   it('rejects LOGO for non-business attachments', () => {
     expect(() => assertMediaRoleAllowed('service', MediaRole.LOGO)).toThrow(
       BadRequestException,

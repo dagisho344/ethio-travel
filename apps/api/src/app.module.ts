@@ -36,6 +36,7 @@ import { ServicesModule } from './services/services.module';
 import { SearchModule } from './search/search.module';
 import { StorageModule } from './storage/storage.module';
 import { TripsModule } from './trips/trips.module';
+import { ToursModule } from './tours/tours.module';
 import { RegionsModule } from './regions/regions.module';
 import { UsersModule } from './users/users.module';
 
@@ -56,6 +57,7 @@ import { UsersModule } from './users/users.module';
     AiModule,
     AccommodationsModule,
     RestaurantsModule,
+    ToursModule,
     RedisModule,
     HealthModule,
     RegionsModule,

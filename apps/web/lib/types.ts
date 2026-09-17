@@ -106,6 +106,18 @@ export interface Service {
       }>;
     }>;
   } | null;
+  tour?: {
+    durationDays: number | null;
+    difficulty: string | null;
+    meetingPoint: string | null;
+    inclusions: string[];
+    exclusions: string[];
+    itinerary: Array<{
+      dayNumber: number;
+      title: string;
+      description: string | null;
+    }>;
+  } | null;
 }
 export type SearchResultType =
   'destination' | 'attraction' | 'business' | 'service';
