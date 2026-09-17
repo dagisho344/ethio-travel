@@ -8,6 +8,7 @@ import {
 
 const fields = [
   'code',
+  'family',
   'name',
   'description',
   'isActive',

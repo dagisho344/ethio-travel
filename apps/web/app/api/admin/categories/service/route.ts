@@ -4,6 +4,7 @@ import { adminAllowedBody, adminJson, safeAdminQuery } from '../../bff';
 const query = ['page', 'limit', 'q', 'isActive'] as const;
 const fields = [
   'code',
+  'family',
   'name',
   'description',
   'isActive',

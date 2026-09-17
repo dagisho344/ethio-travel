@@ -25,6 +25,7 @@ import {
 import { buildSlug } from '../common/utils/slug.util';
 import { BusinessesService } from '../businesses/businesses.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ACCOMMODATION_SERVICE_CATEGORY_FAMILY } from '../accommodations/accommodation.constants';
 import {
   CreateServiceDto,
   ServiceAttributesDto,
@@ -45,6 +46,45 @@ const serviceInclude = Prisma.validator<Prisma.ServiceInclude>()({
 
 type ServiceRecord = Prisma.ServiceGetPayload<{
   include: typeof serviceInclude;
+}>;
+const publicServiceInclude = Prisma.validator<Prisma.ServiceInclude>()({
+  category: { select: { code: true, family: true, name: true } },
+  business: {
+    select: {
+      name: true,
+      slug: true,
+      category: { select: { code: true, name: true } },
+      city: {
+        select: {
+          name: true,
+          slug: true,
+          region: { select: { name: true, slug: true } },
+        },
+      },
+      destination: { select: { name: true, slug: true } },
+    },
+  },
+  accommodationDetail: {
+    select: {
+      starClass: true,
+      checkInTime: true,
+      checkOutTime: true,
+      roomTypes: {
+        where: { isActive: true },
+        orderBy: [{ name: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          name: true,
+          description: true,
+          capacity: true,
+          basePrice: true,
+          currency: true,
+        },
+      },
+    },
+  },
+});
+type PublicServiceRecord = Prisma.ServiceGetPayload<{
+  include: typeof publicServiceInclude;
 }>;
 type ServiceRouteScope = {
   regionSlug?: string;
@@ -113,7 +153,7 @@ export class ServicesService {
     const [records, total] = await this.prisma.$transaction([
       this.prisma.service.findMany({
         where,
-        include: serviceInclude,
+        include: publicServiceInclude,
         orderBy: { name: 'asc' },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -151,7 +191,7 @@ export class ServicesService {
         ),
         slug: serviceSlug,
       },
-      include: serviceInclude,
+      include: publicServiceInclude,
     });
     if (!service) throw new NotFoundException('Service not found.');
     return this.toPublic(service);
@@ -709,7 +749,7 @@ export class ServicesService {
     );
   }
 
-  private toPublic(service: ServiceRecord) {
+  private toPublic(service: PublicServiceRecord) {
     return {
       id: service.id,
       name: service.name,
@@ -750,6 +790,22 @@ export class ServicesService {
             slug: service.business.destination.slug,
           }
         : null,
+      accommodation:
+        service.category.family === ACCOMMODATION_SERVICE_CATEGORY_FAMILY &&
+        service.accommodationDetail
+          ? {
+              starClass: service.accommodationDetail.starClass,
+              checkInTime: service.accommodationDetail.checkInTime,
+              checkOutTime: service.accommodationDetail.checkOutTime,
+              roomTypes: service.accommodationDetail.roomTypes.map((room) => ({
+                name: room.name,
+                description: room.description,
+                capacity: room.capacity,
+                basePrice: room.basePrice.toString(),
+                currency: room.currency,
+              })),
+            }
+          : null,
     };
   }
 }

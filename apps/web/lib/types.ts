@@ -78,6 +78,18 @@ export interface Service {
   city?: LocationSummary;
   region?: LocationSummary;
   destination?: LocationSummary | null;
+  accommodation?: {
+    starClass: number | null;
+    checkInTime: string | null;
+    checkOutTime: string | null;
+    roomTypes: Array<{
+      name: string;
+      description: string | null;
+      capacity: number;
+      basePrice: string;
+      currency: string;
+    }>;
+  } | null;
 }
 export type SearchResultType =
   'destination' | 'attraction' | 'business' | 'service';

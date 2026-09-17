@@ -89,6 +89,7 @@ export type AdminCategory = {
   code: string;
   createdAt: string;
   description: string | null;
+  family?: 'ACCOMMODATION' | 'RESTAURANT' | 'TOUR' | 'TRANSPORT' | 'OTHER';
   id: string;
   isActive: boolean;
   name: string;

@@ -52,9 +52,11 @@ void test('category domains stay distinct and use the secured category BFF', () 
 
   assert.match(categories, /Business Categories/);
   assert.match(categories, /Service Categories/);
+  assert.match(categories, /Service family/);
   assert.doesNotMatch(categories, /Delete category/);
   assert.match(businessBff, /adminAllowedBody/);
   assert.match(serviceBff, /adminAllowedBody/);
+  assert.match(serviceBff, /'family'/);
 });
 
 void test('moderation and reports use explicit reasoned actions with no browser token storage', () => {

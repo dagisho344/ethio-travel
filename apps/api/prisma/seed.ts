@@ -8,6 +8,7 @@ import {
   LocationStatus,
   PricingModel,
   PrismaClient,
+  ServiceCategoryFamily,
   ServiceLocationMode,
   ServiceStatus,
   UserStatus,
@@ -40,16 +41,66 @@ const businessCategories = [
   { code: 'OTHER', name: 'Other', sortOrder: 100 },
 ];
 const serviceCategories = [
-  { code: 'ROOM', name: 'Room', sortOrder: 10 },
-  { code: 'MEAL', name: 'Meal', sortOrder: 20 },
-  { code: 'TOUR', name: 'Tour', sortOrder: 30 },
-  { code: 'TRANSFER', name: 'Transfer', sortOrder: 40 },
-  { code: 'RENTAL', name: 'Rental', sortOrder: 50 },
-  { code: 'EVENT_PACKAGE', name: 'Event Package', sortOrder: 60 },
-  { code: 'ACTIVITY', name: 'Activity', sortOrder: 70 },
-  { code: 'WELLNESS', name: 'Wellness', sortOrder: 80 },
-  { code: 'TICKET', name: 'Ticket', sortOrder: 90 },
-  { code: 'GENERAL', name: 'General', sortOrder: 100 },
+  {
+    code: 'ROOM',
+    family: ServiceCategoryFamily.ACCOMMODATION,
+    name: 'Room',
+    sortOrder: 10,
+  },
+  {
+    code: 'MEAL',
+    family: ServiceCategoryFamily.RESTAURANT,
+    name: 'Meal',
+    sortOrder: 20,
+  },
+  {
+    code: 'TOUR',
+    family: ServiceCategoryFamily.TOUR,
+    name: 'Tour',
+    sortOrder: 30,
+  },
+  {
+    code: 'TRANSFER',
+    family: ServiceCategoryFamily.TRANSPORT,
+    name: 'Transfer',
+    sortOrder: 40,
+  },
+  {
+    code: 'RENTAL',
+    family: ServiceCategoryFamily.OTHER,
+    name: 'Rental',
+    sortOrder: 50,
+  },
+  {
+    code: 'EVENT_PACKAGE',
+    family: ServiceCategoryFamily.OTHER,
+    name: 'Event Package',
+    sortOrder: 60,
+  },
+  {
+    code: 'ACTIVITY',
+    family: ServiceCategoryFamily.OTHER,
+    name: 'Activity',
+    sortOrder: 70,
+  },
+  {
+    code: 'WELLNESS',
+    family: ServiceCategoryFamily.OTHER,
+    name: 'Wellness',
+    sortOrder: 80,
+  },
+  {
+    code: 'TICKET',
+    family: ServiceCategoryFamily.OTHER,
+    name: 'Ticket',
+    sortOrder: 90,
+  },
+  {
+    code: 'GENERAL',
+    family: ServiceCategoryFamily.OTHER,
+    name: 'General',
+    sortOrder: 100,
+  },
 ];
 async function seedRoles(): Promise<void> {
   for (const role of roles) {
@@ -420,6 +471,7 @@ async function seedServiceCategories(): Promise<void> {
       },
       update: {
         isActive: true,
+        family: category.family,
         name: category.name,
         sortOrder: category.sortOrder,
       },

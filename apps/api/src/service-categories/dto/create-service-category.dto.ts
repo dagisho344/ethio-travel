@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ServiceCategoryFamily } from '@prisma/client';
 import {
   IsBoolean,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -15,6 +17,14 @@ export class CreateServiceCategoryDto {
   @MaxLength(80)
   @Matches(/^[A-Z0-9_]+$/)
   code!: string;
+
+  @ApiPropertyOptional({
+    enum: ServiceCategoryFamily,
+    default: ServiceCategoryFamily.OTHER,
+  })
+  @IsEnum(ServiceCategoryFamily)
+  @IsOptional()
+  family?: ServiceCategoryFamily;
 
   @ApiProperty({ maxLength: 120 })
   @IsString()

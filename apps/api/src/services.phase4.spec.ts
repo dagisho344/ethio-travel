@@ -8,6 +8,8 @@ import {
   MediaRole,
   MediaStatus,
   MediaVisibility,
+  Prisma,
+  ServiceCategoryFamily,
   PricingModel,
   ServiceLocationMode,
   ServiceStatus,
@@ -76,7 +78,13 @@ function serviceRecord(overrides: any = {}) {
     archivedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    category: { id: categoryId, code: 'ROOM', name: 'Room', isActive: true },
+    category: {
+      id: categoryId,
+      code: 'ROOM',
+      family: ServiceCategoryFamily.ACCOMMODATION,
+      name: 'Room',
+      isActive: true,
+    },
     business: {
       id: businessId,
       name: 'Verified Hotel',
@@ -313,6 +321,67 @@ describe('Phase 4 services', () => {
     await expect(
       service(prisma).archiveMine(userId, businessId, serviceId),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('projects only the safe active accommodation catalogue for eligible ACCOMMODATION-family services', async () => {
+    const prisma = prismaMock();
+    const activeRoom = {
+      name: 'Deluxe King',
+      description: 'A quiet room.',
+      capacity: 2,
+      basePrice: new Prisma.Decimal('1250.00'),
+      currency: 'ETB',
+    };
+    prisma.service.findMany.mockResolvedValue([
+      serviceRecord({
+        status: ServiceStatus.PUBLISHED,
+        category: {
+          id: categoryId,
+          code: 'HOTEL',
+          family: ServiceCategoryFamily.ACCOMMODATION,
+          name: 'An arbitrary display name',
+          isActive: true,
+        },
+        accommodationDetail: {
+          starClass: 4,
+          checkInTime: '14:00',
+          checkOutTime: '11:00',
+          roomTypes: [activeRoom],
+        },
+      }),
+    ]);
+    prisma.service.count.mockResolvedValue(1);
+
+    const result = await service(prisma).findPublic({ page: 1, limit: 20 });
+
+    expect(result.data[0]?.accommodation).toEqual({
+      starClass: 4,
+      checkInTime: '14:00',
+      checkOutTime: '11:00',
+      roomTypes: [
+        {
+          name: 'Deluxe King',
+          description: 'A quiet room.',
+          capacity: 2,
+          basePrice: '1250',
+          currency: 'ETB',
+        },
+      ],
+    });
+    expect(result.data[0]?.accommodation?.roomTypes[0]).not.toHaveProperty(
+      'quantity',
+    );
+    expect(prisma.service.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          accommodationDetail: expect.objectContaining({
+            select: expect.objectContaining({
+              roomTypes: expect.objectContaining({ where: { isActive: true } }),
+            }),
+          }),
+        }),
+      }),
+    );
   });
 });
 

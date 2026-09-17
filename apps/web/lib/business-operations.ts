@@ -72,8 +72,57 @@ export type ManagedService = {
   pricingModel: string;
   durationMinutes: number | null;
   status: 'DRAFT' | 'PUBLISHED' | 'INACTIVE' | 'ARCHIVED';
-  category: { id: string; name: string };
+  category: {
+    id: string;
+    code: string;
+    family: 'ACCOMMODATION' | 'RESTAURANT' | 'TOUR' | 'TRANSPORT' | 'OTHER';
+    name: string;
+  };
   bookingConfig: { enabled: boolean } | null;
+};
+
+export type ManagedRoomType = {
+  id: string;
+  name: string;
+  description: string | null;
+  capacity: number;
+  basePrice: string;
+  currency: string;
+  quantity: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ManagedAccommodation = {
+  service: {
+    id: string;
+    name: string;
+    status: ManagedService['status'];
+    category: { code: string; name: string };
+  };
+  detail: {
+    id: string;
+    starClass: number | null;
+    checkInTime: string | null;
+    checkOutTime: string | null;
+  } | null;
+  roomTypes: ManagedRoomType[];
+};
+
+export type AccommodationDetailInput = {
+  starClass?: number | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+};
+
+export type RoomTypeInput = {
+  name: string;
+  description?: string | null;
+  capacity: number;
+  basePrice: string;
+  currency: string;
+  quantity: number;
 };
 
 export function getBusinessDashboard(
@@ -142,6 +191,56 @@ export function serviceAction(
 ) {
   return bffJson(
     `/api/businesses/manage/${businessId}/services/${serviceId}/${action}`,
+    { method: 'POST' },
+  );
+}
+export function getManagedAccommodation(
+  businessId: string,
+  serviceId: string,
+): Promise<ManagedAccommodation> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/accommodation`,
+  );
+}
+export function updateManagedAccommodation(
+  businessId: string,
+  serviceId: string,
+  input: AccommodationDetailInput,
+): Promise<ManagedAccommodation> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/accommodation`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+export function createManagedRoomType(
+  businessId: string,
+  serviceId: string,
+  input: RoomTypeInput,
+): Promise<ManagedRoomType> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/accommodation/rooms`,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+export function updateManagedRoomType(
+  businessId: string,
+  serviceId: string,
+  roomTypeId: string,
+  input: Partial<RoomTypeInput>,
+): Promise<ManagedRoomType> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/accommodation/rooms/${roomTypeId}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+export function roomTypeAction(
+  businessId: string,
+  serviceId: string,
+  roomTypeId: string,
+  action: 'activate' | 'deactivate',
+): Promise<ManagedRoomType> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/accommodation/rooms/${roomTypeId}/${action}`,
     { method: 'POST' },
   );
 }

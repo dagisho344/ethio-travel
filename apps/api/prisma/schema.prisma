@@ -653,15 +653,24 @@ enum MediaRole {
   LOGO
 }
 
+enum ServiceCategoryFamily {
+  ACCOMMODATION
+  RESTAURANT
+  TOUR
+  TRANSPORT
+  OTHER
+}
+
 model ServiceCategory {
-  id          String   @id @default(uuid()) @db.Uuid
-  code        String   @unique @db.VarChar(80)
-  name        String   @db.VarChar(120)
+  id          String                @id @default(uuid()) @db.Uuid
+  code        String                @unique @db.VarChar(80)
+  family      ServiceCategoryFamily @default(OTHER)
+  name        String                @db.VarChar(120)
   description String?
-  isActive    Boolean  @default(true) @map("is_active")
-  sortOrder   Int      @default(0) @map("sort_order")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  isActive    Boolean               @default(true) @map("is_active")
+  sortOrder   Int                   @default(0) @map("sort_order")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
 
   services Service[]
 

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
 import { AiModule } from './ai/ai.module';
+import { AccommodationsModule } from './accommodations/accommodations.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
 import { AttractionsModule } from './attractions/attractions.module';
@@ -52,6 +53,7 @@ import { UsersModule } from './users/users.module';
     AuditModule,
     AdminModule,
     AiModule,
+    AccommodationsModule,
     RedisModule,
     HealthModule,
     RegionsModule,

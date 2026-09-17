@@ -380,6 +380,14 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                   >
                     Availability
                   </Link>
+                  {service.category.family === 'ACCOMMODATION' ? (
+                    <Link
+                      href={`/businesses/manage/${businessId}/services/${service.id}/accommodation`}
+                      className="rounded-md border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-800"
+                    >
+                      Accommodation
+                    </Link>
+                  ) : null}
                   {canWrite && service.status !== 'ARCHIVED' ? (
                     <>
                       <button

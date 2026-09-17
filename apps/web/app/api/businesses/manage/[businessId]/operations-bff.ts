@@ -13,12 +13,16 @@ export type ManagedRouteContext = { params: Promise<{ businessId: string }> };
 const uuid =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+export function isManagedUuid(value: string): boolean {
+  return uuid.test(value);
+}
+
 export async function managedPath(
   context: ManagedRouteContext,
   suffix: string,
 ): Promise<string> {
   const { businessId } = await context.params;
-  if (!uuid.test(businessId))
+  if (!isManagedUuid(businessId))
     throw new BffAuthError(404, 'Business not found.');
   return `/my/businesses/${businessId}${suffix}`;
 }
@@ -61,6 +65,37 @@ export async function allowedJsonBody(
     ) {
       body[key] = value;
     }
+  }
+  return JSON.stringify(body);
+}
+
+export async function strictAllowedJsonBody(
+  request: NextRequest,
+  keys: readonly string[],
+): Promise<string> {
+  const input: unknown = await request.json().catch(() => null);
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    throw new BffAuthError(400, 'A valid request body is required.');
+  }
+  const record = input as Record<string, unknown>;
+  for (const key of Object.keys(record)) {
+    if (!keys.includes(key)) {
+      throw new BffAuthError(400, `Unsupported field: ${key}.`);
+    }
+  }
+  const body: Record<string, string | number | boolean | null> = {};
+  for (const key of keys) {
+    const value = record[key];
+    if (value === undefined) continue;
+    if (
+      typeof value !== 'string' &&
+      typeof value !== 'number' &&
+      typeof value !== 'boolean' &&
+      value !== null
+    ) {
+      throw new BffAuthError(400, `Invalid value for ${key}.`);
+    }
+    body[key] = value;
   }
   return JSON.stringify(body);
 }

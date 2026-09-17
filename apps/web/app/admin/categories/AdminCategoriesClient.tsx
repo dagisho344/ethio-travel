@@ -8,10 +8,14 @@ import {
   statusClass,
 } from '../../../lib/admin';
 
+type ServiceCategoryFamily =
+  'ACCOMMODATION' | 'RESTAURANT' | 'TOUR' | 'TRANSPORT' | 'OTHER';
+
 type Form = {
   code: string;
   name: string;
   description: string;
+  family: ServiceCategoryFamily;
   sortOrder: string;
   isActive: boolean;
 };
@@ -19,6 +23,7 @@ const empty: Form = {
   code: '',
   name: '',
   description: '',
+  family: 'OTHER',
   sortOrder: '0',
   isActive: true,
 };
@@ -26,9 +31,11 @@ const empty: Form = {
 function CategoryPanel({
   endpoint,
   title,
+  supportsFamily,
 }: {
   endpoint: string;
   title: string;
+  supportsFamily: boolean;
 }) {
   const [page, setPage] = useState<AdminPage<AdminCategory> | null>(null);
   const [form, setForm] = useState<Form>(empty);
@@ -56,12 +63,18 @@ function CategoryPanel({
     setSaving(true);
     setError(null);
     try {
+      const baseBody = {
+        code: form.code,
+        name: form.name,
+        description: form.description || undefined,
+        sortOrder: Number(form.sortOrder),
+        isActive: form.isActive,
+      };
+      const body = supportsFamily
+        ? { ...baseBody, family: form.family }
+        : baseBody;
       await adminFetch(editing ? `${endpoint}/${editing}` : endpoint, {
-        body: JSON.stringify({
-          ...form,
-          description: form.description || undefined,
-          sortOrder: Number(form.sortOrder),
-        }),
+        body: JSON.stringify(body),
         method: editing ? 'PATCH' : 'POST',
       });
       setForm(empty);
@@ -82,6 +95,7 @@ function CategoryPanel({
       code: item.code,
       name: item.name,
       description: item.description ?? '',
+      family: item.family ?? 'OTHER',
       sortOrder: String(item.sortOrder),
       isActive: item.isActive,
     });
@@ -126,6 +140,30 @@ function CategoryPanel({
             className="mt-1 block min-h-10 w-full rounded border border-slate-300 px-3 font-normal"
           />
         </label>
+        {supportsFamily ? (
+          <label className="text-sm font-semibold">
+            Service family
+            <select
+              value={form.family}
+              onChange={(event) =>
+                update('family', event.target.value as ServiceCategoryFamily)
+              }
+              className="mt-1 block min-h-10 w-full rounded border border-slate-300 px-3 font-normal"
+            >
+              {[
+                'ACCOMMODATION',
+                'RESTAURANT',
+                'TOUR',
+                'TRANSPORT',
+                'OTHER',
+              ].map((family) => (
+                <option key={family} value={family}>
+                  {family}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label className="text-sm font-semibold sm:col-span-2">
           Description{' '}
           <span className="font-normal text-slate-500">(optional)</span>
@@ -235,10 +273,12 @@ export function AdminCategoriesClient() {
         <CategoryPanel
           endpoint="/api/admin/categories/business"
           title="Business Categories"
+          supportsFamily={false}
         />
         <CategoryPanel
           endpoint="/api/admin/categories/service"
           title="Service Categories"
+          supportsFamily
         />
       </div>
     </div>

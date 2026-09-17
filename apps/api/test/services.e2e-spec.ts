@@ -6,7 +6,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { ServiceCategory } from '@prisma/client';
+import { ServiceCategory, ServiceCategoryFamily } from '@prisma/client';
 import type { Server } from 'node:http';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
@@ -38,6 +38,7 @@ const serviceCategoryRecord: ServiceCategory = {
   code: 'ROOM',
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   description: null,
+  family: ServiceCategoryFamily.ACCOMMODATION,
   id: '55555555-5555-4555-8555-555555555555',
   isActive: true,
   name: 'Room',
