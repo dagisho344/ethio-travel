@@ -118,6 +118,21 @@ export interface Service {
       description: string | null;
     }>;
   } | null;
+  transport?: {
+    mode: string | null;
+    operatorName: string | null;
+    routes: Array<{
+      originCity: LocationSummary;
+      destinationCity: LocationSummary;
+      schedules: Array<{
+        departureAt: string;
+        arrivalAt: string;
+        fare: string;
+        currency: string;
+        capacity: number;
+      }>;
+    }>;
+  } | null;
 }
 export type SearchResultType =
   'destination' | 'attraction' | 'business' | 'service';

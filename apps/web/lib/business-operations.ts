@@ -476,6 +476,135 @@ export function updateManagedTourItineraryItem(
   );
 }
 
+export type ManagedTransportSchedule = {
+  id: string;
+  departureAt: string;
+  arrivalAt: string;
+  fare: string;
+  currency: string;
+  capacity: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ManagedTransportRoute = {
+  id: string;
+  originCity: { id: string; name: string; slug: string };
+  destinationCity: { id: string; name: string; slug: string };
+  createdAt: string;
+  updatedAt: string;
+  schedules: ManagedTransportSchedule[];
+};
+
+export type ManagedTransport = {
+  service: {
+    id: string;
+    name: string;
+    status: ManagedService['status'];
+    category: { code: string; name: string };
+  };
+  detail: {
+    id: string;
+    mode: string | null;
+    operatorName: string | null;
+  } | null;
+  routes: ManagedTransportRoute[];
+};
+
+export type TransportDetailInput = { mode?: string; operatorName?: string };
+export type TransportRouteInput = {
+  originCityId: string;
+  destinationCityId: string;
+};
+export type TransportScheduleInput = {
+  departureAt: string;
+  arrivalAt: string;
+  fare: string;
+  currency: string;
+  capacity: number;
+};
+
+export function getManagedTransport(
+  businessId: string,
+  serviceId: string,
+): Promise<ManagedTransport> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/transport`,
+  );
+}
+
+export function updateManagedTransport(
+  businessId: string,
+  serviceId: string,
+  input: TransportDetailInput,
+): Promise<ManagedTransport> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/transport`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function createManagedTransportRoute(
+  businessId: string,
+  serviceId: string,
+  input: TransportRouteInput,
+): Promise<ManagedTransportRoute> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/transport/routes`,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function updateManagedTransportRoute(
+  businessId: string,
+  serviceId: string,
+  routeId: string,
+  input: Partial<TransportRouteInput>,
+): Promise<ManagedTransportRoute> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/transport/routes/${routeId}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function createManagedTransportSchedule(
+  businessId: string,
+  serviceId: string,
+  routeId: string,
+  input: TransportScheduleInput,
+): Promise<ManagedTransportSchedule> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/transport/routes/${routeId}/schedules`,
+    { method: 'POST', body: JSON.stringify(input) },
+  );
+}
+
+export function updateManagedTransportSchedule(
+  businessId: string,
+  serviceId: string,
+  routeId: string,
+  scheduleId: string,
+  input: Partial<TransportScheduleInput>,
+): Promise<ManagedTransportSchedule> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/transport/routes/${routeId}/schedules/${scheduleId}`,
+    { method: 'PATCH', body: JSON.stringify(input) },
+  );
+}
+
+export function transportScheduleAction(
+  businessId: string,
+  serviceId: string,
+  routeId: string,
+  scheduleId: string,
+  action: 'activate' | 'deactivate',
+): Promise<ManagedTransportSchedule> {
+  return bffJson(
+    `/api/businesses/manage/${businessId}/services/${serviceId}/transport/routes/${routeId}/schedules/${scheduleId}/${action}`,
+    { method: 'POST' },
+  );
+}
 export function operationError(error: unknown, fallback: string): string {
   if (!(error instanceof BffRequestError)) return fallback;
   if (error.status === 403)

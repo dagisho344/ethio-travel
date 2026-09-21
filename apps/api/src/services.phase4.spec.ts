@@ -24,6 +24,10 @@ import {
 } from './restaurants/restaurant.constants';
 import { ServicesService } from './services/services.service';
 import { MAX_TOUR_ITINERARY_ITEMS } from './tours/tour.constants';
+import {
+  MAX_TRANSPORT_ROUTES,
+  MAX_TRANSPORT_SCHEDULES_PER_ROUTE,
+} from './transports/transport.constants';
 
 const userId = '11111111-1111-4111-8111-111111111111';
 const businessId = '22222222-2222-4222-8222-222222222222';
@@ -544,6 +548,108 @@ describe('Phase 4 media policy', () => {
               select: expect.objectContaining({
                 itineraryItems: expect.objectContaining({
                   take: MAX_TOUR_ITINERARY_ITEMS,
+                }),
+              }),
+            }),
+          }),
+          where: expect.objectContaining({
+            status: ServiceStatus.PUBLISHED,
+            business: expect.objectContaining({
+              status: BusinessStatus.ACTIVE,
+              verificationSummary: BusinessVerificationSummary.VERIFIED,
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('Phase 14E public Transport projection', () => {
+    it('projects only safe bounded active schedules for eligible TRANSPORT-family services', async () => {
+      const prisma = prismaMock();
+      prisma.service.findMany.mockResolvedValue([
+        serviceRecord({
+          status: ServiceStatus.PUBLISHED,
+          category: {
+            id: categoryId,
+            code: 'BUS_TRANSFER',
+            family: ServiceCategoryFamily.TRANSPORT,
+            name: 'Arbitrary transport display name',
+            isActive: true,
+          },
+          transportDetail: {
+            mode: 'BUS',
+            operatorName: 'Ethio Bus',
+            routes: [
+              {
+                originCity: {
+                  id: 'origin',
+                  name: 'Addis Ababa',
+                  slug: 'addis-ababa',
+                },
+                destinationCity: {
+                  id: 'destination',
+                  name: 'Wolaita Sodo',
+                  slug: 'wolaita-sodo',
+                },
+                schedules: [
+                  {
+                    departureAt: new Date('2026-10-01T08:00:00.000Z'),
+                    arrivalAt: new Date('2026-10-01T12:00:00.000Z'),
+                    fare: { toString: () => '250.00' },
+                    currency: 'ETB',
+                    capacity: 24,
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      ]);
+      prisma.service.count.mockResolvedValue(1);
+
+      const result = await service(prisma).findPublic({ page: 1, limit: 20 });
+
+      expect(result.data[0]?.transport).toEqual({
+        mode: 'BUS',
+        operatorName: 'Ethio Bus',
+        routes: [
+          {
+            originCity: {
+              id: 'origin',
+              name: 'Addis Ababa',
+              slug: 'addis-ababa',
+            },
+            destinationCity: {
+              id: 'destination',
+              name: 'Wolaita Sodo',
+              slug: 'wolaita-sodo',
+            },
+            schedules: [
+              {
+                departureAt: '2026-10-01T08:00:00.000Z',
+                arrivalAt: '2026-10-01T12:00:00.000Z',
+                fare: '250.00',
+                currency: 'ETB',
+                capacity: 24,
+              },
+            ],
+          },
+        ],
+      });
+      expect(prisma.service.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            transportDetail: expect.objectContaining({
+              select: expect.objectContaining({
+                routes: expect.objectContaining({
+                  take: MAX_TRANSPORT_ROUTES,
+                  select: expect.objectContaining({
+                    schedules: expect.objectContaining({
+                      where: { isActive: true },
+                      take: MAX_TRANSPORT_SCHEDULES_PER_ROUTE,
+                    }),
+                  }),
                 }),
               }),
             }),

@@ -36,6 +36,11 @@ import {
   TOUR_SERVICE_CATEGORY_FAMILY,
 } from '../tours/tour.constants';
 import {
+  MAX_TRANSPORT_ROUTES,
+  MAX_TRANSPORT_SCHEDULES_PER_ROUTE,
+  TRANSPORT_SERVICE_CATEGORY_FAMILY,
+} from '../transports/transport.constants';
+import {
   CreateServiceDto,
   ServiceAttributesDto,
 } from './dto/create-service.dto';
@@ -137,6 +142,32 @@ const publicServiceInclude = Prisma.validator<Prisma.ServiceInclude>()({
           dayNumber: true,
           title: true,
           description: true,
+        },
+      },
+    },
+  },
+  transportDetail: {
+    select: {
+      mode: true,
+      operatorName: true,
+      routes: {
+        orderBy: { createdAt: 'asc' },
+        take: MAX_TRANSPORT_ROUTES,
+        select: {
+          originCity: { select: { id: true, name: true, slug: true } },
+          destinationCity: { select: { id: true, name: true, slug: true } },
+          schedules: {
+            where: { isActive: true },
+            orderBy: [{ departureAt: 'asc' }, { createdAt: 'asc' }],
+            take: MAX_TRANSPORT_SCHEDULES_PER_ROUTE,
+            select: {
+              departureAt: true,
+              arrivalAt: true,
+              fare: true,
+              currency: true,
+              capacity: true,
+            },
+          },
         },
       },
     },
@@ -899,6 +930,25 @@ export class ServicesService {
                 dayNumber: item.dayNumber,
                 title: item.title,
                 description: item.description,
+              })),
+            }
+          : null,
+      transport:
+        service.category.family === TRANSPORT_SERVICE_CATEGORY_FAMILY &&
+        service.transportDetail
+          ? {
+              mode: service.transportDetail.mode,
+              operatorName: service.transportDetail.operatorName,
+              routes: service.transportDetail.routes.map((route) => ({
+                originCity: route.originCity,
+                destinationCity: route.destinationCity,
+                schedules: route.schedules.map((schedule) => ({
+                  departureAt: schedule.departureAt.toISOString(),
+                  arrivalAt: schedule.arrivalAt.toISOString(),
+                  fare: schedule.fare.toString(),
+                  currency: schedule.currency,
+                  capacity: schedule.capacity,
+                })),
               })),
             }
           : null,

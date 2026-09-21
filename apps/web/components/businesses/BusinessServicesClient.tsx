@@ -404,6 +404,14 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                       Tour
                     </Link>
                   ) : null}
+                  {service.category.family === 'TRANSPORT' ? (
+                    <Link
+                      href={`/businesses/manage/${businessId}/services/${service.id}/transport`}
+                      className="rounded-md border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-800"
+                    >
+                      Transport
+                    </Link>
+                  ) : null}{' '}
                   {canWrite && service.status !== 'ARCHIVED' ? (
                     <>
                       <button
