@@ -10,6 +10,9 @@ import {
   BusinessStatus,
   BusinessVerificationSummary,
   LocationStatus,
+  MediaRole,
+  MediaStatus,
+  MediaVisibility,
   PricingModel,
   Prisma,
   PublicationStatus,
@@ -65,9 +68,27 @@ const publicServiceInclude = Prisma.validator<Prisma.ServiceInclude>()({
   category: { select: { code: true, family: true, name: true } },
   business: {
     select: {
+      id: true,
       name: true,
       slug: true,
       category: { select: { code: true, name: true } },
+      media: {
+        where: {
+          role: { in: [MediaRole.HERO, MediaRole.LOGO] },
+          media: {
+            status: MediaStatus.READY,
+            visibility: MediaVisibility.PUBLIC,
+          },
+        },
+        orderBy: [{ role: 'asc' }, { sortOrder: 'asc' }],
+        take: 2,
+        select: {
+          role: true,
+          altText: true,
+          caption: true,
+          media: { select: { id: true } },
+        },
+      },
       city: {
         select: {
           name: true,
@@ -177,6 +198,7 @@ type PublicServiceRecord = Prisma.ServiceGetPayload<{
   include: typeof publicServiceInclude;
 }>;
 type ServiceRouteScope = {
+  businessId?: string;
   regionSlug?: string;
   citySlug?: string;
   businessSlug?: string;
@@ -265,6 +287,27 @@ export class ServicesService {
     query: PaginationQueryDto,
   ): Promise<PaginatedResponse<ReturnType<ServicesService['toPublic']>>> {
     return this.findPublic(query, { regionSlug, citySlug, businessSlug });
+  }
+
+  async findPublicByBusinessId(
+    businessId: string,
+    query: PaginationQueryDto,
+  ): Promise<PaginatedResponse<ReturnType<ServicesService['toPublic']>>> {
+    return this.findPublic(query, { businessId });
+  }
+
+  async findPublicById(
+    serviceId: string,
+  ): Promise<ReturnType<ServicesService['toPublic']>> {
+    const service = await this.prisma.service.findFirst({
+      where: {
+        ...this.publicWhere({ page: 1, limit: 1 }),
+        id: serviceId,
+      },
+      include: publicServiceInclude,
+    });
+    if (!service) throw new NotFoundException('Service not found.');
+    return this.toPublic(service);
   }
 
   async findPublicBySlugs(
@@ -530,8 +573,13 @@ export class ServicesService {
   ): Prisma.ServiceWhereInput {
     return {
       status: ServiceStatus.PUBLISHED,
-      category: { isActive: true, code: query.category },
+      category: {
+        isActive: true,
+        code: query.category,
+        family: query.family,
+      },
       business: {
+        id: scope.businessId ?? query.businessId,
         slug: scope.businessSlug,
         status: BusinessStatus.ACTIVE,
         verificationSummary: BusinessVerificationSummary.VERIFIED,
@@ -857,14 +905,25 @@ export class ServicesService {
       latitude: service.latitude,
       longitude: service.longitude,
       attributes: service.attributes,
-      category: { code: service.category.code, name: service.category.name },
+      category: {
+        code: service.category.code,
+        family: service.category.family,
+        name: service.category.name,
+      },
       business: {
+        id: service.business.id,
         name: service.business.name,
         slug: service.business.slug,
         category: {
           code: service.business.category.code,
           name: service.business.category.name,
         },
+        media: service.business.media.map((attachment) => ({
+          accessPath: `/api/v1/media/public/${attachment.media.id}`,
+          altText: attachment.altText,
+          caption: attachment.caption,
+          id: attachment.media.id,
+        })),
       },
       city: {
         name: service.business.city.name,

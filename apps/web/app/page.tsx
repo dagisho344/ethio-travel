@@ -25,23 +25,23 @@ import type { Business, Destination, Service } from '../lib/types';
 const shortcuts = [
   {
     label: 'Hotels',
-    href: '/explore?types=business,service&businessCategory=HOTEL',
+    href: '/hotels',
     icon: BedDouble,
   },
   {
     label: 'Restaurants',
-    href: '/explore?types=business,service&businessCategory=RESTAURANT',
+    href: '/restaurants',
     icon: Utensils,
   },
   { label: 'Attractions', href: '/explore?types=attraction', icon: MapPin },
   {
     label: 'Tours',
-    href: '/explore?types=business,service&businessCategory=TOUR_OPERATOR',
+    href: '/tours',
     icon: Compass,
   },
   {
     label: 'Transport',
-    href: '/explore?types=business,service&businessCategory=TRANSPORT',
+    href: '/transport',
     icon: Bus,
   },
 ];

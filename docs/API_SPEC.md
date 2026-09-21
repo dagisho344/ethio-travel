@@ -22,7 +22,7 @@ GET /search/nearby
 
 ## Businesses
 POST /businesses
-GET /businesses/:slug
+GET /api/v1/regions/:regionSlug/cities/:citySlug/businesses/:businessSlug
 PATCH /businesses/:id
 POST /businesses/:id/media
 GET/POST /businesses/:id/services

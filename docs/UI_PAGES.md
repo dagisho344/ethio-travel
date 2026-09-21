@@ -5,7 +5,7 @@
 /search — filters, sorting, list/map
 /destinations
 /destinations/[slug]
-/business/[slug]
+/regions/[regionSlug]/cities/[citySlug]/businesses/[businessSlug]
 /services/[id]
 
 ## Traveler

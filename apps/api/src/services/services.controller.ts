@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -35,6 +36,12 @@ export class ServicesController {
   @ApiOkResponse({ description: 'Paginated public services.' })
   findPublic(@Query() query: ServiceQueryDto) {
     return this.service.findPublic(query);
+  }
+
+  @Get('services/:id')
+  @ApiOkResponse({ description: 'Public service by ID.' })
+  findPublicById(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
+    return this.service.findPublicById(id);
   }
 
   @Get('regions/:regionSlug/cities/:citySlug/businesses/:businessSlug/services')

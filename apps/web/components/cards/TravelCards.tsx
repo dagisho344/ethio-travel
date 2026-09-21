@@ -9,6 +9,7 @@ import {
   type FavoriteLookup,
 } from '../../lib/favorite-utils';
 import { categoryName, formatPricing } from '../../lib/format';
+import { publicBusinessPath } from '../../lib/public-business-route';
 import type {
   Business,
   Destination,
@@ -55,6 +56,8 @@ export function DestinationCard({ destination }: { destination: Destination }) {
   );
 }
 export function BusinessCard({ business }: { business: Business }) {
+  const businessHref = publicBusinessPath(business);
+
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 inline-flex items-center gap-2 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
@@ -66,6 +69,14 @@ export function BusinessCard({ business }: { business: Business }) {
         {business.description}
       </p>
       <LocationLine city={business.city} region={business.region} />
+      {businessHref ? (
+        <Link
+          href={businessHref}
+          className="mt-4 inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+        >
+          View business
+        </Link>
+      ) : null}
     </article>
   );
 }
@@ -84,6 +95,12 @@ export function ServiceCard({ service }: { service: Service }) {
         {formatPricing(service.pricingModel, service.price, service.currency)}
       </p>
       <p className="mt-2 text-sm text-slate-500">{service.business?.name}</p>
+      <Link
+        href={`/services/${service.id}`}
+        className="mt-4 inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+      >
+        View service details
+      </Link>
     </article>
   );
 }
@@ -101,6 +118,14 @@ export function SearchResultCard({
       ? 'Verified Business'
       : result.type.charAt(0).toUpperCase() + result.type.slice(1);
   const targetType = result.type.toUpperCase() as FavoriteTargetType;
+  const businessHref =
+    result.type === 'business'
+      ? publicBusinessPath({
+          slug: result.slug,
+          city: result.location.city,
+          region: result.location.region,
+        })
+      : null;
 
   return (
     <article className="relative rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -153,6 +178,22 @@ export function SearchResultCard({
         />
         <ReviewPanel targetType={targetType} targetId={result.id} />
       </div>
+      {businessHref ? (
+        <Link
+          className="mt-4 inline-block text-sm font-semibold text-highland"
+          href={businessHref}
+        >
+          View business
+        </Link>
+      ) : null}
+      {result.type === 'service' ? (
+        <Link
+          className="mt-4 inline-block text-sm font-semibold text-highland"
+          href={`/services/${result.id}`}
+        >
+          View service details
+        </Link>
+      ) : null}
       {result.type === 'destination' &&
       result.location.region &&
       result.location.city ? (

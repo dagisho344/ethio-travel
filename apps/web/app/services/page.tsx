@@ -50,10 +50,7 @@ function validMoneyFilter(value?: string): string | undefined {
 }
 
 function servicePath(service: Service) {
-  if (service.region?.slug && service.city?.slug && service.business?.slug) {
-    return `/explore?types=service&regionSlug=${encodeURIComponent(service.region.slug)}&citySlug=${encodeURIComponent(service.city.slug)}&q=${encodeURIComponent(service.name)}`;
-  }
-  return '/explore?types=service';
+  return `/services/${service.id}`;
 }
 
 function pricingLabel(model?: PricingModel) {

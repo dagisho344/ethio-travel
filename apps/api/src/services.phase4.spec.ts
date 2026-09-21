@@ -113,6 +113,7 @@ function serviceRecord(overrides: any = {}) {
         },
       },
       destination: null,
+      media: [],
     },
     ...overrides,
   };
@@ -332,6 +333,86 @@ describe('Phase 4 services', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('filters public category browse results by stable family rather than category code', async () => {
+    const prisma = prismaMock();
+    prisma.service.findMany.mockResolvedValue([
+      serviceRecord({
+        status: ServiceStatus.PUBLISHED,
+        category: {
+          id: categoryId,
+          code: 'RESTAURANT_SPECIAL',
+          family: ServiceCategoryFamily.RESTAURANT,
+          name: 'Any database-managed restaurant category',
+          isActive: true,
+        },
+        business: {
+          ...serviceRecord().business,
+          media: [
+            {
+              role: MediaRole.HERO,
+              altText: 'Public hero image',
+              caption: null,
+              media: { id: 'public-media-id' },
+            },
+          ],
+        },
+      }),
+    ]);
+    prisma.service.count.mockResolvedValue(1);
+
+    const result = await service(prisma).findPublic({
+      family: ServiceCategoryFamily.RESTAURANT,
+      limit: 12,
+      page: 1,
+    });
+
+    expect(result.data[0]?.category).toMatchObject({
+      code: 'RESTAURANT_SPECIAL',
+      family: ServiceCategoryFamily.RESTAURANT,
+    });
+    expect(result.data[0]?.business.media).toEqual([
+      {
+        accessPath: '/api/v1/media/public/public-media-id',
+        altText: 'Public hero image',
+        caption: null,
+        id: 'public-media-id',
+      },
+    ]);
+    expect(prisma.service.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          category: {
+            code: undefined,
+            family: ServiceCategoryFamily.RESTAURANT,
+            isActive: true,
+          },
+          status: ServiceStatus.PUBLISHED,
+        }),
+      }),
+    );
+  });
+
+  it('uses the same central eligibility scope for public Service detail', async () => {
+    const prisma = prismaMock();
+    prisma.service.findFirst.mockResolvedValue(
+      serviceRecord({ status: ServiceStatus.PUBLISHED }),
+    );
+
+    await service(prisma).findPublicById(serviceId);
+
+    expect(prisma.service.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: serviceId,
+          status: ServiceStatus.PUBLISHED,
+          business: expect.objectContaining({
+            status: BusinessStatus.ACTIVE,
+            verificationSummary: BusinessVerificationSummary.VERIFIED,
+          }),
+        }),
+      }),
+    );
+  });
   it('projects only the safe active accommodation catalogue for eligible ACCOMMODATION-family services', async () => {
     const prisma = prismaMock();
     const activeRoom = {

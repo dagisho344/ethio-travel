@@ -5,10 +5,15 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
-import { PricingModel, ServiceStatus } from '@prisma/client';
+import {
+  PricingModel,
+  ServiceCategoryFamily,
+  ServiceStatus,
+} from '@prisma/client';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 export class ServiceQueryDto extends PaginationQueryDto {
@@ -17,6 +22,19 @@ export class ServiceQueryDto extends PaginationQueryDto {
   @MaxLength(80)
   @IsOptional()
   category?: string;
+
+  @ApiPropertyOptional({
+    enum: ServiceCategoryFamily,
+    description: 'Stable technical service-category family.',
+  })
+  @IsEnum(ServiceCategoryFamily)
+  @IsOptional()
+  family?: ServiceCategoryFamily;
+
+  @ApiPropertyOptional({ format: 'uuid', description: 'Public business ID.' })
+  @IsUUID()
+  @IsOptional()
+  businessId?: string;
 
   @ApiPropertyOptional({ description: 'Business category code.' })
   @IsString()
@@ -67,9 +85,4 @@ export class AdminServiceQueryDto extends ServiceQueryDto {
   @IsEnum(ServiceStatus)
   @IsOptional()
   status?: ServiceStatus;
-
-  @ApiPropertyOptional()
-  @IsString()
-  @IsOptional()
-  businessId?: string;
 }

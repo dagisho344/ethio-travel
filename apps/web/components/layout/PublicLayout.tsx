@@ -12,6 +12,10 @@ const publicLinks = [
   { href: '/destinations', label: 'Destinations' },
   { href: '/businesses', label: 'Businesses' },
   { href: '/services', label: 'Services' },
+  { href: '/hotels', label: 'Hotels' },
+  { href: '/restaurants', label: 'Restaurants' },
+  { href: '/tours', label: 'Tours' },
+  { href: '/transport', label: 'Transport' },
 ];
 
 const authenticatedLinks = [

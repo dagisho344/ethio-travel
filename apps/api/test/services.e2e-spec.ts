@@ -98,6 +98,8 @@ describe('Phase 4 service routes', () => {
         findMine: () => Promise.resolve(page),
         findMineById: () => Promise.resolve(serviceRecord),
         findPublic: () => Promise.resolve(page),
+        findPublicByBusinessId: () => Promise.resolve(page),
+        findPublicById: () => Promise.resolve(serviceRecord),
         findPublicByBusinessSlugs: () => Promise.resolve(page),
         findPublicBySlugs: () => Promise.resolve(serviceRecord),
         publishMine: () => Promise.resolve(serviceRecord),
@@ -133,6 +135,17 @@ describe('Phase 4 service routes', () => {
   it('serves implemented public and owner service routes', async () => {
     await request(httpServer).get('/api/v1/service-categories').expect(200);
     await request(httpServer).get('/api/v1/services').expect(200);
+    await request(httpServer)
+      .get('/api/v1/services?family=RESTAURANT')
+      .expect(200);
+    await request(httpServer).get('/api/v1/services?limit=101').expect(400);
+    await request(httpServer)
+      .get('/api/v1/services?family=UNSUPPORTED')
+      .expect(400);
+    await request(httpServer)
+      .get('/api/v1/services/44444444-4444-4444-8444-444444444444')
+      .expect(200);
+    await request(httpServer).get('/api/v1/services/not-a-uuid').expect(400);
     await request(httpServer)
       .get('/api/v1/regions/south/cities/sodo/businesses/hotel/services')
       .expect(200);

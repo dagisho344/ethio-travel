@@ -39,7 +39,7 @@ import { CreateBusinessDto } from './dto/create-business.dto';
 import { AdminUpdateBusinessDto } from './dto/admin-update-business.dto';
 import { OwnerUpdateBusinessDto } from './dto/update-business.dto';
 
-const publicInclude = {
+const businessInclude = {
   category: true,
   city: { include: { region: true } },
   destination: true,
@@ -52,7 +52,48 @@ const publicInclude = {
   },
 } satisfies Prisma.BusinessInclude;
 type BusinessRecord = Prisma.BusinessGetPayload<{
-  include: typeof publicInclude;
+  include: typeof businessInclude;
+}>;
+const publicBusinessSelect = Prisma.validator<Prisma.BusinessSelect>()({
+  id: true,
+  name: true,
+  slug: true,
+  description: true,
+  phone: true,
+  email: true,
+  website: true,
+  addressLine1: true,
+  addressLine2: true,
+  neighborhood: true,
+  postalCode: true,
+  latitude: true,
+  longitude: true,
+  category: { select: { code: true, name: true } },
+  city: {
+    select: {
+      name: true,
+      slug: true,
+      region: { select: { name: true, slug: true } },
+    },
+  },
+  destination: { select: { name: true, slug: true } },
+  media: {
+    where: {
+      role: { in: [MediaRole.HERO, MediaRole.LOGO] },
+      media: { status: MediaStatus.READY, visibility: MediaVisibility.PUBLIC },
+    },
+    orderBy: [{ role: 'asc' }, { sortOrder: 'asc' }],
+    take: 2,
+    select: {
+      role: true,
+      altText: true,
+      caption: true,
+      media: { select: { id: true } },
+    },
+  },
+});
+type PublicBusinessRecord = Prisma.BusinessGetPayload<{
+  select: typeof publicBusinessSelect;
 }>;
 type MemberRole = BusinessMemberRole;
 type CurrentBusinessMember = {
@@ -92,7 +133,7 @@ export class BusinessesService {
             status: BusinessStatus.DRAFT,
             verificationSummary: BusinessVerificationSummary.NOT_SUBMITTED,
           },
-          include: publicInclude,
+          include: businessInclude,
         });
         await tx.businessMember.create({
           data: {
@@ -137,7 +178,7 @@ export class BusinessesService {
     const [records, total] = await this.prisma.$transaction([
       this.prisma.business.findMany({
         where,
-        include: publicInclude,
+        select: publicBusinessSelect,
         orderBy: { name: 'asc' },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -162,7 +203,7 @@ export class BusinessesService {
         ...this.publicWhere({ page: 1, limit: 1, regionSlug, citySlug }),
         slug: businessSlug,
       },
-      include: publicInclude,
+      select: publicBusinessSelect,
     });
     if (!business) throw new NotFoundException('Business not found.');
     return this.toPublic(business);
@@ -179,7 +220,7 @@ export class BusinessesService {
     const [data, total] = await this.prisma.$transaction([
       this.prisma.business.findMany({
         where,
-        include: publicInclude,
+        include: businessInclude,
         orderBy: { createdAt: 'desc' },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -272,7 +313,7 @@ export class BusinessesService {
         const business = await tx.business.update({
           where: { id: businessId },
           data: { ...dto, slug },
-          include: publicInclude,
+          include: businessInclude,
         });
         const primaryLocation = await tx.businessLocation.findFirst({
           where: {
@@ -318,7 +359,7 @@ export class BusinessesService {
     const [data, total] = await this.prisma.$transaction([
       this.prisma.business.findMany({
         where,
-        include: publicInclude,
+        include: businessInclude,
         orderBy: { createdAt: 'desc' },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -331,7 +372,7 @@ export class BusinessesService {
   async findAdminById(id: string): Promise<BusinessRecord> {
     const business = await this.prisma.business.findUnique({
       where: { id },
-      include: publicInclude,
+      include: businessInclude,
     });
     if (!business) throw new NotFoundException('Business not found.');
     return business;
@@ -520,7 +561,7 @@ export class BusinessesService {
               ? now
               : undefined,
         },
-        include: publicInclude,
+        include: businessInclude,
       });
       const primaryLocation = await tx.businessLocation.findFirst({
         where: {
@@ -778,7 +819,7 @@ export class BusinessesService {
         'Business slug already exists within this city.',
       );
   }
-  private toPublic(business: BusinessRecord) {
+  private toPublic(business: PublicBusinessRecord) {
     return {
       id: business.id,
       name: business.name,
@@ -809,16 +850,11 @@ export class BusinessesService {
     };
   }
 
-  private publicMediaForRole(business: BusinessRecord, role: MediaRole) {
+  private publicMediaForRole(business: PublicBusinessRecord, role: MediaRole) {
     const attachment = business.media.find((item) => item.role === role);
     if (!attachment) return null;
     return {
       id: attachment.media.id,
-      originalFilename: attachment.media.originalFilename,
-      mimeType: attachment.media.mimeType,
-      mediaType: attachment.media.mediaType,
-      width: attachment.media.width,
-      height: attachment.media.height,
       altText: attachment.altText,
       caption: attachment.caption,
       accessPath: `/api/v1/media/public/${attachment.media.id}`,

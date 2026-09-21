@@ -111,6 +111,116 @@ describe('Phase 3 business services', () => {
     );
   });
 
+  it('uses the scoped-slug public eligibility query and maps only safe business fields', async () => {
+    const prisma = prismaMock();
+    prisma.business.findFirst.mockResolvedValue({
+      id: businessId,
+      name: 'Sodo Sample Hotel',
+      slug: 'sodo-sample-hotel',
+      description: 'A verified public business.',
+      phone: '+251911000000',
+      email: 'stay@example.com',
+      website: null,
+      addressLine1: 'Main road',
+      addressLine2: null,
+      neighborhood: null,
+      postalCode: null,
+      latitude: 6.855,
+      longitude: 37.761,
+      category: { code: 'HOTEL', name: 'Hotel' },
+      city: {
+        name: 'Wolaita Sodo',
+        slug: 'wolaita-sodo',
+        region: { name: 'South Ethiopia', slug: 'south-ethiopia' },
+      },
+      destination: null,
+      media: [
+        {
+          role: 'HERO',
+          altText: 'Public hero',
+          caption: null,
+          media: { id: '55555555-5555-4555-8555-555555555555' },
+        },
+      ],
+      members: [{ userId, role: BusinessMemberRole.OWNER }],
+      verifications: [{ id: 'private-verification' }],
+      bookings: [{ id: 'private-booking' }],
+      payments: [{ id: 'private-payment' }],
+      reports: [{ id: 'private-report' }],
+    });
+    const service = new BusinessesService(prisma as PrismaService);
+
+    const result = await service.findPublicBySlugs(
+      'south-ethiopia',
+      'wolaita-sodo',
+      'sodo-sample-hotel',
+    );
+
+    expect(prisma.business.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          slug: 'sodo-sample-hotel',
+          status: BusinessStatus.ACTIVE,
+          verificationSummary: BusinessVerificationSummary.VERIFIED,
+          city: expect.objectContaining({
+            slug: 'wolaita-sodo',
+            region: expect.objectContaining({ slug: 'south-ethiopia' }),
+          }),
+        }),
+        select: expect.objectContaining({
+          category: { select: { code: true, name: true } },
+          city: expect.objectContaining({ select: expect.any(Object) }),
+          destination: { select: { name: true, slug: true } },
+          media: expect.objectContaining({
+            select: expect.objectContaining({
+              media: { select: { id: true } },
+            }),
+          }),
+        }),
+      }),
+    );
+    const query = prisma.business.findFirst.mock.calls[0][0];
+    expect(query).not.toHaveProperty('include');
+    expect(query.select).not.toHaveProperty('members');
+    expect(query.select).not.toHaveProperty('verifications');
+    expect(query.select).not.toHaveProperty('bookings');
+    expect(query.select).not.toHaveProperty('payments');
+
+    expect(result).toEqual({
+      id: businessId,
+      name: 'Sodo Sample Hotel',
+      slug: 'sodo-sample-hotel',
+      description: 'A verified public business.',
+      phone: '+251911000000',
+      email: 'stay@example.com',
+      website: null,
+      addressLine1: 'Main road',
+      addressLine2: null,
+      neighborhood: null,
+      postalCode: null,
+      latitude: 6.855,
+      longitude: 37.761,
+      category: { code: 'HOTEL', name: 'Hotel' },
+      city: { name: 'Wolaita Sodo', slug: 'wolaita-sodo' },
+      region: { name: 'South Ethiopia', slug: 'south-ethiopia' },
+      destination: null,
+      media: {
+        logo: null,
+        hero: {
+          id: '55555555-5555-4555-8555-555555555555',
+          altText: 'Public hero',
+          caption: null,
+          accessPath:
+            '/api/v1/media/public/55555555-5555-4555-8555-555555555555',
+        },
+      },
+    });
+    expect(result).not.toHaveProperty('members');
+    expect(result).not.toHaveProperty('verifications');
+    expect(result).not.toHaveProperty('bookings');
+    expect(result).not.toHaveProperty('payments');
+    expect(result).not.toHaveProperty('reports');
+  });
   it('does not authorize by global role without business membership', async () => {
     const prisma = prismaMock();
     const service = new BusinessesService(prisma as PrismaService);

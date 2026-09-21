@@ -120,6 +120,10 @@ describe('Phase 3 business routes', () => {
   it('serves public business routes', async () => {
     await request(httpServer).get('/api/v1/business-categories').expect(200);
     await request(httpServer).get('/api/v1/businesses').expect(200);
+    await request(httpServer).get('/api/v1/businesses?limit=101').expect(400);
+    await request(httpServer)
+      .get('/api/v1/businesses/22222222-2222-4222-8222-222222222222')
+      .expect(404);
     await request(httpServer)
       .get(
         '/api/v1/regions/south-ethiopia-regional-state/cities/wolaita-sodo/businesses',
@@ -129,6 +133,9 @@ describe('Phase 3 business routes', () => {
       .get(
         '/api/v1/regions/south-ethiopia-regional-state/cities/wolaita-sodo/businesses/sodo-sample-hotel',
       )
+      .expect(200);
+    await request(httpServer)
+      .get('/api/v1/regions/oromia/cities/adama/businesses/sodo-sample-hotel')
       .expect(200);
     await request(httpServer)
       .get(

@@ -8,9 +8,13 @@ export interface PaginatedResponse<T> {
   data: T[];
   meta: PaginationMeta;
 }
+export type ServiceCategoryFamily =
+  'ACCOMMODATION' | 'RESTAURANT' | 'TOUR' | 'TRANSPORT' | 'OTHER';
+
 export interface Category {
   id?: string;
   code: string;
+  family?: ServiceCategoryFamily;
   name: string;
   description?: string | null;
   isActive?: boolean;
@@ -40,6 +44,13 @@ export interface Attraction {
   latitude: string | number;
   longitude: string | number;
 }
+export interface PublicMedia {
+  id: string;
+  altText?: string | null;
+  caption?: string | null;
+  accessPath: string;
+}
+
 export interface Business {
   id: string;
   name: string;
@@ -54,6 +65,10 @@ export interface Business {
   city?: LocationSummary;
   region?: LocationSummary;
   destination?: LocationSummary | null;
+  media?: {
+    hero: PublicMedia | null;
+    logo: PublicMedia | null;
+  };
 }
 export type PricingModel =
   | 'FIXED'
@@ -74,7 +89,11 @@ export interface Service {
   price?: string | number | null;
   currency?: string | null;
   category?: Category;
-  business?: LocationSummary & { category?: Category };
+  business?: LocationSummary & {
+    id?: string;
+    category?: Category;
+    media?: PublicMedia[];
+  };
   city?: LocationSummary;
   region?: LocationSummary;
   destination?: LocationSummary | null;
@@ -122,8 +141,8 @@ export interface Service {
     mode: string | null;
     operatorName: string | null;
     routes: Array<{
-      originCity: LocationSummary;
-      destinationCity: LocationSummary;
+      originCity: LocationSummary & { id: string };
+      destinationCity: LocationSummary & { id: string };
       schedules: Array<{
         departureAt: string;
         arrivalAt: string;

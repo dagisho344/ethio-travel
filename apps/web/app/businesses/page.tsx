@@ -12,6 +12,7 @@ import { StartConversationButton } from '../../components/messaging/StartConvers
 import { Container } from '../../components/ui/Container';
 import { SectionHeading } from '../../components/ui/States';
 import { safePage } from '../../lib/api';
+import { publicBusinessPath } from '../../lib/public-business-route';
 import {
   favoriteLookupKey,
   getInitialFavoriteLookup,
@@ -26,13 +27,6 @@ function pick(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function businessPath(business: Business) {
-  if (business.region?.slug && business.city?.slug && business.slug) {
-    return `/explore?types=business&regionSlug=${encodeURIComponent(business.region.slug)}&citySlug=${encodeURIComponent(business.city.slug)}&q=${encodeURIComponent(business.name)}`;
-  }
-  return '/explore?types=business';
-}
-
 function BusinessResultCard({
   business,
   favoriteId,
@@ -43,6 +37,7 @@ function BusinessResultCard({
   const location = [business.city?.name, business.region?.name]
     .filter(Boolean)
     .join(', ');
+  const businessHref = publicBusinessPath(business);
 
   return (
     <article className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-highland/30 hover:shadow-md">
@@ -94,16 +89,18 @@ function BusinessResultCard({
           </p>
         )}
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Link
-            className="inline-flex items-center gap-2 text-sm font-semibold text-highland transition hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
-            href={businessPath(business)}
-          >
-            View business
-            <ArrowRight
-              className="h-4 w-4 transition group-hover:translate-x-0.5"
-              aria-hidden="true"
-            />
-          </Link>
+          {businessHref ? (
+            <Link
+              className="inline-flex items-center gap-2 text-sm font-semibold text-highland transition hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+              href={businessHref}
+            >
+              View business
+              <ArrowRight
+                className="h-4 w-4 transition group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </Link>
+          ) : null}
           <StartConversationButton
             businessId={business.id}
             label="Contact business"
