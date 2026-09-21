@@ -13,10 +13,10 @@ void test('tour workspace uses TOUR family visibility and preserves staff read-o
     'app/businesses/manage/[businessId]/services/[serviceId]/tour/page.tsx',
   );
 
-  assert.match(services, /service\.category\.family === 'TOUR'/);
+  assert.match(services, /getServiceCategoryEditor/);
   assert.doesNotMatch(services, /category\.code === 'TOUR'/);
   assert.match(tour, /canEditBusiness/);
-  assert.match(tour, /Staff can view tour details and itinerary items/);
+  assert.match(tour, /ServiceWorkspaceHeader/);
   assert.match(tour, /Edit itinerary item/);
   assert.doesNotMatch(tour, /DELETE|localStorage|sessionStorage|accessToken/i);
   assert.match(page, /currentTokens/);

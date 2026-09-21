@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { ServiceWorkspaceHeader } from './ServiceWorkspaceHeader';
 import { useEffect, useState } from 'react';
 import { getJson } from '../../lib/api';
 import {
@@ -306,38 +306,23 @@ export function BusinessTransportClient({
   return (
     <main className="bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-highland">
-              Transport
-            </p>
-            <h1 className="mt-1 text-2xl font-bold text-slate-950">
-              {transport?.service.name ?? 'Transport service'}
-            </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Manage route and dated schedule catalog data. Service availability
-              and booking remain authoritative.
-            </p>
-          </div>
-          <Link
-            href={`/businesses/manage/${businessId}/services`}
-            className="text-sm font-semibold text-highland"
-          >
-            Back to services
-          </Link>
-        </div>
+        <ServiceWorkspaceHeader
+          businessId={businessId}
+          serviceId={serviceId}
+          serviceName={transport?.service.name ?? 'Transport Details'}
+          serviceStatus={transport?.service.status ?? 'DRAFT'}
+          categoryName={transport?.service.category.name ?? 'Transport Details'}
+          categoryFamily="TRANSPORT"
+          canWrite={canWrite}
+          currentSection="category"
+          description="Configure route and dated schedule information. Transport capacity remains configuration metadata."
+        />
         {error ? (
           <p
             role="alert"
             className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
           >
             {error}
-          </p>
-        ) : null}
-        {!canWrite && transport ? (
-          <p className="mt-5 rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600">
-            Staff can view transport routes and schedules but cannot change
-            them.
           </p>
         ) : null}
         {transport ? (

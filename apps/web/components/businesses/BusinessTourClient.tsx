@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { ServiceWorkspaceHeader } from './ServiceWorkspaceHeader';
 import { useEffect, useState } from 'react';
 import {
   canEditBusiness,
@@ -241,38 +241,23 @@ export function BusinessTourClient({
   return (
     <main className="bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-highland">
-              Tour
-            </p>
-            <h1 className="mt-1 text-2xl font-bold text-slate-950">
-              {tour?.service.name ?? 'Tour service'}
-            </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Manage tour details and guest-facing itinerary content. Existing
-              Service availability and booking remain authoritative.
-            </p>
-          </div>
-          <Link
-            href={`/businesses/manage/${businessId}/services`}
-            className="text-sm font-semibold text-highland"
-          >
-            Back to services
-          </Link>
-        </div>
+        <ServiceWorkspaceHeader
+          businessId={businessId}
+          serviceId={serviceId}
+          serviceName={tour?.service.name ?? 'Tour Details'}
+          serviceStatus={tour?.service.status ?? 'DRAFT'}
+          categoryName={tour?.service.category.name ?? 'Tour Details'}
+          categoryFamily="TOUR"
+          canWrite={canWrite}
+          currentSection="category"
+          description="Configure tour information and itinerary content. Existing Service availability remains authoritative."
+        />
         {error ? (
           <p
             role="alert"
             className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
           >
             {error}
-          </p>
-        ) : null}
-        {!canWrite && tour ? (
-          <p className="mt-5 rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600">
-            Staff can view tour details and itinerary items but cannot change
-            them.
           </p>
         ) : null}
         {tour ? (

@@ -15,10 +15,10 @@ void test('restaurant workspace uses RESTAURANT family visibility and preserves 
     'app/businesses/manage/[businessId]/services/[serviceId]/restaurant/page.tsx',
   );
 
-  assert.match(services, /service\.category\.family === 'RESTAURANT'/);
+  assert.match(services, /getServiceCategoryEditor/);
   assert.doesNotMatch(services, /category\.code === 'MEAL'/);
   assert.match(restaurant, /canEditBusiness/);
-  assert.match(restaurant, /Staff can view restaurant details and menus/);
+  assert.match(restaurant, /ServiceWorkspaceHeader/);
   assert.match(restaurant, /Deactivate/);
   assert.match(restaurant, /Mark unavailable/);
   assert.doesNotMatch(

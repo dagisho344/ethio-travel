@@ -81,6 +81,17 @@ export type ManagedService = {
   bookingConfig: { enabled: boolean } | null;
 };
 
+export type ManagedServiceInput = {
+  categoryId: string;
+  name: string;
+  shortDescription: string;
+  description: string;
+  pricingModel: string;
+  price: number | null;
+  currency: string | null;
+  durationMinutes: number | null;
+};
+
 export type ManagedRoomType = {
   id: string;
   name: string;
@@ -226,9 +237,15 @@ export function getManagedServices(
     `/api/businesses/manage/${businessId}/services${queryString({ page, limit: 30 })}`,
   );
 }
+export function getManagedService(
+  businessId: string,
+  serviceId: string,
+): Promise<ManagedService> {
+  return bffJson(`/api/businesses/manage/${businessId}/services/${serviceId}`);
+}
 export function createManagedService(
   businessId: string,
-  input: Record<string, string | number | boolean | null>,
+  input: ManagedServiceInput,
 ) {
   return bffJson(`/api/businesses/manage/${businessId}/services`, {
     method: 'POST',
@@ -238,12 +255,15 @@ export function createManagedService(
 export function updateManagedService(
   businessId: string,
   serviceId: string,
-  input: Record<string, string | number | boolean | null>,
-) {
-  return bffJson(`/api/businesses/manage/${businessId}/services/${serviceId}`, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
-  });
+  input: ManagedServiceInput,
+): Promise<ManagedService> {
+  return bffJson<ManagedService>(
+    `/api/businesses/manage/${businessId}/services/${serviceId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
 }
 export function serviceAction(
   businessId: string,

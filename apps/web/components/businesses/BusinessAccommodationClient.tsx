@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { ServiceWorkspaceHeader } from './ServiceWorkspaceHeader';
 import { useEffect, useState } from 'react';
 import {
   canEditBusiness,
@@ -245,38 +245,25 @@ export function BusinessAccommodationClient({
   return (
     <main className="bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-highland">
-              Accommodation
-            </p>
-            <h1 className="mt-1 text-2xl font-bold text-slate-950">
-              {accommodation?.service.name ?? 'Accommodation service'}
-            </h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Configure guest-facing accommodation information and room types.
-              Room inventory remains separate from booking availability.
-            </p>
-          </div>
-          <Link
-            href={`/businesses/manage/${businessId}/services`}
-            className="text-sm font-semibold text-highland"
-          >
-            Back to services
-          </Link>
-        </div>
+        <ServiceWorkspaceHeader
+          businessId={businessId}
+          serviceId={serviceId}
+          serviceName={accommodation?.service.name ?? 'Accommodation Details'}
+          serviceStatus={accommodation?.service.status ?? 'DRAFT'}
+          categoryName={
+            accommodation?.service.category.name ?? 'Accommodation Details'
+          }
+          categoryFamily="ACCOMMODATION"
+          canWrite={canWrite}
+          currentSection="category"
+          description="Configure guest-facing accommodation information and room types. Room inventory remains separate from booking availability."
+        />
         {error ? (
           <p
             role="alert"
             className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
           >
             {error}
-          </p>
-        ) : null}
-        {!canWrite ? (
-          <p className="mt-5 rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600">
-            Staff can view accommodation details but cannot change room types or
-            configuration.
           </p>
         ) : null}
         {accommodation ? (

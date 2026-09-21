@@ -15,10 +15,10 @@ void test('accommodation workspace is linked for ACCOMMODATION-family services a
     'app/businesses/manage/[businessId]/services/[serviceId]/accommodation/page.tsx',
   );
 
-  assert.match(services, /service\.category\.family === 'ACCOMMODATION'/);
-  assert.match(services, /Accommodation/);
+  assert.match(services, /getServiceCategoryEditor/);
+
   assert.match(accommodation, /canEditBusiness/);
-  assert.match(accommodation, /Staff can view accommodation details/);
+  assert.match(accommodation, /ServiceWorkspaceHeader/);
   assert.match(accommodation, /roomTypeAction/);
   assert.doesNotMatch(
     accommodation,

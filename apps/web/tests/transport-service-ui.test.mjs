@@ -15,13 +15,13 @@ void test('transport workspace uses TRANSPORT family visibility and preserves st
     'app/businesses/manage/[businessId]/services/[serviceId]/transport/page.tsx',
   );
 
-  assert.match(services, /service\.category\.family === 'TRANSPORT'/);
+  assert.match(services, /getServiceCategoryEditor/);
   assert.doesNotMatch(services, /category\.code === 'TRANSFER'/);
   assert.match(
     transport,
     /getJson<PaginatedResponse<City>>\('\/cities', \{ limit: 100 \}\)/,
   );
-  assert.match(transport, /Staff can view transport routes and schedules/);
+  assert.match(transport, /ServiceWorkspaceHeader/);
   assert.match(transport, /Deactivate/);
   assert.match(transport, /Reactivate/);
   assert.doesNotMatch(

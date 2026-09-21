@@ -12,12 +12,22 @@ import {
   getManagedServices,
   operationError,
   serviceAction,
-  updateManagedService,
 } from '../../lib/business-operations';
-import type { ManagedService } from '../../lib/business-operations';
+import type {
+  ManagedService,
+  ManagedServiceInput,
+} from '../../lib/business-operations';
+import {
+  getServiceCategoryEditor,
+  serviceCategoryEditorPath,
+} from '../../lib/service-category-editor';
 import type { PaginatedResponse } from '../../lib/types';
 
-type Category = { id: string; name: string };
+type Category = {
+  id: string;
+  name: string;
+  family: ManagedService['category']['family'];
+};
 type Fields = {
   categoryId: string;
   name: string;
@@ -52,7 +62,6 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [canWrite, setCanWrite] = useState(false);
   const [fields, setFields] = useState<Fields>(blank);
-  const [editing, setEditing] = useState<ManagedService | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,21 +91,6 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
   }, [businessId]);
   function change(key: keyof Fields, value: string) {
     setFields((current) => ({ ...current, [key]: value }));
-  }
-  function edit(service: ManagedService) {
-    setEditing(service);
-    setFields({
-      categoryId: service.category.id,
-      name: service.name,
-      shortDescription: service.shortDescription,
-      description: service.description,
-      pricingModel: service.pricingModel,
-      price: service.price === null ? '' : String(service.price),
-      currency: service.currency ?? 'ETB',
-      durationMinutes:
-        service.durationMinutes === null ? '' : String(service.durationMinutes),
-    });
-    setError(null);
   }
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -129,7 +123,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
       setError('Paid services need a price and a three-letter currency.');
       return;
     }
-    const input: Record<string, string | number | boolean | null> = {
+    const input: ManagedServiceInput = {
       categoryId: fields.categoryId,
       name: fields.name.trim(),
       shortDescription: fields.shortDescription.trim(),
@@ -142,10 +136,8 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
     setSaving(true);
     setError(null);
     try {
-      if (editing) await updateManagedService(businessId, editing.id, input);
-      else await createManagedService(businessId, input);
+      await createManagedService(businessId, input);
       setFields(blank());
-      setEditing(null);
       await load();
     } catch (reason) {
       setError(operationError(reason, 'The service could not be saved.'));
@@ -199,22 +191,12 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
             onSubmit={(event) => void save(event)}
             className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
           >
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-bold text-slate-950">
-                {editing ? 'Edit service' : 'Add service'}
-              </h2>
-              {editing ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditing(null);
-                    setFields(blank());
-                  }}
-                  className="text-sm font-semibold text-slate-600"
-                >
-                  Cancel edit
-                </button>
-              ) : null}
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">Add service</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Create a shared Service first, then manage its category details
+                from its Service workspace.
+              </p>
             </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold text-slate-700">
@@ -331,11 +313,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
               disabled={saving}
               className="mt-5 rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {saving
-                ? 'Saving...'
-                : editing
-                  ? 'Save service'
-                  : 'Create service'}
+              {saving ? 'Saving...' : 'Create service'}
             </button>
           </form>
         ) : (
@@ -350,106 +328,93 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
               Loading services...
             </p>
           ) : services.length ? (
-            services.map((service) => (
-              <article
-                key={service.id}
-                className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
-              >
-                <div className="flex flex-wrap justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase text-slate-500">
-                      {service.status}
-                    </p>
-                    <h2 className="mt-1 text-lg font-bold text-slate-950">
-                      {service.name}
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-600">
-                      {service.shortDescription}
+            services.map((service) => {
+              const categoryEditor = getServiceCategoryEditor(
+                service.category.family,
+              );
+              const categoryEditorPath = serviceCategoryEditorPath(
+                businessId,
+                service.id,
+                service.category.family,
+              );
+              return (
+                <article
+                  key={service.id}
+                  className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  <div className="flex flex-wrap justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-slate-500">
+                        {service.status}
+                      </p>
+                      <h2 className="mt-1 text-lg font-bold text-slate-950">
+                        {service.name}
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {service.category.name}
+                        {' \u00b7 '}
+                        {service.shortDescription}
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-700">
+                      {service.price === null
+                        ? service.pricingModel.replaceAll('_', ' ')
+                        : `${service.currency ?? ''} ${service.price}`}
                     </p>
                   </div>
-                  <p className="text-sm font-semibold text-slate-700">
-                    {service.price === null
-                      ? service.pricingModel.replaceAll('_', ' ')
-                      : `${service.currency ?? ''} ${service.price}`}
-                  </p>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Link
-                    href={`/businesses/manage/${businessId}/services/${service.id}/availability`}
-                    className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
-                  >
-                    Availability
-                  </Link>
-                  {service.category.family === 'ACCOMMODATION' ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
                     <Link
-                      href={`/businesses/manage/${businessId}/services/${service.id}/accommodation`}
-                      className="rounded-md border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-800"
+                      href={`/businesses/manage/${businessId}/services/${service.id}`}
+                      className="rounded-md bg-highland px-3 py-2 text-sm font-semibold text-white hover:bg-highland/90 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
                     >
-                      Accommodation
+                      Manage Service
                     </Link>
-                  ) : null}
-                  {service.category.family === 'RESTAURANT' ? (
-                    <Link
-                      href={`/businesses/manage/${businessId}/services/${service.id}/restaurant`}
-                      className="rounded-md border border-amber-200 px-3 py-2 text-sm font-semibold text-amber-800"
-                    >
-                      Restaurant
-                    </Link>
-                  ) : null}
-                  {service.category.family === 'TOUR' ? (
-                    <Link
-                      href={`/businesses/manage/${businessId}/services/${service.id}/tour`}
-                      className="rounded-md border border-sky-200 px-3 py-2 text-sm font-semibold text-sky-800"
-                    >
-                      Tour
-                    </Link>
-                  ) : null}
-                  {service.category.family === 'TRANSPORT' ? (
-                    <Link
-                      href={`/businesses/manage/${businessId}/services/${service.id}/transport`}
-                      className="rounded-md border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-800"
-                    >
-                      Transport
-                    </Link>
-                  ) : null}{' '}
-                  {canWrite && service.status !== 'ARCHIVED' ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => edit(service)}
-                        className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
+                    {categoryEditor && categoryEditorPath ? (
+                      <Link
+                        href={categoryEditorPath}
+                        className="rounded-md border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-800 hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
                       >
-                        Edit
-                      </button>
-                      {service.status === 'PUBLISHED' ? (
+                        {categoryEditor.label}
+                      </Link>
+                    ) : null}
+                    <Link
+                      href={`/businesses/manage/${businessId}/services/${service.id}/availability`}
+                      className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+                    >
+                      Availability
+                    </Link>
+                    {canWrite && service.status !== 'ARCHIVED' ? (
+                      <>
+                        {service.status === 'PUBLISHED' ? (
+                          <button
+                            type="button"
+                            onClick={() => void action(service, 'unpublish')}
+                            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
+                          >
+                            Deactivate
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void action(service, 'publish')}
+                            className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
+                          >
+                            Publish
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => void action(service, 'unpublish')}
-                          className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
+                          onClick={() => void action(service, 'archive')}
+                          className="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-800"
                         >
-                          Deactivate
+                          Archive
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => void action(service, 'publish')}
-                          className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
-                        >
-                          Publish
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => void action(service, 'archive')}
-                        className="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-800"
-                      >
-                        Archive
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              </article>
-            ))
+                      </>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })
           ) : (
             <p className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
               No services have been created yet.

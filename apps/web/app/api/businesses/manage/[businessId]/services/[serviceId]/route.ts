@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { BffAuthError, jsonError } from '../../../../../../../lib/auth/session';
 import {
-  allowedJsonBody,
   managedPath,
+  strictAllowedJsonBody,
   managedResponse,
 } from '../../operations-bff';
 
@@ -52,7 +52,7 @@ export async function PATCH(
   try {
     return managedResponse(request, await path(params), {
       method: 'PATCH',
-      body: await allowedJsonBody(request, serviceKeys),
+      body: await strictAllowedJsonBody(request, serviceKeys),
     });
   } catch (error) {
     return jsonError(error);
