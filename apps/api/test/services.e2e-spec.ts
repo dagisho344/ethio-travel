@@ -134,10 +134,28 @@ describe('Phase 4 service routes', () => {
 
   it('serves implemented public and owner service routes', async () => {
     await request(httpServer).get('/api/v1/service-categories').expect(200);
+    await request(httpServer)
+      .get('/api/v1/service-categories?family=ACCOMMODATION')
+      .expect(200);
+    await request(httpServer)
+      .get('/api/v1/service-categories?family=UNSUPPORTED')
+      .expect(400);
     await request(httpServer).get('/api/v1/services').expect(200);
     await request(httpServer)
       .get('/api/v1/services?family=RESTAURANT')
       .expect(200);
+    await request(httpServer)
+      .get('/api/v1/services?family=RESTAURANT&reservationSupported=false')
+      .expect(200);
+    await request(httpServer)
+      .get('/api/v1/services?family=RESTAURANT&reservationSupported=falsey')
+      .expect(400);
+    await request(httpServer)
+      .get('/api/v1/services?family=ACCOMMODATION&starClass=0')
+      .expect(400);
+    await request(httpServer)
+      .get('/api/v1/services?family=TOUR&maxDurationDays=366')
+      .expect(400);
     await request(httpServer).get('/api/v1/services?limit=101').expect(400);
     await request(httpServer)
       .get('/api/v1/services?family=UNSUPPORTED')

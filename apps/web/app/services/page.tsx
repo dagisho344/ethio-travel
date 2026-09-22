@@ -2,6 +2,8 @@ import Link from 'next/link';
 import {
   ArrowRight,
   BadgeCheck,
+  ChevronLeft,
+  ChevronRight,
   ImageIcon,
   MapPin,
   Sparkles,
@@ -12,6 +14,7 @@ import { FavoriteButton } from '../../components/favorites/FavoriteButton';
 import { Container } from '../../components/ui/Container';
 import { SectionHeading } from '../../components/ui/States';
 import { safePage } from '../../lib/api';
+import { publicServiceFilterHref } from '../../lib/public-service-filters';
 import {
   favoriteLookupKey,
   getInitialFavoriteLookup,
@@ -305,9 +308,77 @@ export default async function ServicesPage({ searchParams }: PageProps) {
                 />
               ))}
             </div>
+            {servicesResponse.meta.totalPages > 1 ? (
+              <nav
+                className="mt-8 flex items-center justify-between gap-3"
+                aria-label="Services pagination"
+              >
+                {servicesResponse.meta.page > 1 ? (
+                  <Link
+                    href={publicServiceFilterHref(
+                      '/services',
+                      {
+                        q,
+                        regionSlug: selectedRegion?.slug,
+                        citySlug: selectedCitySlug,
+                        category: selectedCategory?.code,
+                        pricingModel: selectedPricingModel,
+                        minPrice,
+                        maxPrice,
+                      },
+                      servicesResponse.meta.page - 1,
+                    )}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-highland hover:text-highland focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+                  >
+                    <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                    Previous
+                  </Link>
+                ) : (
+                  <span />
+                )}
+                <p className="text-sm text-slate-600">
+                  Page {servicesResponse.meta.page} of{' '}
+                  {servicesResponse.meta.totalPages}
+                </p>
+                {servicesResponse.meta.page <
+                servicesResponse.meta.totalPages ? (
+                  <Link
+                    href={publicServiceFilterHref(
+                      '/services',
+                      {
+                        q,
+                        regionSlug: selectedRegion?.slug,
+                        citySlug: selectedCitySlug,
+                        category: selectedCategory?.code,
+                        pricingModel: selectedPricingModel,
+                        minPrice,
+                        maxPrice,
+                      },
+                      servicesResponse.meta.page + 1,
+                    )}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-highland hover:text-highland focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                ) : (
+                  <span />
+                )}
+              </nav>
+            ) : null}
           </>
         ) : (
-          <EmptyServices hasFilters={hasFilters} />
+          <>
+            <EmptyServices hasFilters={hasFilters} />
+            {hasFilters ? (
+              <Link
+                href="/services"
+                className="mt-4 inline-flex min-h-11 items-center rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white transition hover:bg-highland/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+              >
+                Clear filters
+              </Link>
+            ) : null}
+          </>
         )}
       </Container>
     </main>

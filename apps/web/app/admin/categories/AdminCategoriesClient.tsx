@@ -145,9 +145,7 @@ function CategoryPanel({
             Service family
             <select
               value={form.family}
-              onChange={(event) =>
-                update('family', event.target.value as ServiceCategoryFamily)
-              }
+              onChange={(event) => update('family', event.target.value)}
               className="mt-1 block min-h-10 w-full rounded border border-slate-300 px-3 font-normal"
             >
               {[

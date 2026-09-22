@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument */
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import {
   BusinessMemberRole,
   BusinessStatus,
@@ -22,6 +24,7 @@ import {
   MAX_RESTAURANT_MENU_ITEMS,
   MAX_RESTAURANT_MENUS,
 } from './restaurants/restaurant.constants';
+import { ServiceQueryDto } from './services/dto/service-query.dto';
 import { ServicesService } from './services/services.service';
 import { MAX_TOUR_ITINERARY_ITEMS } from './tours/tour.constants';
 import {
@@ -56,6 +59,11 @@ function prismaMock() {
     user: delegate(),
     businessMember: delegate(),
   });
+  tx.service.findFirst.mockImplementation((args: unknown) =>
+    Promise.resolve(tx.service.findMany(args)).then((records) =>
+      Array.isArray(records) ? (records[0] ?? null) : records,
+    ),
+  );
   tx.$transaction = jest.fn((arg: any) =>
     Array.isArray(arg) ? Promise.all(arg) : arg(tx),
   );
@@ -442,9 +450,9 @@ describe('Phase 4 services', () => {
     ]);
     prisma.service.count.mockResolvedValue(1);
 
-    const result = await service(prisma).findPublic({ page: 1, limit: 20 });
+    const result = await service(prisma).findPublicById(serviceId);
 
-    expect(result.data[0]?.accommodation).toEqual({
+    expect(result.accommodation).toEqual({
       starClass: 4,
       checkInTime: '14:00',
       checkOutTime: '11:00',
@@ -458,12 +466,10 @@ describe('Phase 4 services', () => {
         },
       ],
     });
-    expect(result.data[0]?.accommodation?.roomTypes[0]).not.toHaveProperty(
-      'quantity',
-    );
-    expect(prisma.service.findMany).toHaveBeenCalledWith(
+    expect(result.accommodation?.roomTypes[0]).not.toHaveProperty('quantity');
+    expect(prisma.service.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        include: expect.objectContaining({
+        select: expect.objectContaining({
           accommodationDetail: expect.objectContaining({
             select: expect.objectContaining({
               roomTypes: expect.objectContaining({ where: { isActive: true } }),
@@ -510,9 +516,9 @@ describe('Phase 4 services', () => {
     ]);
     prisma.service.count.mockResolvedValue(1);
 
-    const result = await service(prisma).findPublic({ page: 1, limit: 20 });
+    const result = await service(prisma).findPublicById(serviceId);
 
-    expect(result.data[0]?.restaurant).toEqual({
+    expect(result.restaurant).toEqual({
       cuisineTypes: ['Ethiopian', 'Wolaita'],
       reservationSupported: true,
       deliverySupported: false,
@@ -532,13 +538,13 @@ describe('Phase 4 services', () => {
         },
       ],
     });
-    expect(result.data[0]?.restaurant?.menus[0]).not.toHaveProperty('isActive');
-    expect(result.data[0]?.restaurant?.menus[0]?.items[0]).not.toHaveProperty(
+    expect(result.restaurant?.menus[0]).not.toHaveProperty('isActive');
+    expect(result.restaurant?.menus[0]?.items[0]).not.toHaveProperty(
       'available',
     );
-    expect(prisma.service.findMany).toHaveBeenCalledWith(
+    expect(prisma.service.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        include: expect.objectContaining({
+        select: expect.objectContaining({
           restaurantDetail: expect.objectContaining({
             select: expect.objectContaining({
               menus: expect.objectContaining({
@@ -603,9 +609,9 @@ describe('Phase 4 media policy', () => {
       ]);
       prisma.service.count.mockResolvedValue(1);
 
-      const result = await service(prisma).findPublic({ page: 1, limit: 20 });
+      const result = await service(prisma).findPublicById(serviceId);
 
-      expect(result.data[0]?.tour).toEqual({
+      expect(result.tour).toEqual({
         durationDays: 3,
         difficulty: 'Moderate',
         meetingPoint: 'Sodo bus station',
@@ -619,12 +625,10 @@ describe('Phase 4 media policy', () => {
           },
         ],
       });
-      expect(result.data[0]?.tour?.itinerary[0]).not.toHaveProperty(
-        'sortOrder',
-      );
-      expect(prisma.service.findMany).toHaveBeenCalledWith(
+      expect(result.tour?.itinerary[0]).not.toHaveProperty('sortOrder');
+      expect(prisma.service.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          include: expect.objectContaining({
+          select: expect.objectContaining({
             tourDetail: expect.objectContaining({
               select: expect.objectContaining({
                 itineraryItems: expect.objectContaining({
@@ -689,9 +693,9 @@ describe('Phase 4 media policy', () => {
       ]);
       prisma.service.count.mockResolvedValue(1);
 
-      const result = await service(prisma).findPublic({ page: 1, limit: 20 });
+      const result = await service(prisma).findPublicById(serviceId);
 
-      expect(result.data[0]?.transport).toEqual({
+      expect(result.transport).toEqual({
         mode: 'BUS',
         operatorName: 'Ethio Bus',
         routes: [
@@ -718,9 +722,9 @@ describe('Phase 4 media policy', () => {
           },
         ],
       });
-      expect(prisma.service.findMany).toHaveBeenCalledWith(
+      expect(prisma.service.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          include: expect.objectContaining({
+          select: expect.objectContaining({
             transportDetail: expect.objectContaining({
               select: expect.objectContaining({
                 routes: expect.objectContaining({
@@ -792,5 +796,178 @@ describe('Phase 4 media policy', () => {
         visibility: MediaVisibility.PRIVATE,
       }),
     ).toBeNull();
+  });
+});
+
+describe('Phase 14H public Service filtering', () => {
+  it('validates strict booleans without coercing arbitrary query values', async () => {
+    const valid = plainToInstance(ServiceQueryDto, {
+      family: ServiceCategoryFamily.RESTAURANT,
+      reservationSupported: 'false',
+    });
+    const invalid = plainToInstance(ServiceQueryDto, {
+      family: ServiceCategoryFamily.RESTAURANT,
+      reservationSupported: 'falsey',
+    });
+
+    await expect(validate(valid)).resolves.toHaveLength(0);
+    expect(valid.reservationSupported).toBe(false);
+    const errors = await validate(invalid);
+    expect(
+      errors.some((error) => error.property === 'reservationSupported'),
+    ).toBe(true);
+  });
+
+  it('rejects ambiguous scopes, invalid ranges, and family-specialized filters', async () => {
+    const prisma = prismaMock();
+    const publicServices = service(prisma);
+
+    await expect(
+      publicServices.findPublic({ citySlug: 'sodo', page: 1, limit: 20 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      publicServices.findPublic({
+        destinationSlug: 'dorze',
+        regionSlug: 'south-ethiopia',
+        page: 1,
+        limit: 20,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      publicServices.findPublic({
+        minPrice: 100,
+        maxPrice: 10,
+        page: 1,
+        limit: 20,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      publicServices.findPublic({
+        family: ServiceCategoryFamily.RESTAURANT,
+        starClass: 4,
+        page: 1,
+        limit: 20,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      publicServices.findPublic({
+        family: ServiceCategoryFamily.TRANSPORT,
+        originCitySlug: 'sodo',
+        page: 1,
+        limit: 20,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.service.findMany).not.toHaveBeenCalled();
+  });
+
+  it('applies family-specific filters in Prisma while preserving central eligibility and stable list ordering', async () => {
+    const prisma = prismaMock();
+    prisma.service.findMany.mockResolvedValue([]);
+    prisma.service.count.mockResolvedValue(0);
+
+    await service(prisma).findPublic({
+      family: ServiceCategoryFamily.ACCOMMODATION,
+      starClass: 4,
+      minRoomCapacity: 3,
+      page: 1,
+      limit: 20,
+    });
+
+    expect(prisma.service.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        where: expect.objectContaining({
+          status: ServiceStatus.PUBLISHED,
+          category: expect.objectContaining({
+            family: ServiceCategoryFamily.ACCOMMODATION,
+          }),
+          accommodationDetail: {
+            starClass: 4,
+            roomTypes: {
+              some: { isActive: true, capacity: { gte: 3 } },
+            },
+          },
+        }),
+      }),
+    );
+    const listSelect = prisma.service.findMany.mock.calls[0]?.[0]?.select;
+    expect(listSelect).not.toHaveProperty('accommodationDetail');
+    expect(listSelect).not.toHaveProperty('restaurantDetail');
+    expect(listSelect).not.toHaveProperty('tourDetail');
+    expect(listSelect).not.toHaveProperty('transportDetail');
+  });
+
+  it('combines restaurant, tour, and scoped transport filters without code-based branching', async () => {
+    const restaurantPrisma = prismaMock();
+    restaurantPrisma.service.findMany.mockResolvedValue([]);
+    restaurantPrisma.service.count.mockResolvedValue(0);
+    await service(restaurantPrisma).findPublic({
+      family: ServiceCategoryFamily.RESTAURANT,
+      reservationSupported: false,
+      deliverySupported: true,
+      page: 1,
+      limit: 20,
+    });
+    expect(restaurantPrisma.service.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          restaurantDetail: {
+            reservationSupported: false,
+            deliverySupported: true,
+          },
+        }),
+      }),
+    );
+
+    const tourPrisma = prismaMock();
+    tourPrisma.service.findMany.mockResolvedValue([]);
+    tourPrisma.service.count.mockResolvedValue(0);
+    await service(tourPrisma).findPublic({
+      family: ServiceCategoryFamily.TOUR,
+      minDurationDays: 2,
+      maxDurationDays: 5,
+      page: 1,
+      limit: 20,
+    });
+    expect(tourPrisma.service.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tourDetail: { durationDays: { gte: 2, lte: 5 } },
+        }),
+      }),
+    );
+
+    const transportPrisma = prismaMock();
+    transportPrisma.service.findMany.mockResolvedValue([]);
+    transportPrisma.service.count.mockResolvedValue(0);
+    await service(transportPrisma).findPublic({
+      family: ServiceCategoryFamily.TRANSPORT,
+      originRegionSlug: 'addis-ababa',
+      originCitySlug: 'addis-ababa',
+      destinationRegionSlug: 'south-ethiopia',
+      destinationCitySlug: 'sodo',
+      page: 1,
+      limit: 20,
+    });
+    expect(transportPrisma.service.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          transportDetail: expect.objectContaining({
+            routes: {
+              some: expect.objectContaining({
+                originCity: expect.objectContaining({
+                  slug: 'addis-ababa',
+                  region: expect.objectContaining({ slug: 'addis-ababa' }),
+                }),
+                destinationCity: expect.objectContaining({
+                  slug: 'sodo',
+                  region: expect.objectContaining({ slug: 'south-ethiopia' }),
+                }),
+              }),
+            },
+          }),
+        }),
+      }),
+    );
   });
 });

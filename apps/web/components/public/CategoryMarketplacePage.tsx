@@ -2,40 +2,71 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { safePage } from '../../lib/api';
 import {
+  hasPublicServiceFilters,
+  parsePublicServiceFilters,
+  publicServiceFilterHref,
+} from '../../lib/public-service-filters';
+import {
   getPublicServiceCategoryPresentation,
   type PublicServiceCategoryFamily,
 } from '../../lib/public-service-category';
-import type { Service } from '../../lib/types';
+import type { Category, LocationSummary, Service } from '../../lib/types';
+import { CategoryServiceFilters } from './CategoryServiceFilters';
 import { PublicServiceCard } from './PublicServiceCard';
 import { Container } from '../ui/Container';
 import { SectionHeading } from '../ui/States';
 
-function pageNumber(value: string | string[] | undefined): number {
-  const candidate = Array.isArray(value) ? value[0] : value;
-  const parsed = Number(candidate);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
-}
-
-function categoryHref(path: string, page: number): string {
-  return page <= 1 ? path : `${path}?page=${page}`;
-}
+type SearchParameters = Record<string, string | string[] | undefined>;
 
 export async function CategoryMarketplacePage({
   family,
   searchParams,
 }: {
   family: Exclude<PublicServiceCategoryFamily, 'OTHER'>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<SearchParameters>;
 }) {
   const presentation = getPublicServiceCategoryPresentation(family);
   if (!presentation) return null;
-  const page = pageNumber((await searchParams).page);
+
+  const filters = parsePublicServiceFilters(await searchParams, family);
+  const page = filters.page ? Number(filters.page) : 1;
+  const [
+    regionsResponse,
+    citiesResponse,
+    categoriesResponse,
+    originCitiesResponse,
+    destinationCitiesResponse,
+  ] = await Promise.all([
+    safePage<LocationSummary>('/regions', { limit: 100 }),
+    filters.regionSlug
+      ? safePage<LocationSummary>(
+          `/regions/${encodeURIComponent(filters.regionSlug)}/cities`,
+          { limit: 100 },
+        )
+      : Promise.resolve(null),
+    safePage<Category>('/service-categories', { family, limit: 100 }),
+    family === 'TRANSPORT' && filters.originRegionSlug
+      ? safePage<LocationSummary>(
+          `/regions/${encodeURIComponent(filters.originRegionSlug)}/cities`,
+          { limit: 100 },
+        )
+      : Promise.resolve(null),
+    family === 'TRANSPORT' && filters.destinationRegionSlug
+      ? safePage<LocationSummary>(
+          `/regions/${encodeURIComponent(filters.destinationRegionSlug)}/cities`,
+          { limit: 100 },
+        )
+      : Promise.resolve(null),
+  ]);
+
   const response = await safePage<Service>('/services', {
+    ...filters,
     family,
-    limit: 12,
     page,
+    limit: 12,
   });
   const services = response?.data ?? [];
+  const hasFilters = hasPublicServiceFilters(filters, true);
 
   return (
     <main className="bg-slate-50">
@@ -44,6 +75,16 @@ export async function CategoryMarketplacePage({
           eyebrow="EXPLORE ETHIOTRAVEL"
           title={presentation.label}
           description={presentation.description}
+        />
+        <CategoryServiceFilters
+          basePath={presentation.href}
+          categories={categoriesResponse?.data ?? []}
+          cities={citiesResponse?.data ?? []}
+          destinationCities={destinationCitiesResponse?.data ?? []}
+          family={family}
+          filters={filters}
+          originCities={originCitiesResponse?.data ?? []}
+          regions={regionsResponse?.data ?? []}
         />
         {!response ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-6 py-5 text-sm text-amber-900">
@@ -68,9 +109,11 @@ export async function CategoryMarketplacePage({
               >
                 {response.meta.page > 1 ? (
                   <Link
-                    href={categoryHref(
+                    href={publicServiceFilterHref(
                       presentation.href,
+                      filters,
                       response.meta.page - 1,
+                      true,
                     )}
                     className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-highland hover:text-highland focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
                   >
@@ -85,9 +128,11 @@ export async function CategoryMarketplacePage({
                 </p>
                 {response.meta.page < response.meta.totalPages ? (
                   <Link
-                    href={categoryHref(
+                    href={publicServiceFilterHref(
                       presentation.href,
+                      filters,
                       response.meta.page + 1,
+                      true,
                     )}
                     className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-highland hover:text-highland focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
                   >
@@ -107,12 +152,23 @@ export async function CategoryMarketplacePage({
               aria-hidden="true"
             />
             <h2 className="mt-4 text-lg font-semibold text-slate-950">
-              No {presentation.label.toLowerCase()} available yet
+              {hasFilters
+                ? 'No services match your current filters'
+                : `No ${presentation.label.toLowerCase()} available yet`}
             </h2>
             <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-600">
-              Verified services in this category will appear here when they are
-              published.
+              {hasFilters
+                ? 'Try adjusting or clearing your filters.'
+                : 'Verified services in this category will appear here when they are published.'}
             </p>
+            {hasFilters ? (
+              <Link
+                href={presentation.href}
+                className="mt-5 inline-flex min-h-11 items-center rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white transition hover:bg-highland/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+              >
+                Clear filters
+              </Link>
+            ) : null}
           </section>
         )}
       </Container>

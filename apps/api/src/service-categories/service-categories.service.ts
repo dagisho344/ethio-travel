@@ -28,6 +28,7 @@ export class ServiceCategoriesService {
   ): Promise<PaginatedResponse<CategoryRecord>> {
     const where: Prisma.ServiceCategoryWhereInput = {
       isActive: true,
+      family: query.family,
       ...this.searchWhere(query.q),
     };
     const [data, total] = await this.prisma.$transaction([
@@ -47,6 +48,7 @@ export class ServiceCategoriesService {
   ): Promise<PaginatedResponse<CategoryRecord>> {
     const where: Prisma.ServiceCategoryWhereInput = {
       isActive: query.isActive,
+      family: query.family,
       ...this.searchWhere(query.q),
     };
     const [data, total] = await this.prisma.$transaction([

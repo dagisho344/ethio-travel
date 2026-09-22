@@ -176,7 +176,7 @@ describe('Phase 14D tour service', () => {
         update: expect.objectContaining({
           inclusions: ['Guide', 'Transport'],
           exclusions: ['Lunch'],
-        }),
+        }) as unknown,
       }),
     );
   });
@@ -242,8 +242,9 @@ describe('Phase 14D tour service', () => {
     expect(inactiveUser.requireMembership).not.toHaveBeenCalled();
 
     const activeFixture = fixture();
+    const activeMembershipFindFirst = jest.fn().mockResolvedValue(null);
     const memberships = {
-      businessMember: { findFirst: jest.fn().mockResolvedValue(null) },
+      businessMember: { findFirst: activeMembershipFindFirst },
     } as unknown as PrismaService;
     const tours = new ToursService(
       activeFixture.prisma,
@@ -255,7 +256,7 @@ describe('Phase 14D tour service', () => {
         title: 'Arrival',
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
-    expect(memberships.businessMember.findFirst).toHaveBeenCalledWith({
+    expect(activeMembershipFindFirst).toHaveBeenCalledWith({
       where: {
         businessId,
         userId,

@@ -190,20 +190,20 @@ describe('Phase 14C restaurant service', () => {
           cuisineTypes: ['Ethiopian', 'Wolaita'],
           reservationSupported: true,
           deliverySupported: true,
-        }),
+        }) as unknown,
       }),
     );
     expect(menuCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ sortOrder: 1 }),
+        data: expect.objectContaining({ sortOrder: 1 }) as unknown,
       }),
     );
     expect(itemCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           currency: 'ETB',
-          price: expect.any(Prisma.Decimal),
-        }),
+          price: expect.any(Prisma.Decimal) as unknown,
+        }) as unknown,
       }),
     );
   });
@@ -280,10 +280,8 @@ describe('Phase 14C restaurant service', () => {
   it('does not allow a cross-business menu or menu item UUID to be mutated', async () => {
     const {
       restaurants,
-      menuCount,
       menuFindFirst,
       menuUpdate,
-      itemCount,
       itemFindFirst,
       itemUpdate,
     } = fixture();
@@ -398,7 +396,7 @@ describe('Phase 14C restaurant service', () => {
       expect.objectContaining({
         update: expect.objectContaining({
           cuisineTypes: ['Ethiopian', 'Wolaita'],
-        }),
+        }) as unknown,
       }),
     );
   });

@@ -16,6 +16,7 @@ import {
   PricingModel,
   Prisma,
   PublicationStatus,
+  ServiceCategoryFamily,
   ServiceLocationMode,
   ServiceStatus,
   UserStatus,
@@ -64,7 +65,63 @@ const serviceInclude = Prisma.validator<Prisma.ServiceInclude>()({
 type ServiceRecord = Prisma.ServiceGetPayload<{
   include: typeof serviceInclude;
 }>;
-const publicServiceInclude = Prisma.validator<Prisma.ServiceInclude>()({
+const publicServiceSummarySelect = Prisma.validator<Prisma.ServiceSelect>()({
+  id: true,
+  name: true,
+  slug: true,
+  shortDescription: true,
+  pricingModel: true,
+  price: true,
+  currency: true,
+  category: { select: { code: true, family: true, name: true } },
+  business: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      category: { select: { code: true, name: true } },
+      media: {
+        where: {
+          role: { in: [MediaRole.HERO, MediaRole.LOGO] },
+          media: {
+            status: MediaStatus.READY,
+            visibility: MediaVisibility.PUBLIC,
+          },
+        },
+        orderBy: [{ role: 'asc' }, { sortOrder: 'asc' }],
+        take: 2,
+        select: {
+          role: true,
+          altText: true,
+          caption: true,
+          media: { select: { id: true } },
+        },
+      },
+      city: {
+        select: {
+          name: true,
+          slug: true,
+          region: { select: { name: true, slug: true } },
+        },
+      },
+      destination: { select: { name: true, slug: true } },
+    },
+  },
+});
+type PublicServiceSummaryRecord = Prisma.ServiceGetPayload<{
+  select: typeof publicServiceSummarySelect;
+}>;
+const publicServiceDetailSelect = Prisma.validator<Prisma.ServiceSelect>()({
+  ...publicServiceSummarySelect,
+  description: true,
+  durationMinutes: true,
+  minGuests: true,
+  maxGuests: true,
+  locationMode: true,
+  address: true,
+  latitude: true,
+  longitude: true,
+  attributes: true,
   category: { select: { code: true, family: true, name: true } },
   business: {
     select: {
@@ -194,8 +251,8 @@ const publicServiceInclude = Prisma.validator<Prisma.ServiceInclude>()({
     },
   },
 });
-type PublicServiceRecord = Prisma.ServiceGetPayload<{
-  include: typeof publicServiceInclude;
+type PublicServiceDetailRecord = Prisma.ServiceGetPayload<{
+  select: typeof publicServiceDetailSelect;
 }>;
 type ServiceRouteScope = {
   businessId?: string;
@@ -260,20 +317,23 @@ export class ServicesService {
   async findPublic(
     query: ServiceQueryDto,
     scope: ServiceRouteScope = {},
-  ): Promise<PaginatedResponse<ReturnType<ServicesService['toPublic']>>> {
+  ): Promise<
+    PaginatedResponse<ReturnType<ServicesService['toPublicSummary']>>
+  > {
+    this.validatePublicQuery(query, scope);
     const where = this.publicWhere(query, scope);
     const [records, total] = await this.prisma.$transaction([
       this.prisma.service.findMany({
         where,
-        include: publicServiceInclude,
-        orderBy: { name: 'asc' },
+        select: publicServiceSummarySelect,
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
         skip: (query.page - 1) * query.limit,
         take: query.limit,
       }),
       this.prisma.service.count({ where }),
     ]);
     return paginate(
-      records.map((record) => this.toPublic(record)),
+      records.map((record) => this.toPublicSummary(record)),
       total,
       query.page,
       query.limit,
@@ -285,14 +345,18 @@ export class ServicesService {
     citySlug: string,
     businessSlug: string,
     query: PaginationQueryDto,
-  ): Promise<PaginatedResponse<ReturnType<ServicesService['toPublic']>>> {
+  ): Promise<
+    PaginatedResponse<ReturnType<ServicesService['toPublicSummary']>>
+  > {
     return this.findPublic(query, { regionSlug, citySlug, businessSlug });
   }
 
   async findPublicByBusinessId(
     businessId: string,
     query: PaginationQueryDto,
-  ): Promise<PaginatedResponse<ReturnType<ServicesService['toPublic']>>> {
+  ): Promise<
+    PaginatedResponse<ReturnType<ServicesService['toPublicSummary']>>
+  > {
     return this.findPublic(query, { businessId });
   }
 
@@ -304,7 +368,7 @@ export class ServicesService {
         ...this.publicWhere({ page: 1, limit: 1 }),
         id: serviceId,
       },
-      include: publicServiceInclude,
+      select: publicServiceDetailSelect,
     });
     if (!service) throw new NotFoundException('Service not found.');
     return this.toPublic(service);
@@ -324,7 +388,7 @@ export class ServicesService {
         ),
         slug: serviceSlug,
       },
-      include: publicServiceInclude,
+      select: publicServiceDetailSelect,
     });
     if (!service) throw new NotFoundException('Service not found.');
     return this.toPublic(service);
@@ -567,6 +631,163 @@ export class ServicesService {
     return this.findAdminById(serviceId);
   }
 
+  private validatePublicQuery(
+    query: ServiceQueryDto,
+    scope: ServiceRouteScope,
+  ): void {
+    const regionSlug = scope.regionSlug ?? query.regionSlug;
+    const citySlug = scope.citySlug ?? query.citySlug;
+
+    if (query.citySlug && !regionSlug)
+      throw new BadRequestException('citySlug requires regionSlug.');
+    if (query.destinationSlug && (!regionSlug || !citySlug))
+      throw new BadRequestException(
+        'destinationSlug requires regionSlug and citySlug.',
+      );
+    if (
+      query.minPrice !== undefined &&
+      query.maxPrice !== undefined &&
+      query.minPrice > query.maxPrice
+    )
+      throw new BadRequestException('minPrice cannot exceed maxPrice.');
+    if (
+      query.minDurationDays !== undefined &&
+      query.maxDurationDays !== undefined &&
+      query.minDurationDays > query.maxDurationDays
+    )
+      throw new BadRequestException(
+        'minDurationDays cannot exceed maxDurationDays.',
+      );
+    if (query.originCitySlug && !query.originRegionSlug)
+      throw new BadRequestException(
+        'originCitySlug requires originRegionSlug.',
+      );
+    if (query.destinationCitySlug && !query.destinationRegionSlug)
+      throw new BadRequestException(
+        'destinationCitySlug requires destinationRegionSlug.',
+      );
+
+    this.requireFamilyForFilters(
+      query,
+      ServiceCategoryFamily.ACCOMMODATION,
+      query.starClass !== undefined || query.minRoomCapacity !== undefined,
+      'Accommodation filters require family=ACCOMMODATION.',
+    );
+    this.requireFamilyForFilters(
+      query,
+      ServiceCategoryFamily.RESTAURANT,
+      query.reservationSupported !== undefined ||
+        query.deliverySupported !== undefined,
+      'Restaurant filters require family=RESTAURANT.',
+    );
+    this.requireFamilyForFilters(
+      query,
+      ServiceCategoryFamily.TOUR,
+      query.minDurationDays !== undefined ||
+        query.maxDurationDays !== undefined,
+      'Tour filters require family=TOUR.',
+    );
+    this.requireFamilyForFilters(
+      query,
+      ServiceCategoryFamily.TRANSPORT,
+      Boolean(
+        query.originRegionSlug ||
+        query.originCitySlug ||
+        query.destinationRegionSlug ||
+        query.destinationCitySlug,
+      ),
+      'Transport filters require family=TRANSPORT.',
+    );
+  }
+
+  private requireFamilyForFilters(
+    query: ServiceQueryDto,
+    family: ServiceCategoryFamily,
+    hasFilter: boolean,
+    message: string,
+  ): void {
+    if (hasFilter && query.family !== family)
+      throw new BadRequestException(message);
+  }
+
+  private specializedFilterWhere(
+    query: ServiceQueryDto,
+  ): Prisma.ServiceWhereInput {
+    const hasAccommodationFilter =
+      query.starClass !== undefined || query.minRoomCapacity !== undefined;
+    const hasRestaurantFilter =
+      query.reservationSupported !== undefined ||
+      query.deliverySupported !== undefined;
+    const hasTourFilter =
+      query.minDurationDays !== undefined ||
+      query.maxDurationDays !== undefined;
+    const hasOriginFilter = Boolean(
+      query.originRegionSlug || query.originCitySlug,
+    );
+    const hasDestinationFilter = Boolean(
+      query.destinationRegionSlug || query.destinationCitySlug,
+    );
+
+    return {
+      accommodationDetail: hasAccommodationFilter
+        ? {
+            starClass: query.starClass,
+            roomTypes:
+              query.minRoomCapacity !== undefined
+                ? {
+                    some: {
+                      isActive: true,
+                      capacity: { gte: query.minRoomCapacity },
+                    },
+                  }
+                : undefined,
+          }
+        : undefined,
+      restaurantDetail: hasRestaurantFilter
+        ? {
+            reservationSupported: query.reservationSupported,
+            deliverySupported: query.deliverySupported,
+          }
+        : undefined,
+      tourDetail: hasTourFilter
+        ? {
+            durationDays: {
+              gte: query.minDurationDays,
+              lte: query.maxDurationDays,
+            },
+          }
+        : undefined,
+      transportDetail:
+        hasOriginFilter || hasDestinationFilter
+          ? {
+              routes: {
+                some: {
+                  originCity: hasOriginFilter
+                    ? {
+                        slug: query.originCitySlug,
+                        status: LocationStatus.ACTIVE,
+                        region: {
+                          slug: query.originRegionSlug,
+                          status: LocationStatus.ACTIVE,
+                        },
+                      }
+                    : undefined,
+                  destinationCity: hasDestinationFilter
+                    ? {
+                        slug: query.destinationCitySlug,
+                        status: LocationStatus.ACTIVE,
+                        region: {
+                          slug: query.destinationRegionSlug,
+                          status: LocationStatus.ACTIVE,
+                        },
+                      }
+                    : undefined,
+                },
+              },
+            }
+          : undefined,
+    };
+  }
   private publicWhere(
     query: ServiceQueryDto,
     scope: ServiceRouteScope = {},
@@ -605,6 +826,7 @@ export class ServicesService {
         ],
       },
       ...this.filterWhere(query),
+      ...this.specializedFilterWhere(query),
       ...this.searchWhere(query.q),
     };
   }
@@ -887,7 +1109,52 @@ export class ServicesService {
     );
   }
 
-  private toPublic(service: PublicServiceRecord) {
+  private toPublicSummary(service: PublicServiceSummaryRecord) {
+    return {
+      id: service.id,
+      name: service.name,
+      slug: service.slug,
+      shortDescription: service.shortDescription,
+      pricingModel: service.pricingModel,
+      price: service.price,
+      currency: service.currency,
+      category: {
+        code: service.category.code,
+        family: service.category.family,
+        name: service.category.name,
+      },
+      business: {
+        id: service.business.id,
+        name: service.business.name,
+        slug: service.business.slug,
+        category: {
+          code: service.business.category.code,
+          name: service.business.category.name,
+        },
+        media: service.business.media.map((attachment) => ({
+          accessPath: `/api/v1/media/public/${attachment.media.id}`,
+          altText: attachment.altText,
+          caption: attachment.caption,
+          id: attachment.media.id,
+        })),
+      },
+      city: {
+        name: service.business.city.name,
+        slug: service.business.city.slug,
+      },
+      region: {
+        name: service.business.city.region.name,
+        slug: service.business.city.region.slug,
+      },
+      destination: service.business.destination
+        ? {
+            name: service.business.destination.name,
+            slug: service.business.destination.slug,
+          }
+        : null,
+    };
+  }
+  private toPublic(service: PublicServiceDetailRecord) {
     return {
       id: service.id,
       name: service.name,

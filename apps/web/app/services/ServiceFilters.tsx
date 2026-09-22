@@ -4,6 +4,12 @@ import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
+import {
+  hasPublicServiceFilters,
+  publicPricingModels,
+  publicServiceFilterHref,
+  type PublicServiceFilterValues,
+} from '../../lib/public-service-filters';
 import type { Category, LocationSummary, PricingModel } from '../../lib/types';
 
 interface ServiceFiltersProps {
@@ -19,45 +25,20 @@ interface ServiceFiltersProps {
   categories: Category[];
 }
 
-const pricingOptions: { value: PricingModel; label: string }[] = [
-  { value: 'FREE', label: 'Free' },
-  { value: 'CONTACT_FOR_PRICE', label: 'Contact for price' },
-  { value: 'FIXED', label: 'Fixed price' },
-  { value: 'PER_PERSON', label: 'Per person' },
-  { value: 'PER_NIGHT', label: 'Per night' },
-  { value: 'PER_HOUR', label: 'Per hour' },
-  { value: 'PER_DAY', label: 'Per day' },
-  { value: 'STARTING_FROM', label: 'Starting from' },
-];
-
-function cleanAmount(value: string) {
-  if (!value.trim()) return undefined;
-  const amount = Number(value);
-  return Number.isFinite(amount) && amount >= 0 ? String(amount) : undefined;
-}
-
-function buildQuery(values: {
-  q?: string;
-  regionSlug?: string;
-  citySlug?: string;
-  category?: string;
-  pricingModel?: string;
-  minPrice?: string;
-  maxPrice?: string;
-}) {
-  const params = new URLSearchParams();
-  if (values.q?.trim()) params.set('q', values.q.trim());
-  if (values.regionSlug) params.set('regionSlug', values.regionSlug);
-  if (values.citySlug) params.set('citySlug', values.citySlug);
-  if (values.category) params.set('category', values.category);
-  if (values.pricingModel) params.set('pricingModel', values.pricingModel);
-  const minPrice = cleanAmount(values.minPrice ?? '');
-  const maxPrice = cleanAmount(values.maxPrice ?? '');
-  if (minPrice) params.set('minPrice', minPrice);
-  if (maxPrice) params.set('maxPrice', maxPrice);
-  const query = params.toString();
-  return query ? `/services?${query}` : '/services';
-}
+const pricingLabels: Record<PricingModel, string> = {
+  FREE: 'Free',
+  CONTACT_FOR_PRICE: 'Contact for price',
+  FIXED: 'Fixed price',
+  PER_PERSON: 'Per person',
+  PER_NIGHT: 'Per night',
+  PER_HOUR: 'Per hour',
+  PER_DAY: 'Per day',
+  STARTING_FROM: 'Starting from',
+};
+const pricingOptions = publicPricingModels.map((value) => ({
+  value,
+  label: pricingLabels[value],
+}));
 
 export function ServiceFilters({
   q,
@@ -76,24 +57,32 @@ export function ServiceFilters({
   const [selectedRegion, setSelectedRegion] = useState(regionSlug);
   const [selectedCity, setSelectedCity] = useState(citySlug);
   const [selectedCategory, setSelectedCategory] = useState(category);
-  const [selectedPricingModel, setSelectedPricingModel] =
-    useState(pricingModel);
+  const [selectedPricingModel, setSelectedPricingModel] = useState<
+    PricingModel | ''
+  >(pricingModel as PricingModel | '');
   const [selectedMinPrice, setSelectedMinPrice] = useState(minPrice);
   const [selectedMaxPrice, setSelectedMaxPrice] = useState(maxPrice);
   const cityOptionsLoaded =
     Boolean(selectedRegion) && selectedRegion === regionSlug;
+  const hasFilters = hasPublicServiceFilters({
+    q,
+    regionSlug,
+    citySlug,
+    category,
+    pricingModel: pricingModel as PricingModel | undefined,
+    minPrice,
+    maxPrice,
+  });
 
-  function currentQuery(
-    overrides: Partial<Parameters<typeof buildQuery>[0]> = {},
-  ) {
-    return buildQuery({
-      q: search,
-      regionSlug: selectedRegion,
-      citySlug: cityOptionsLoaded ? selectedCity : '',
-      category: selectedCategory,
-      pricingModel: selectedPricingModel,
-      minPrice: selectedMinPrice,
-      maxPrice: selectedMaxPrice,
+  function currentQuery(overrides: Partial<PublicServiceFilterValues> = {}) {
+    return publicServiceFilterHref('/services', {
+      q: search.trim() || undefined,
+      regionSlug: selectedRegion || undefined,
+      citySlug: cityOptionsLoaded ? selectedCity || undefined : undefined,
+      category: selectedCategory || undefined,
+      pricingModel: selectedPricingModel || undefined,
+      minPrice: selectedMinPrice.trim() || undefined,
+      maxPrice: selectedMaxPrice.trim() || undefined,
       ...overrides,
     });
   }
@@ -193,8 +182,13 @@ export function ServiceFilters({
           value={selectedPricingModel}
           onChange={(event) => {
             const nextPricingModel = event.target.value;
-            setSelectedPricingModel(nextPricingModel);
-            router.push(currentQuery({ pricingModel: nextPricingModel }));
+            setSelectedPricingModel(nextPricingModel as PricingModel | '');
+            router.push(
+              currentQuery({
+                pricingModel: (nextPricingModel || undefined) as
+                  PricingModel | undefined,
+              }),
+            );
           }}
           className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition focus:border-highland focus:ring-2 focus:ring-highland/20"
         >
@@ -235,10 +229,21 @@ export function ServiceFilters({
         />
       </label>
 
-      <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-highland px-5 text-sm font-semibold text-white transition hover:bg-highland/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2 md:col-span-2 xl:col-span-1">
-        <Search className="h-4 w-4" aria-hidden="true" />
-        Search
-      </button>
+      <div className="flex h-11 items-center gap-2 md:col-span-2 xl:col-span-1">
+        <button className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-highland px-5 text-sm font-semibold text-white transition hover:bg-highland/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2">
+          <Search className="h-4 w-4" aria-hidden="true" />
+          Search
+        </button>
+        {hasFilters ? (
+          <button
+            type="button"
+            onClick={() => router.push('/services')}
+            className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-highland hover:text-highland focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
     </form>
   );
 }

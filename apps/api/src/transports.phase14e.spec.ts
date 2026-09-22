@@ -325,8 +325,9 @@ describe('Phase 14E transport service', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
 
     const activeFixture = fixture();
+    const activeMembershipFindFirst = jest.fn().mockResolvedValue(null);
     const memberships = {
-      businessMember: { findFirst: jest.fn().mockResolvedValue(null) },
+      businessMember: { findFirst: activeMembershipFindFirst },
     } as unknown as PrismaService;
     const denied = new TransportsService(
       activeFixture.prisma,
@@ -338,9 +339,11 @@ describe('Phase 14E transport service', () => {
         destinationCityId,
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
-    expect(memberships.businessMember.findFirst).toHaveBeenCalledWith(
+    expect(activeMembershipFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ status: BusinessMemberStatus.ACTIVE }),
+        where: expect.objectContaining({
+          status: BusinessMemberStatus.ACTIVE,
+        }) as unknown,
       }),
     );
 

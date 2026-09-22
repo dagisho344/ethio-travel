@@ -32,7 +32,7 @@ void test('public category pages are explicit, paginated, and reuse one bounded 
   assert.match(marketplace, /limit: 12/);
   assert.match(marketplace, /response\.meta\.totalPages/);
   assert.match(marketplace, /No .* available yet/);
-  assert.doesNotMatch(marketplace, /Promise\.all\(.*service/s);
+  assert.match(marketplace, /\]\);\s+const response = await safePage<Service>/);
   assert.match(pages[0], /family="ACCOMMODATION"/);
   assert.match(pages[1], /family="RESTAURANT"/);
   assert.match(pages[2], /family="TOUR"/);
@@ -127,4 +127,75 @@ void test('public category navigation contains only completed routes and exposes
     publicFiles.join('\n'),
     /accessToken|refreshToken|localStorage|sessionStorage/i,
   );
+});
+
+void test('Phase 14H category filters are family-locked, explicit, accessible, and pagination-safe', async () => {
+  const marketplace = await read(
+    'components/public/CategoryMarketplacePage.tsx',
+  );
+  const filters = await read('components/public/CategoryServiceFilters.tsx');
+  const genericFilters = await read('app/services/ServiceFilters.tsx');
+  const helper = await read('lib/public-service-filters.ts');
+  const servicesPage = await read('app/services/page.tsx');
+
+  assert.match(
+    marketplace,
+    /parsePublicServiceFilters\(await searchParams, family\)/,
+  );
+  assert.match(
+    marketplace,
+    /safePage<Category>\('\/service-categories', \{ family, limit: 100 \}\)/,
+  );
+  assert.match(marketplace, /family,\n {4}page,\n {4}limit: 12/);
+  assert.match(marketplace, /publicServiceFilterHref\(/);
+  assert.match(marketplace, /Clear filters/);
+  assert.match(filters, /family === 'ACCOMMODATION'/);
+  assert.match(filters, /family === 'RESTAURANT'/);
+  assert.match(filters, /family === 'TOUR'/);
+  assert.match(filters, /family === 'TRANSPORT'/);
+  assert.match(filters, /Star class/);
+  assert.match(filters, /Minimum room capacity/);
+  assert.match(filters, /Reservation supported/);
+  assert.match(filters, /Delivery supported/);
+  assert.match(filters, /Minimum duration \(days\)/);
+  assert.match(filters, /Origin region/);
+  assert.match(filters, /Destination city/);
+  assert.match(filters, /Clear filters/);
+  assert.doesNotMatch(filters, /ROOM|MEAL|TRANSFER|HOTEL_PREMIUM|BUS_TRANSFER/);
+  assert.match(helper, /originCitySlug/);
+  assert.match(helper, /destinationCitySlug/);
+  assert.match(helper, /reservationSupported/);
+  assert.match(helper, /publicServiceFilterQuery/);
+  assert.doesNotMatch(helper, /Object\.entries\(searchParams\)/);
+  assert.match(genericFilters, /publicServiceFilterHref\('\/services'/);
+  assert.match(genericFilters, /Clear/);
+  assert.match(servicesPage, /aria-label="Services pagination"/);
+  assert.match(servicesPage, /publicServiceFilterHref\(/);
+  assert.match(servicesPage, /Clear filters/);
+});
+
+void test('Phase 14H keeps public Service list responses lightweight and reserves extension trees for detail', async () => {
+  const services = await read('../api/src/services/services.service.ts');
+
+  assert.match(
+    services,
+    /const publicServiceSummarySelect = Prisma\.validator<Prisma\.ServiceSelect>\(\)/,
+  );
+  assert.match(
+    services,
+    /const publicServiceDetailSelect = Prisma\.validator<Prisma\.ServiceSelect>\(\)/,
+  );
+  assert.match(services, /select: publicServiceSummarySelect/);
+  assert.match(services, /select: publicServiceDetailSelect/);
+  assert.match(services, /orderBy: \[\{ name: 'asc' \}, \{ id: 'asc' \}\]/);
+  assert.doesNotMatch(
+    services.match(
+      /const publicServiceSummarySelect[\s\S]*?type PublicServiceSummaryRecord/,
+    )?.[0] ?? '',
+    /accommodationDetail|restaurantDetail|tourDetail|transportDetail/,
+  );
+  assert.match(services, /take: MAX_RESTAURANT_MENUS/);
+  assert.match(services, /take: MAX_TOUR_ITINERARY_ITEMS/);
+  assert.match(services, /take: MAX_TRANSPORT_ROUTES/);
+  assert.doesNotMatch(services, /include: true/);
 });

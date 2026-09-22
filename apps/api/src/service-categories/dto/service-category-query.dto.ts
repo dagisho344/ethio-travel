@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { ServiceCategoryFamily } from '@prisma/client';
+import { IsBoolean, IsEnum, IsOptional } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 export class ServiceCategoryQueryDto extends PaginationQueryDto {
@@ -9,4 +10,9 @@ export class ServiceCategoryQueryDto extends PaginationQueryDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ enum: ServiceCategoryFamily })
+  @IsEnum(ServiceCategoryFamily)
+  @IsOptional()
+  family?: ServiceCategoryFamily;
 }
