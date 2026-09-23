@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { PublicLayout } from '../components/layout/PublicLayout';
 import './globals.css';
+import 'leaflet/dist/leaflet.css';
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
 
 export const metadata: Metadata = {
   title: 'EthioTravel',

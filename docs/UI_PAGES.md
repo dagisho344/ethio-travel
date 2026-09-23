@@ -4,7 +4,9 @@
 / — search hero, destinations, categories
 /search — filters, sorting, list/map
 /destinations
-/destinations/[slug]
+/regions/[regionSlug]/cities/[citySlug]/destinations/[destinationSlug]
+/explore â€” compatibility redirect to /search
+/map â€” compatibility redirect to /search?view=map
 /regions/[regionSlug]/cities/[citySlug]/businesses/[businessSlug]
 /services/[id]
 

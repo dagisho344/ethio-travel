@@ -173,6 +173,7 @@ export interface SearchResult {
   price?: string | number | null;
   currency?: string | null;
   pricingModel?: PricingModel;
+  distanceKm?: number;
 }
 export interface MapPlace {
   type: SearchResultType;
@@ -183,6 +184,8 @@ export interface MapPlace {
   longitude: string | number;
   category?: Category | { name: string; code?: string };
   location: SearchResult['location'];
+  rating?: { average: number; count: number };
+  distanceKm?: number;
 }
 export interface ApiErrorShape {
   message?: string | string[];

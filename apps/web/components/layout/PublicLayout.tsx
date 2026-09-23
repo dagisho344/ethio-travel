@@ -8,21 +8,26 @@ import { Container } from '../ui/Container';
 
 const publicLinks = [
   { href: '/', label: 'Home' },
-  { href: '/explore', label: 'Explore' },
+  { href: '/search', label: 'Explore' },
   { href: '/destinations', label: 'Destinations' },
   { href: '/businesses', label: 'Businesses' },
   { href: '/services', label: 'Services' },
+];
+
+const otherPublicLinks = [
+  { href: '/search', label: 'Search' },
+  { href: '/search?view=map', label: 'Map' },
   { href: '/hotels', label: 'Hotels' },
   { href: '/restaurants', label: 'Restaurants' },
   { href: '/tours', label: 'Tours' },
   { href: '/transport', label: 'Transport' },
 ];
 
-const authenticatedLinks = [
-  { href: '/trips', label: 'My Trips' },
-  { href: '/messages', label: 'Messages' },
-  { href: '/assistant', label: 'AI Assistant' },
+const footerPublicLinks = [
+  ...publicLinks.slice(1),
+  ...otherPublicLinks.slice(1),
 ];
+
 type HeaderProps = {
   session: Pick<
     Awaited<ReturnType<typeof currentSessionSnapshot>>,
@@ -47,12 +52,13 @@ export function Header({ session }: HeaderProps) {
           />
           <span>EthioTravel</span>
         </Link>
+
         <HeaderNavigation
           authenticated={session.authenticated}
           hasAdminDashboard={hasAdminDashboard}
           hasBusinessWorkspace={session.hasBusinessWorkspace}
+          otherPublicLinks={otherPublicLinks}
           publicLinks={publicLinks}
-          authenticatedLinks={authenticatedLinks}
         />
       </Container>
     </header>
@@ -73,7 +79,7 @@ export function Footer() {
           className="flex flex-wrap gap-4 md:justify-end"
           aria-label="Footer navigation"
         >
-          {publicLinks.slice(1).map((link) => (
+          {footerPublicLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -96,10 +102,15 @@ export async function PublicLayout({
   children: React.ReactNode;
 }) {
   const session = await currentSessionSnapshot();
+  const hasAdminDashboard =
+    session.authenticated && session.user?.roles.includes('ADMIN') === true;
+
   return (
     <RealtimeProvider enabled={session.authenticated}>
       <RouteAwareChrome
         authenticated={session.authenticated}
+        hasAdminDashboard={hasAdminDashboard}
+        hasBusinessWorkspace={session.hasBusinessWorkspace}
         header={<Header session={session} />}
         footer={<Footer />}
       >

@@ -42,6 +42,7 @@ void test('frontend does not use browser storage for auth tokens', () => {
   for (const path of [
     'components/auth/AuthForm.tsx',
     'components/auth/LogoutButton.tsx',
+    'components/layout/AccountDropdown.tsx',
     'lib/auth/session.ts',
   ]) {
     const source = read(path);

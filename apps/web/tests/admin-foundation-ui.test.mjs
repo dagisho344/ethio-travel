@@ -13,6 +13,7 @@ function read(path) {
 void test('admin route chrome is distinct while public chrome remains available elsewhere', () => {
   const chrome = read('components/layout/RouteAwareChrome.tsx');
   const topBar = read('components/layout/AdminPortalTopBar.tsx');
+  const accountDropdown = read('components/layout/AccountDropdown.tsx');
   const layout = read('app/admin/layout.tsx');
 
   assert.match(chrome, /pathname === '\/admin'/);
@@ -21,10 +22,17 @@ void test('admin route chrome is distinct while public chrome remains available 
   assert.match(chrome, /isAdminPortal \? null : nonBusinessFooter/);
   assert.match(topBar, /Admin Portal/);
   assert.match(topBar, /NotificationBell/);
-  assert.match(topBar, /LogoutButton/);
+  assert.match(topBar, /AccountDropdown/);
+  assert.doesNotMatch(topBar, /LogoutButton/);
+  assert.match(accountDropdown, /LogoutButton/);
+  assert.match(accountDropdown, /My Profile/);
+  assert.match(accountDropdown, /My Trips/);
+  assert.match(accountDropdown, /AI Assistant/);
+  assert.match(accountDropdown, /Messages/);
+  assert.match(chrome, /hasAdminDashboard/);
   assert.match(topBar, /border-slate-200 bg-white\/95 backdrop-blur/);
   assert.match(
-    topBar,
+    accountDropdown,
     /text-slate-700 transition hover:bg-slate-50 hover:text-highland/,
   );
   assert.match(topBar, /text-highland transition hover:bg-emerald-50/);

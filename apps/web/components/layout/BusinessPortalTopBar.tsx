@@ -1,14 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronLeft, Compass, UserRound } from 'lucide-react';
-import { LogoutButton } from '../auth/LogoutButton';
+import { ChevronLeft, Compass } from 'lucide-react';
 import { NotificationBell } from '../notifications/NotificationBell';
+import { AccountDropdown } from './AccountDropdown';
 
 export function BusinessPortalTopBar({
   authenticated,
+  hasAdminDashboard,
+  hasBusinessWorkspace,
 }: {
   authenticated: boolean;
+  hasAdminDashboard: boolean;
+  hasBusinessWorkspace: boolean;
 }) {
   return (
     <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/95 backdrop-blur">
@@ -26,17 +30,11 @@ export function BusinessPortalTopBar({
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
           {authenticated ? <NotificationBell /> : null}
           {authenticated ? (
-            <>
-              <Link
-                href="/account"
-                className="inline-flex items-center gap-2 rounded-md px-2 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
-              >
-                <UserRound className="h-5 w-5" aria-hidden="true" />
-                <span className="hidden sm:inline">Account</span>
-              </Link>
-              <LogoutButton className="hidden rounded-md px-2 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 sm:inline-flex" />
-              <LogoutButton className="inline-flex rounded-md px-2 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 sm:hidden" />
-            </>
+            <AccountDropdown
+              authenticated={authenticated}
+              hasAdminDashboard={hasAdminDashboard}
+              hasBusinessWorkspace={hasBusinessWorkspace}
+            />
           ) : null}
           <Link
             href="/"

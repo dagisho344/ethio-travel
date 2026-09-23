@@ -47,7 +47,7 @@ export function AiRecommendationCard({
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
         <Link
-          href={`/explore?${query}`}
+          href={`/search?${query}`}
           className="font-semibold text-highland hover:text-highland/80 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
         >
           View real listing

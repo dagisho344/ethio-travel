@@ -29,9 +29,9 @@ function destinationPath(
   slug?: string,
 ) {
   if (regionSlug && citySlug && slug) {
-    return `/explore?types=destination&regionSlug=${encodeURIComponent(regionSlug)}&citySlug=${encodeURIComponent(citySlug)}&destinationSlug=${encodeURIComponent(slug)}`;
+    return `/regions/${encodeURIComponent(regionSlug)}/cities/${encodeURIComponent(citySlug)}/destinations/${encodeURIComponent(slug)}`;
   }
-  return '/explore?types=destination';
+  return '/search?types=destination';
 }
 
 function pageNumber(value: string): number {

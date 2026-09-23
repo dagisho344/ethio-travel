@@ -21,8 +21,8 @@ void test('business onboarding and workspace pages require an HttpOnly-backed se
     assert.match(source, /redirect\('/);
   }
   assert.match(
-    read('components/layout/HeaderNavigation.tsx'),
-    /returnTo=%2Fbusiness%2Fonboarding/,
+    read('components/layout/AccountDropdown.tsx'),
+    /href: '\/business\/onboarding', label: 'List Your Business'/,
   );
 });
 

@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Edit3, MapPin, Star } from 'lucide-react';
+import { publicBusinessPath } from '../../lib/public-business-route';
+import { publicDestinationPath } from '../../lib/public-destination-route';
 import type {
   MyReview,
   PaginatedResponse,
@@ -28,18 +30,22 @@ const targetOptions: Array<{ value: ReviewTargetType | ''; label: string }> = [
 
 function targetPath(review: MyReview) {
   const target = review.target;
-  const regionSlug = target.region?.slug ?? '';
-  const citySlug = target.city?.slug ?? '';
   if (target.type === 'DESTINATION') {
-    return `/explore?types=destination&regionSlug=${regionSlug}&citySlug=${citySlug}&destinationSlug=${target.slug}`;
+    return (
+      publicDestinationPath(target) ??
+      `/search?types=destination&regionSlug=${encodeURIComponent(target.region.slug)}&citySlug=${encodeURIComponent(target.city.slug)}&destinationSlug=${encodeURIComponent(target.slug)}`
+    );
   }
   if (target.type === 'ATTRACTION') {
-    return `/explore?types=attraction&regionSlug=${regionSlug}&citySlug=${citySlug}&destinationSlug=${target.destination?.slug ?? ''}&q=${encodeURIComponent(target.name)}`;
+    return `/search?types=attraction&regionSlug=${encodeURIComponent(target.region.slug)}&citySlug=${encodeURIComponent(target.city.slug)}&destinationSlug=${encodeURIComponent(target.destination.slug)}&q=${encodeURIComponent(target.name)}`;
   }
   if (target.type === 'BUSINESS') {
-    return `/explore?types=business&regionSlug=${regionSlug}&citySlug=${citySlug}&q=${encodeURIComponent(target.name)}`;
+    return (
+      publicBusinessPath(target) ??
+      `/search?types=business&regionSlug=${encodeURIComponent(target.region.slug)}&citySlug=${encodeURIComponent(target.city.slug)}&q=${encodeURIComponent(target.name)}`
+    );
   }
-  return `/explore?types=service&regionSlug=${regionSlug}&citySlug=${citySlug}&q=${encodeURIComponent(target.name)}`;
+  return `/services/${encodeURIComponent(target.id)}`;
 }
 
 function Stars({ rating }: { rating: number }) {
@@ -219,7 +225,7 @@ export function ReviewsClient() {
             services will appear here.
           </p>
           <Link
-            href="/explore"
+            href="/search"
             className="mt-5 inline-flex rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
           >
             Start exploring

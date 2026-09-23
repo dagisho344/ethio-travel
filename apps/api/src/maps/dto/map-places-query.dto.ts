@@ -1,6 +1,6 @@
-import { BadRequestException } from '@nestjs/common';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { PricingModel } from '@prisma/client';
+import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsEnum,
@@ -13,62 +13,53 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { SearchEntityType } from '../../search/dto/search-query.dto';
-
-function parseTypes(value: unknown): SearchEntityType[] | undefined {
-  if (value === undefined || value === null || value === '') return undefined;
-  if (typeof value !== 'string' && !Array.isArray(value)) {
-    throw new BadRequestException('Types must be a comma-separated string.');
-  }
-  const raw = Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === 'string').join(',')
-    : value;
-  const types = raw
-    .split(',')
-    .map((type) => type.trim())
-    .filter(Boolean);
-  const valid = new Set(Object.values(SearchEntityType));
-  const invalid = types.find((type) => !valid.has(type as SearchEntityType));
-  if (invalid)
-    throw new BadRequestException(`Unsupported map type: ${invalid}.`);
-  return [...new Set(types)] as SearchEntityType[];
-}
+import {
+  parseFiniteNumber,
+  parseSearchTypes,
+  SearchEntityType,
+} from '../../search/dto/search-query.dto';
 
 export class MapPlacesQueryDto {
   @ApiProperty({ minimum: -90, maximum: 90 })
-  @Type(() => Number)
+  @Transform(({ value }) => parseFiniteNumber(value))
   @IsNumber()
   @Min(-90)
   @Max(90)
   north!: number;
 
   @ApiProperty({ minimum: -90, maximum: 90 })
-  @Type(() => Number)
+  @Transform(({ value }) => parseFiniteNumber(value))
   @IsNumber()
   @Min(-90)
   @Max(90)
   south!: number;
 
   @ApiProperty({ minimum: -180, maximum: 180 })
-  @Type(() => Number)
+  @Transform(({ value }) => parseFiniteNumber(value))
   @IsNumber()
   @Min(-180)
   @Max(180)
   east!: number;
 
   @ApiProperty({ minimum: -180, maximum: 180 })
-  @Type(() => Number)
+  @Transform(({ value }) => parseFiniteNumber(value))
   @IsNumber()
   @Min(-180)
   @Max(180)
   west!: number;
 
   @ApiPropertyOptional({ enum: SearchEntityType, isArray: true })
-  @Transform(({ value }) => parseTypes(value))
+  @Transform(({ value }) => parseSearchTypes(value))
   @IsArray()
   @IsEnum(SearchEntityType, { each: true })
   @IsOptional()
   types?: SearchEntityType[];
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsString()
+  @MaxLength(120)
+  @IsOptional()
+  q?: string;
 
   @ApiPropertyOptional({ maxLength: 180 })
   @IsString()
@@ -102,8 +93,56 @@ export class MapPlacesQueryDto {
   @IsOptional()
   serviceCategory?: string;
 
+  @ApiPropertyOptional({ enum: PricingModel })
+  @IsEnum(PricingModel)
+  @IsOptional()
+  pricingModel?: PricingModel;
+  @ApiPropertyOptional({ maxLength: 3, description: 'ISO 4217 currency code' })
+  @IsString()
+  @Matches(/^[A-Z]{3}$/)
+  @IsOptional()
+  currency?: string;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @Transform(({ value }) => parseFiniteNumber(value))
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  minPrice?: number;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @Transform(({ value }) => parseFiniteNumber(value))
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  maxPrice?: number;
+
+  @ApiPropertyOptional({ minimum: -90, maximum: 90 })
+  @Transform(({ value }) => parseFiniteNumber(value))
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  @IsOptional()
+  lat?: number;
+
+  @ApiPropertyOptional({ minimum: -180, maximum: 180 })
+  @Transform(({ value }) => parseFiniteNumber(value))
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  @IsOptional()
+  lng?: number;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 200, default: 25 })
+  @Transform(({ value }) => parseFiniteNumber(value))
+  @IsNumber()
+  @Min(1)
+  @Max(200)
+  @IsOptional()
+  radiusKm?: number;
+
   @ApiPropertyOptional({ default: 200, maximum: 500, minimum: 1 })
-  @Type(() => Number)
+  @Transform(({ value }) => parseFiniteNumber(value))
   @IsInt()
   @Min(1)
   @Max(500)

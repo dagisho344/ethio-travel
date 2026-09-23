@@ -20,6 +20,9 @@ export function DynamicMap(props: {
     east: number;
     west: number;
   }) => void;
+  selectedPlaceKey?: string | null;
+  onSelectPlace?: (place: MapPlace) => void;
+  nearbyPosition?: { lat: number; lng: number } | null;
 }) {
   return <MapView {...props} />;
 }

@@ -1,9 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Filter, List, Map, Search, X } from 'lucide-react';
+import { Filter, List, LocateFixed, Map, Search, X } from 'lucide-react';
 import { getJson } from '../../lib/api';
+import {
+  allowedPublicSearchParams,
+  buildMapPlacesParams,
+  buildSearchRequestParams,
+} from '../../lib/public-discovery-query';
 import {
   buildFavoriteLookup,
   type FavoriteLookup,
@@ -36,8 +41,17 @@ const sortOptions = [
   ['name_asc', 'Name A-Z'],
   ['name_desc', 'Name Z-A'],
   ['newest', 'Newest'],
-  ['price_asc', 'Price low-high'],
-  ['price_desc', 'Price high-low'],
+] as const;
+
+const pricingModelOptions = [
+  ['FIXED', 'Fixed price'],
+  ['PER_PERSON', 'Per person'],
+  ['PER_NIGHT', 'Per night'],
+  ['PER_HOUR', 'Per hour'],
+  ['PER_DAY', 'Per day'],
+  ['STARTING_FROM', 'Starting from'],
+  ['FREE', 'Free'],
+  ['CONTACT_FOR_PRICE', 'Contact for price'],
 ] as const;
 
 const filterKeys = [
@@ -48,6 +62,8 @@ const filterKeys = [
   'destinationSlug',
   'businessCategory',
   'serviceCategory',
+  'pricingModel',
+  'currency',
   'minPrice',
   'maxPrice',
   'sort',
@@ -56,12 +72,6 @@ const filterKeys = [
 function textValue(form: FormData, key: string): string {
   const value = form.get(key);
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function apiSearchParams(params: URLSearchParams) {
-  const next = new URLSearchParams(params);
-  next.delete('view');
-  return next;
 }
 
 function paramsWithUpdates(
@@ -167,12 +177,23 @@ export function ExploreClient({
   const [results, setResults] =
     useState<PaginatedResponse<SearchResult> | null>(null);
   const [places, setPlaces] = useState<MapPlace[]>([]);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [mapLoading, setMapLoading] = useState(false);
+  const searchRequestId = useRef(0);
+  const mapRequestId = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [favoriteLookup, setFavoriteLookup] = useState<FavoriteLookup>({});
   const [reviewLookup, setReviewLookup] = useState<ReviewLookup>({});
   const [view, setView] = useState<ViewMode>(
     (searchParams.get('view') as ViewMode) === 'map' ? 'map' : 'list',
   );
+  const [nearby, setNearby] = useState<{
+    lat: number;
+    lng: number;
+    radiusKm: number;
+  } | null>(null);
+  const [nearbyError, setNearbyError] = useState<string | null>(null);
+  const [selectedPlaceKey, setSelectedPlaceKey] = useState<string | null>(null);
 
   const selectedTypes = (searchParams.get('types') ?? '')
     .split(',')
@@ -182,7 +203,8 @@ export function ExploreClient({
   const selectedDestinationSlug = normalizedDestinationSlug;
 
   const normalizedParams = useMemo(() => {
-    const next = apiSearchParams(searchParams);
+    const next = allowedPublicSearchParams(searchParams);
+    next.delete('view');
     if (selectedRegionSlug) next.set('regionSlug', selectedRegionSlug);
     else next.delete('regionSlug');
     if (selectedCitySlug) next.set('citySlug', selectedCitySlug);
@@ -198,8 +220,14 @@ export function ExploreClient({
     selectedRegionSlug,
   ]);
 
-  const query = useMemo(() => normalizedParams.toString(), [normalizedParams]);
-  const activeFilters = hasActiveFilters(normalizedParams);
+  const query = useMemo(
+    () => buildSearchRequestParams(normalizedParams, nearby).toString(),
+    [nearby, normalizedParams],
+  );
+  const activeFilters = hasActiveFilters(normalizedParams) || nearby !== null;
+  const hasPriceContext = Boolean(
+    normalizedParams.get('pricingModel') && normalizedParams.get('currency'),
+  );
 
   useEffect(() => {
     const rawRegionSlug = searchParams.get('regionSlug') ?? '';
@@ -210,7 +238,7 @@ export function ExploreClient({
       rawCitySlug !== selectedCitySlug ||
       rawDestinationSlug !== selectedDestinationSlug
     ) {
-      const next = new URLSearchParams(searchParams);
+      const next = allowedPublicSearchParams(searchParams);
       if (selectedRegionSlug) next.set('regionSlug', selectedRegionSlug);
       else next.delete('regionSlug');
       if (selectedCitySlug) next.set('citySlug', selectedCitySlug);
@@ -254,16 +282,20 @@ export function ExploreClient({
   }, []);
 
   useEffect(() => {
+    const requestId = searchRequestId.current + 1;
+    searchRequestId.current = requestId;
     const run = async () => {
-      setError(null);
+      if (requestId === searchRequestId.current) setError(null);
       try {
         const data = await getJson<PaginatedResponse<SearchResult>>(
           `/search?${query}`,
         );
-        setResults(data);
+        if (requestId === searchRequestId.current) setResults(data);
       } catch (err) {
-        setResults(null);
-        setError(err instanceof Error ? err.message : 'Search failed.');
+        if (requestId === searchRequestId.current) {
+          setResults(null);
+          setError(err instanceof Error ? err.message : 'Search failed.');
+        }
       }
     };
     void run();
@@ -285,7 +317,7 @@ export function ExploreClient({
       ) {
         normalizedUpdates.destinationSlug = null;
       }
-      const next = paramsWithUpdates(searchParams, {
+      const next = paramsWithUpdates(allowedPublicSearchParams(searchParams), {
         ...normalizedUpdates,
         page: normalizedUpdates.page ?? '1',
       });
@@ -300,8 +332,10 @@ export function ExploreClient({
 
   const clearFilters = () => {
     startTransition(() => {
-      const next = new URLSearchParams(searchParams);
+      const next = allowedPublicSearchParams(searchParams);
       filterKeys.forEach((key) => next.delete(key));
+      setNearby(null);
+      setNearbyError(null);
       const viewParam = searchParams.get('view');
       if (viewParam) next.set('view', viewParam);
       const url = next.toString() ? `${pathname}?${next.toString()}` : pathname;
@@ -310,12 +344,22 @@ export function ExploreClient({
   };
 
   const removeFilter = (key: string) => {
+    if (key === 'nearby') {
+      setNearby(null);
+      setNearbyError(null);
+      if (normalizedParams.get('sort') === 'distance') update({ sort: null });
+      return;
+    }
     if (key === 'regionSlug') {
       update({ regionSlug: null, citySlug: null, destinationSlug: null });
       return;
     }
     if (key === 'citySlug') {
       update({ citySlug: null, destinationSlug: null });
+      return;
+    }
+    if (key === 'pricingModel' || key === 'currency') {
+      update({ [key]: null, minPrice: null, maxPrice: null });
       return;
     }
     update({ [key]: null });
@@ -372,10 +416,26 @@ export function ExploreClient({
           ),
         }
       : null,
+    normalizedParams.get('pricingModel')
+      ? {
+          key: 'pricingModel',
+          label: `Pricing: ${
+            pricingModelOptions.find(
+              ([value]) => value === normalizedParams.get('pricingModel'),
+            )?.[1] ?? normalizedParams.get('pricingModel')
+          }`,
+        }
+      : null,
+    normalizedParams.get('currency')
+      ? {
+          key: 'currency',
+          label: `Currency: ${normalizedParams.get('currency')}`,
+        }
+      : null,
     normalizedParams.get('minPrice') || normalizedParams.get('maxPrice')
       ? {
           key: 'price',
-          label: `ETB ${normalizedParams.get('minPrice') || '0'}-${normalizedParams.get('maxPrice') || 'any'}`,
+          label: `Price ${normalizedParams.get('minPrice') || '0'}-${normalizedParams.get('maxPrice') || 'any'}`,
         }
       : null,
     normalizedParams.get('sort') && normalizedParams.get('sort') !== 'relevance'
@@ -384,8 +444,12 @@ export function ExploreClient({
           label:
             sortOptions.find(
               ([value]) => value === normalizedParams.get('sort'),
-            )?.[1] ?? 'Sort',
+            )?.[1] ??
+            (normalizedParams.get('sort') === 'distance' ? 'Distance' : 'Sort'),
         }
+      : null,
+    nearby
+      ? { key: 'nearby', label: `Near me within ${nearby.radiusKm} km` }
       : null,
   ].filter((chip): chip is { key: string; label: string } => Boolean(chip));
 
@@ -395,20 +459,52 @@ export function ExploreClient({
     east: number;
     west: number;
   }) => {
+    const requestId = mapRequestId.current + 1;
+    mapRequestId.current = requestId;
+    setMapLoading(true);
+    setMapError(null);
     try {
-      const params = new URLSearchParams(normalizedParams);
-      Object.entries(bounds).forEach(([key, value]) =>
-        params.set(key, String(value)),
-      );
-      params.delete('page');
-      params.set('limit', '200');
+      const params = buildMapPlacesParams(normalizedParams, bounds, nearby);
       const data = await getJson<{ data: MapPlace[] }>(
         `/map/places?${params.toString()}`,
       );
-      setPlaces(data.data);
-    } catch {
-      setPlaces([]);
+      if (requestId === mapRequestId.current) setPlaces(data.data);
+    } catch (mapRequestError) {
+      if (requestId === mapRequestId.current) {
+        setMapError(
+          mapRequestError instanceof Error
+            ? mapRequestError.message
+            : 'Map places could not be loaded.',
+        );
+      }
+    } finally {
+      if (requestId === mapRequestId.current) setMapLoading(false);
     }
+  };
+  const requestNearby = () => {
+    if (!navigator.geolocation) {
+      setNearbyError(
+        'Location is unavailable in this browser. Use the Region, City, or Destination filters instead.',
+      );
+      return;
+    }
+    setNearbyError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setNearby({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          radiusKm: 25,
+        });
+        setSelectedPlaceKey(null);
+      },
+      () => {
+        setNearbyError(
+          'We could not access your location. Use the Region, City, or Destination filters instead.',
+        );
+      },
+      { enableHighAccuracy: false, maximumAge: 0, timeout: 10_000 },
+    );
   };
 
   const renderFilterPanel = (idPrefix: string) => (
@@ -437,6 +533,48 @@ export function ExploreClient({
             <span className="sr-only">Search</span>
           </button>
         </form>
+      </FilterSection>
+
+      <FilterSection title="Near Me">
+        <button
+          type="button"
+          onClick={requestNearby}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-highland bg-white px-3 py-2.5 text-sm font-semibold text-highland hover:bg-highland hover:text-white focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+        >
+          <LocateFixed className="h-4 w-4" aria-hidden="true" />
+          {nearby ? 'Refresh nearby location' : 'Use my location'}
+        </button>
+        {nearby ? (
+          <label
+            className="block text-xs font-semibold text-slate-600"
+            htmlFor={`${idPrefix}-nearby-radius`}
+          >
+            Search radius
+            <select
+              id={`${idPrefix}-nearby-radius`}
+              className={controlClassName()}
+              value={nearby.radiusKm}
+              onChange={(event) =>
+                setNearby((current) =>
+                  current
+                    ? { ...current, radiusKm: Number(event.target.value) }
+                    : current,
+                )
+              }
+            >
+              {[5, 10, 25, 50, 100].map((radiusKm) => (
+                <option key={radiusKm} value={radiusKm}>
+                  {radiusKm} km
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {nearbyError ? (
+          <p className="text-xs leading-5 text-amber-800" role="status">
+            {nearbyError}
+          </p>
+        ) : null}
       </FilterSection>
 
       <FilterSection title="Type">
@@ -571,7 +709,64 @@ export function ExploreClient({
       </FilterSection>
 
       <FilterSection title="Price">
+        <p className="text-xs leading-5 text-slate-500">
+          Price ranges compare services only when both pricing model and
+          currency match.
+        </p>
         <div className="grid grid-cols-2 gap-2">
+          <label
+            className="block text-xs font-semibold text-slate-600"
+            htmlFor={`${idPrefix}-pricingModel`}
+          >
+            Pricing model
+            <select
+              id={`${idPrefix}-pricingModel`}
+              value={normalizedParams.get('pricingModel') ?? ''}
+              onChange={(event) => {
+                const pricingModel = event.target.value || null;
+                update({
+                  pricingModel,
+                  minPrice: null,
+                  maxPrice: null,
+                });
+              }}
+              className={controlClassName()}
+            >
+              <option value="">Choose a model</option>
+              {pricingModelOptions.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label
+            className="block text-xs font-semibold text-slate-600"
+            htmlFor={`${idPrefix}-currency`}
+          >
+            Currency
+            <input
+              key={`${idPrefix}-currency-${normalizedParams.get('currency') ?? ''}`}
+              id={`${idPrefix}-currency`}
+              type="text"
+              maxLength={3}
+              defaultValue={normalizedParams.get('currency') ?? ''}
+              onBlur={(event) => {
+                const currency = event.target.value.trim().toUpperCase();
+                if (!currency || /^[A-Z]{3}$/.test(currency)) {
+                  update({
+                    currency: currency || null,
+                    minPrice: null,
+                    maxPrice: null,
+                  });
+                }
+              }}
+              className={controlClassName()}
+              placeholder="ETB"
+              pattern="[A-Za-z]{3}"
+              title="Use a three-letter ISO currency code."
+            />
+          </label>
           <label
             className="block text-xs font-semibold text-slate-600"
             htmlFor={`${idPrefix}-minPrice`}
@@ -581,9 +776,10 @@ export function ExploreClient({
               id={`${idPrefix}-minPrice`}
               type="number"
               min="0"
+              disabled={!hasPriceContext}
               value={normalizedParams.get('minPrice') ?? ''}
               onChange={(e) => update({ minPrice: e.target.value || null })}
-              className={controlClassName()}
+              className={`${controlClassName()} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500`}
             />
           </label>
           <label
@@ -595,9 +791,10 @@ export function ExploreClient({
               id={`${idPrefix}-maxPrice`}
               type="number"
               min="0"
+              disabled={!hasPriceContext}
               value={normalizedParams.get('maxPrice') ?? ''}
               onChange={(e) => update({ maxPrice: e.target.value || null })}
-              className={controlClassName()}
+              className={`${controlClassName()} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500`}
             />
           </label>
         </div>
@@ -610,7 +807,9 @@ export function ExploreClient({
         <select
           id={`${idPrefix}-sort`}
           className={controlClassName()}
-          value={normalizedParams.get('sort') ?? 'relevance'}
+          value={
+            normalizedParams.get('sort') ?? (nearby ? 'distance' : 'relevance')
+          }
           onChange={(e) => update({ sort: e.target.value })}
         >
           {sortOptions.map(([value, label]) => (
@@ -618,6 +817,7 @@ export function ExploreClient({
               {label}
             </option>
           ))}
+          {nearby ? <option value="distance">Distance</option> : null}
         </select>
       </FilterSection>
     </div>
@@ -725,8 +925,19 @@ export function ExploreClient({
           {error ? <ErrorState message={error} /> : null}
           {view === 'map' ? (
             <div className="overflow-hidden rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+              {mapError ? <ErrorState message={mapError} /> : null}
+              {mapLoading ? (
+                <p className="px-3 py-2 text-sm text-slate-500" role="status">
+                  Updating map places...
+                </p>
+              ) : null}
               <DynamicMap
                 places={places}
+                selectedPlaceKey={selectedPlaceKey}
+                nearbyPosition={nearby}
+                onSelectPlace={(place) =>
+                  setSelectedPlaceKey(`${place.type}:${place.id}`)
+                }
                 onBoundsChange={(bounds) => {
                   void loadMap(bounds);
                 }}
@@ -740,6 +951,11 @@ export function ExploreClient({
                   result={result}
                   favoriteLookup={favoriteLookup}
                   reviewLookup={reviewLookup}
+                  onShowOnMap={() => {
+                    setSelectedPlaceKey(`${result.type}:${result.id}`);
+                    setView('map');
+                    update({ view: 'map' });
+                  }}
                 />
               ))}
               {isPending || !results ? (

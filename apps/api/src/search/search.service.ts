@@ -1,6 +1,15 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { PricingModel, Prisma } from '@prisma/client';
+import { PricingModel, Prisma, ServiceLocationMode } from '@prisma/client';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
+import {
+  haversineDistanceKm,
+  hasNearbyCoordinates,
+  MAX_DISCOVERY_RESULT_WINDOW,
+  nearbyRadiusKm,
+  radiusBounds,
+  validateNearbyCoordinates,
+  validatePublicDiscoveryScope,
+} from '../common/utils/public-discovery.util';
 import {
   publicAttractionWhere,
   publicBusinessWhere,
@@ -34,43 +43,117 @@ export interface SearchResult {
   price?: Prisma.Decimal | null;
   currency?: string | null;
   pricingModel?: PricingModel;
+  distanceKm?: number;
   createdAt: Date;
   relevance: number;
 }
 
-const destinationInclude = {
-  city: { include: { region: true } },
-} satisfies Prisma.DestinationInclude;
-const attractionInclude = {
-  destination: { include: { city: { include: { region: true } } } },
-} satisfies Prisma.AttractionInclude;
-const businessInclude = {
-  category: true,
-  city: { include: { region: true } },
-  destination: true,
-} satisfies Prisma.BusinessInclude;
-const serviceInclude = {
-  category: true,
-  business: {
-    include: {
-      category: true,
-      city: { include: { region: true } },
-      destination: true,
+const destinationSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  shortDescription: true,
+  fullDescription: true,
+  latitude: true,
+  longitude: true,
+  createdAt: true,
+  city: {
+    select: {
+      name: true,
+      slug: true,
+      region: { select: { name: true, slug: true } },
     },
   },
-} satisfies Prisma.ServiceInclude;
+} satisfies Prisma.DestinationSelect;
+
+const attractionSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  category: true,
+  description: true,
+  latitude: true,
+  longitude: true,
+  createdAt: true,
+  destination: {
+    select: {
+      name: true,
+      slug: true,
+      city: {
+        select: {
+          name: true,
+          slug: true,
+          region: { select: { name: true, slug: true } },
+        },
+      },
+    },
+  },
+} satisfies Prisma.AttractionSelect;
+
+const businessSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  description: true,
+  addressLine1: true,
+  neighborhood: true,
+  latitude: true,
+  longitude: true,
+  createdAt: true,
+  category: { select: { code: true, name: true } },
+  city: {
+    select: {
+      name: true,
+      slug: true,
+      region: { select: { name: true, slug: true } },
+    },
+  },
+  destination: { select: { name: true, slug: true } },
+} satisfies Prisma.BusinessSelect;
+
+const serviceSelect = {
+  id: true,
+  name: true,
+  slug: true,
+  shortDescription: true,
+  description: true,
+  latitude: true,
+  longitude: true,
+  locationMode: true,
+  price: true,
+  currency: true,
+  pricingModel: true,
+  createdAt: true,
+  category: { select: { code: true, name: true } },
+  business: {
+    select: {
+      name: true,
+      slug: true,
+      latitude: true,
+      longitude: true,
+      city: {
+        select: {
+          name: true,
+          slug: true,
+          region: { select: { name: true, slug: true } },
+        },
+      },
+      destination: { select: { name: true, slug: true } },
+    },
+  },
+} satisfies Prisma.ServiceSelect;
 
 type DestinationRecord = Prisma.DestinationGetPayload<{
-  include: typeof destinationInclude;
+  select: typeof destinationSelect;
 }>;
 type AttractionRecord = Prisma.AttractionGetPayload<{
-  include: typeof attractionInclude;
+  select: typeof attractionSelect;
 }>;
 type BusinessRecord = Prisma.BusinessGetPayload<{
-  include: typeof businessInclude;
+  select: typeof businessSelect;
 }>;
 type ServiceRecord = Prisma.ServiceGetPayload<{
-  include: typeof serviceInclude;
+  select: typeof serviceSelect;
 }>;
 
 @Injectable()
@@ -86,20 +169,32 @@ export class SearchService {
   > {
     this.validateQuery(query);
     const normalized = { ...query, q: query.q?.trim() };
-    const types = normalized.types ?? Object.values(SearchEntityType);
-    const take = normalized.page * normalized.limit;
+    const types = this.resolveTypes(normalized);
+    const isNearbySearch = hasNearbyCoordinates(normalized);
+    const take = isNearbySearch
+      ? MAX_DISCOVERY_RESULT_WINDOW + 1
+      : normalized.page * normalized.limit;
     const [items, total] = await Promise.all([
       this.collectResults(normalized, types, take),
-      this.countResults(normalized, types),
+      isNearbySearch
+        ? Promise.resolve(0)
+        : this.countResults(normalized, types),
     ]);
-    const sorted = this.sortResults(items, normalized.sort);
+    if (isNearbySearch && items.length > MAX_DISCOVERY_RESULT_WINDOW) {
+      throw new BadRequestException(
+        `Nearby searches are limited to ${MAX_DISCOVERY_RESULT_WINDOW} candidates. Narrow the search or choose a smaller radius.`,
+      );
+    }
+    const nearbyItems = this.applyNearbyFilter(items, normalized);
+    const sorted = this.sortResults(nearbyItems, normalized.sort);
+    const boundedTotal = isNearbySearch ? sorted.length : total;
     const pageItems = sorted.slice(
       (normalized.page - 1) * normalized.limit,
       normalized.page * normalized.limit,
     );
     return paginate(
       pageItems.map((item) => this.toResponseItem(item)),
-      total,
+      boundedTotal,
       normalized.page,
       normalized.limit,
     );
@@ -121,6 +216,7 @@ export class SearchService {
       price: item.price,
       currency: item.currency,
       pricingModel: item.pricingModel,
+      distanceKm: item.distanceKm,
     };
   }
   private async collectResults(
@@ -171,7 +267,7 @@ export class SearchService {
     return this.prisma.destination
       .findMany({
         where: this.destinationWhere(query),
-        include: destinationInclude,
+        select: destinationSelect,
         orderBy: this.orderBy(query.sort),
         take,
       })
@@ -187,7 +283,7 @@ export class SearchService {
     return this.prisma.attraction
       .findMany({
         where: this.attractionWhere(query),
-        include: attractionInclude,
+        select: attractionSelect,
         orderBy: this.orderBy(query.sort),
         take,
       })
@@ -203,7 +299,7 @@ export class SearchService {
     return this.prisma.business
       .findMany({
         where: this.businessWhere(query),
-        include: businessInclude,
+        select: businessSelect,
         orderBy: this.orderBy(query.sort),
         take,
       })
@@ -219,7 +315,7 @@ export class SearchService {
     return this.prisma.service
       .findMany({
         where: this.serviceWhere(query),
-        include: serviceInclude,
+        select: serviceSelect,
         orderBy: this.serviceOrderBy(query.sort),
         take,
       })
@@ -232,31 +328,87 @@ export class SearchService {
     query: SearchQueryDto,
   ): Prisma.DestinationWhereInput {
     return {
-      ...publicDestinationWhere(query),
-      ...this.destinationText(query.q),
+      AND: [
+        publicDestinationWhere(query),
+        this.destinationText(query.q),
+        this.nearbyCoordinatesWhere(query),
+      ],
     };
   }
 
   private attractionWhere(query: SearchQueryDto): Prisma.AttractionWhereInput {
-    return { ...publicAttractionWhere(query), ...this.attractionText(query.q) };
+    return {
+      AND: [
+        publicAttractionWhere(query),
+        this.attractionText(query.q),
+        this.nearbyCoordinatesWhere(query),
+      ],
+    };
   }
 
   private businessWhere(query: SearchQueryDto): Prisma.BusinessWhereInput {
-    return { ...publicBusinessWhere(query), ...this.businessText(query.q) };
+    return {
+      AND: [
+        publicBusinessWhere(query),
+        this.businessText(query.q),
+        this.nearbyCoordinatesWhere(query),
+      ],
+    };
   }
 
   private serviceWhere(query: SearchQueryDto): Prisma.ServiceWhereInput {
     return {
-      ...publicServiceWhere(query),
-      pricingModel: query.pricingModel,
-      price:
-        query.minPrice !== undefined || query.maxPrice !== undefined
-          ? { gte: query.minPrice, lte: query.maxPrice }
-          : undefined,
-      ...this.serviceText(query.q),
+      AND: [
+        publicServiceWhere(query),
+        {
+          pricingModel: query.pricingModel,
+          currency: query.currency,
+          price:
+            query.minPrice !== undefined || query.maxPrice !== undefined
+              ? { gte: query.minPrice, lte: query.maxPrice }
+              : undefined,
+        },
+        this.serviceText(query.q),
+        this.serviceNearbyCoordinatesWhere(query),
+      ],
     };
   }
 
+  private nearbyCoordinatesWhere(query: SearchQueryDto): {
+    latitude?: { gte: number; lte: number };
+    longitude?: { gte: number; lte: number };
+  } {
+    if (!hasNearbyCoordinates(query)) return {};
+    const bounds = radiusBounds(query.lat, query.lng, nearbyRadiusKm(query));
+    return {
+      latitude: { gte: bounds.south, lte: bounds.north },
+      longitude: { gte: bounds.west, lte: bounds.east },
+    };
+  }
+
+  private serviceNearbyCoordinatesWhere(
+    query: SearchQueryDto,
+  ): Prisma.ServiceWhereInput {
+    const bounds = this.nearbyCoordinatesWhere(query);
+    if (!bounds.latitude || !bounds.longitude) return {};
+    return {
+      OR: [
+        {
+          locationMode: ServiceLocationMode.BUSINESS_LOCATION,
+          business: bounds,
+        },
+        {
+          locationMode: {
+            in: [
+              ServiceLocationMode.CUSTOM_LOCATION,
+              ServiceLocationMode.MOBILE_VARIABLE,
+            ],
+          },
+          ...bounds,
+        },
+      ],
+    };
+  }
   private destinationText(q?: string): Prisma.DestinationWhereInput {
     return q
       ? {
@@ -264,6 +416,12 @@ export class SearchService {
             { name: { contains: q, mode: 'insensitive' } },
             { shortDescription: { contains: q, mode: 'insensitive' } },
             { fullDescription: { contains: q, mode: 'insensitive' } },
+            { city: { name: { contains: q, mode: 'insensitive' } } },
+            {
+              city: {
+                region: { name: { contains: q, mode: 'insensitive' } },
+              },
+            },
           ],
         }
       : {};
@@ -275,6 +433,19 @@ export class SearchService {
           OR: [
             { name: { contains: q, mode: 'insensitive' } },
             { description: { contains: q, mode: 'insensitive' } },
+            { destination: { name: { contains: q, mode: 'insensitive' } } },
+            {
+              destination: {
+                city: { name: { contains: q, mode: 'insensitive' } },
+              },
+            },
+            {
+              destination: {
+                city: {
+                  region: { name: { contains: q, mode: 'insensitive' } },
+                },
+              },
+            },
           ],
         }
       : {};
@@ -288,6 +459,13 @@ export class SearchService {
             { description: { contains: q, mode: 'insensitive' } },
             { addressLine1: { contains: q, mode: 'insensitive' } },
             { neighborhood: { contains: q, mode: 'insensitive' } },
+            { city: { name: { contains: q, mode: 'insensitive' } } },
+            {
+              city: {
+                region: { name: { contains: q, mode: 'insensitive' } },
+              },
+            },
+            { destination: { name: { contains: q, mode: 'insensitive' } } },
           ],
         }
       : {};
@@ -300,6 +478,24 @@ export class SearchService {
             { name: { contains: q, mode: 'insensitive' } },
             { shortDescription: { contains: q, mode: 'insensitive' } },
             { description: { contains: q, mode: 'insensitive' } },
+            { business: { name: { contains: q, mode: 'insensitive' } } },
+            {
+              business: {
+                city: { name: { contains: q, mode: 'insensitive' } },
+              },
+            },
+            {
+              business: {
+                city: {
+                  region: { name: { contains: q, mode: 'insensitive' } },
+                },
+              },
+            },
+            {
+              business: {
+                destination: { name: { contains: q, mode: 'insensitive' } },
+              },
+            },
           ],
         }
       : {};
@@ -307,22 +503,20 @@ export class SearchService {
 
   private orderBy(
     sort: SearchSort,
-  ): Prisma.DestinationOrderByWithRelationInput {
-    if (sort === SearchSort.NAME_DESC) return { name: 'desc' };
-    if (sort === SearchSort.NEWEST) return { createdAt: 'desc' };
-    return { name: 'asc' };
+  ): Prisma.DestinationOrderByWithRelationInput[] {
+    if (sort === SearchSort.NAME_DESC) return [{ name: 'desc' }, { id: 'asc' }];
+    if (sort === SearchSort.NEWEST)
+      return [{ createdAt: 'desc' }, { id: 'asc' }];
+    return [{ name: 'asc' }, { id: 'asc' }];
   }
 
   private serviceOrderBy(
     sort: SearchSort,
-  ): Prisma.ServiceOrderByWithRelationInput {
-    if (sort === SearchSort.PRICE_ASC)
-      return { price: { sort: 'asc', nulls: 'last' } };
-    if (sort === SearchSort.PRICE_DESC)
-      return { price: { sort: 'desc', nulls: 'last' } };
-    if (sort === SearchSort.NAME_DESC) return { name: 'desc' };
-    if (sort === SearchSort.NEWEST) return { createdAt: 'desc' };
-    return { name: 'asc' };
+  ): Prisma.ServiceOrderByWithRelationInput[] {
+    if (sort === SearchSort.NAME_DESC) return [{ name: 'desc' }, { id: 'asc' }];
+    if (sort === SearchSort.NEWEST)
+      return [{ createdAt: 'desc' }, { id: 'asc' }];
+    return [{ name: 'asc' }, { id: 'asc' }];
   }
 
   private sortResults(items: SearchResult[], sort: SearchSort): SearchResult[] {
@@ -337,30 +531,16 @@ export class SearchService {
         return (
           right.name.localeCompare(left.name) || this.typeCompare(left, right)
         );
-      if (sort === SearchSort.PRICE_ASC)
+      if (sort === SearchSort.NAME_ASC) return this.nameCompare(left, right);
+      if (sort === SearchSort.DISTANCE)
         return (
-          this.priceValue(left) - this.priceValue(right) ||
-          this.nameCompare(left, right)
-        );
-      if (sort === SearchSort.PRICE_DESC)
-        return (
-          this.priceValue(right) - this.priceValue(left) ||
+          (left.distanceKm ?? Number.POSITIVE_INFINITY) -
+            (right.distanceKm ?? Number.POSITIVE_INFINITY) ||
           this.nameCompare(left, right)
         );
       return right.relevance - left.relevance || this.nameCompare(left, right);
     });
   }
-
-  private priceValue(item: SearchResult): number {
-    if (
-      item.type !== SearchEntityType.SERVICE ||
-      item.price === null ||
-      item.price === undefined
-    )
-      return Number.POSITIVE_INFINITY;
-    return Number(item.price);
-  }
-
   private nameCompare(left: SearchResult, right: SearchResult): number {
     return left.name.localeCompare(right.name) || this.typeCompare(left, right);
   }
@@ -376,14 +556,88 @@ export class SearchService {
     return name.toLowerCase().includes(q.toLowerCase()) ? 2 : 1;
   }
 
+  private applyNearbyFilter(
+    items: SearchResult[],
+    query: SearchQueryDto,
+  ): SearchResult[] {
+    if (!hasNearbyCoordinates(query)) return items;
+    const radiusKm = nearbyRadiusKm(query);
+    return items.flatMap((item) => {
+      if (item.latitude === null || item.longitude === null) return [];
+      const distanceKm = haversineDistanceKm(
+        query.lat,
+        query.lng,
+        item.latitude,
+        item.longitude,
+      );
+      return distanceKm <= radiusKm ? [{ ...item, distanceKm }] : [];
+    });
+  }
+
+  private resolveTypes(query: SearchQueryDto): SearchEntityType[] {
+    const hasServiceFilter = Boolean(
+      query.serviceCategory ||
+      query.pricingModel ||
+      query.currency ||
+      query.minPrice !== undefined ||
+      query.maxPrice !== undefined,
+    );
+    const requested = query.types;
+    if (hasServiceFilter) {
+      if (
+        requested &&
+        (requested.length !== 1 || requested[0] !== SearchEntityType.SERVICE)
+      ) {
+        throw new BadRequestException('Service filters require types=service.');
+      }
+      return [SearchEntityType.SERVICE];
+    }
+    if (query.businessCategory) {
+      if (
+        requested &&
+        requested.some(
+          (type) =>
+            type !== SearchEntityType.BUSINESS &&
+            type !== SearchEntityType.SERVICE,
+        )
+      ) {
+        throw new BadRequestException(
+          'businessCategory applies only to business and service results.',
+        );
+      }
+      return requested ?? [SearchEntityType.BUSINESS, SearchEntityType.SERVICE];
+    }
+    return requested ?? Object.values(SearchEntityType);
+  }
+
   private validateQuery(query: SearchQueryDto): void {
+    validatePublicDiscoveryScope(query);
+    validateNearbyCoordinates(query);
     if (query.q) query.q = query.q.trim();
     if (
       query.minPrice !== undefined &&
       query.maxPrice !== undefined &&
       query.minPrice > query.maxPrice
-    )
+    ) {
       throw new BadRequestException('minPrice cannot exceed maxPrice.');
+    }
+    if (
+      (query.minPrice !== undefined || query.maxPrice !== undefined) &&
+      (!query.pricingModel || !query.currency)
+    ) {
+      throw new BadRequestException(
+        'Price ranges require both pricingModel and currency.',
+      );
+    }
+    if (query.sort === SearchSort.DISTANCE && !hasNearbyCoordinates(query)) {
+      throw new BadRequestException('sort=distance requires lat and lng.');
+    }
+    if (query.page * query.limit > MAX_DISCOVERY_RESULT_WINDOW) {
+      throw new BadRequestException(
+        `Search pages are limited to the first ${MAX_DISCOVERY_RESULT_WINDOW} results.`,
+      );
+    }
+    this.resolveTypes(query);
   }
 
   private mapDestination(record: DestinationRecord, q?: string): SearchResult {

@@ -55,7 +55,7 @@ void test('assistant UI renders conversation history, validation, loading, and u
 void test('recommendation cards identify generated advice and link to a real public search', () => {
   const source = read('components/ai/AiRecommendationCard.tsx');
   assert.match(source, /AI suggestion/);
-  assert.match(source, /\/explore\?/);
+  assert.match(source, /\/search\?/);
   assert.match(source, /Known listed price/);
   assert.match(source, /Availability is not guaranteed/);
   assert.doesNotMatch(source, /dangerouslySetInnerHTML/);
@@ -164,9 +164,9 @@ void test('trip assistant handles provider unavailability without modifying the 
 });
 
 void test('authenticated navigation exposes the AI assistant without storing credentials', () => {
-  const layout = read('components/layout/PublicLayout.tsx');
-  const navigation = read('components/layout/HeaderNavigation.tsx');
-  assert.match(layout, /AI Assistant/);
-  assert.match(layout, /href: '\/assistant'/);
-  assert.doesNotMatch(navigation, /localStorage|sessionStorage/);
+  const dropdown = read('components/layout/AccountDropdown.tsx');
+  assert.match(dropdown, /AI Assistant/);
+  assert.match(dropdown, /href: '\/assistant'/);
+  assert.match(dropdown, /accountNavigationLinks/);
+  assert.doesNotMatch(dropdown, /localStorage|sessionStorage/);
 });

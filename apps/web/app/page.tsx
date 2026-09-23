@@ -33,7 +33,7 @@ const shortcuts = [
     href: '/restaurants',
     icon: Utensils,
   },
-  { label: 'Attractions', href: '/explore?types=attraction', icon: MapPin },
+  { label: 'Attractions', href: '/search?types=attraction', icon: MapPin },
   {
     label: 'Tours',
     href: '/tours',
@@ -150,7 +150,7 @@ export default async function HomePage() {
               experiences and attractions across Ethiopia.
             </p>
             <form
-              action="/explore"
+              action="/search"
               className="mt-7 flex max-w-2xl flex-col gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-lg shadow-slate-200/70 sm:flex-row"
             >
               <label className="sr-only" htmlFor="q">
@@ -266,7 +266,7 @@ export default async function HomePage() {
               </div>
             </div>
             <Link
-              href="/explore?view=map"
+              href="/search?view=map"
               className="inline-flex min-h-11 items-center justify-center rounded-md bg-white px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-950"
             >
               Open Map

@@ -117,7 +117,9 @@ void test('notification UI supports unread state, realtime deduplication, and sa
 void test('authenticated navigation exposes Messages and notification bell', () => {
   const layout = read('components/layout/PublicLayout.tsx');
   const navigation = read('components/layout/HeaderNavigation.tsx');
-  assert.match(layout, /href: '\/messages'/);
+  const dropdown = read('components/layout/AccountDropdown.tsx');
+  assert.match(dropdown, /href: '\/messages'/);
+  assert.match(dropdown, /accountNavigationLinks/);
   assert.match(navigation, /NotificationBell/);
   assert.match(layout, /RealtimeProvider/);
 });

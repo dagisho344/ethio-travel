@@ -31,6 +31,11 @@ function prismaMock() {
     business: delegate(),
     destination: delegate(),
     service: delegate(),
+    review: {
+      groupBy: jest.fn<Promise<unknown[]>, [unknown?]>(() =>
+        Promise.resolve([]),
+      ),
+    },
   };
 }
 
@@ -155,17 +160,23 @@ describe('Phase 5 search', () => {
     await new SearchService(prisma as unknown as PrismaService).search({
       page: 1,
       limit: 20,
-      sort: SearchSort.PRICE_ASC,
+      sort: SearchSort.RELEVANCE,
       types: [SearchEntityType.SERVICE],
       minPrice: 5,
       maxPrice: 50,
       pricingModel: PricingModel.FIXED,
+      currency: 'ETB',
     });
     expect(prisma.service.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          pricingModel: PricingModel.FIXED,
-          price: { gte: 5, lte: 50 },
+          AND: expect.arrayContaining([
+            expect.objectContaining({
+              pricingModel: PricingModel.FIXED,
+              currency: 'ETB',
+              price: { gte: 5, lte: 50 },
+            }),
+          ]),
         }),
       }),
     );
@@ -184,6 +195,29 @@ describe('Phase 5 search', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('requires a pricing model and currency before comparing service prices', async () => {
+    const service = new SearchService(prismaMock() as unknown as PrismaService);
+    await expect(
+      service.search({
+        page: 1,
+        limit: 20,
+        sort: SearchSort.RELEVANCE,
+        types: [SearchEntityType.SERVICE],
+        minPrice: 5,
+        currency: 'ETB',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.search({
+        page: 1,
+        limit: 20,
+        sort: SearchSort.RELEVANCE,
+        types: [SearchEntityType.SERVICE],
+        maxPrice: 50,
+        pricingModel: PricingModel.FIXED,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
   it('keeps private fields out of normalized results', async () => {
     const prisma = prismaMock();
     prisma.business.findMany.mockResolvedValue([business]);
@@ -270,5 +304,232 @@ describe('Phase 5 maps', () => {
     expect(result.data[0]).toEqual(
       expect.objectContaining({ id: 'custom', latitude: 6.3, longitude: 37.3 }),
     );
+  });
+});
+
+describe('Phase 15 discovery hardening', () => {
+  it('validates dependent public scope and bounded Nearby coordinates', async () => {
+    const service = new SearchService(prismaMock() as unknown as PrismaService);
+    await expect(
+      service.search({
+        page: 1,
+        limit: 20,
+        sort: SearchSort.RELEVANCE,
+        citySlug: 'sodo',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.search({
+        page: 1,
+        limit: 20,
+        sort: SearchSort.DISTANCE,
+        lat: 6.1,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.search({ page: 51, limit: 20, sort: SearchSort.RELEVANCE }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('uses an explicit capped candidate window and real distance for Nearby results', async () => {
+    const prisma = prismaMock();
+    prisma.destination.findMany.mockResolvedValue([
+      destination,
+      { ...destination, id: 'far', latitude: 8.9, longitude: 38.7 },
+    ]);
+    const result = await new SearchService(
+      prisma as unknown as PrismaService,
+    ).search({
+      page: 1,
+      limit: 20,
+      sort: SearchSort.DISTANCE,
+      types: [SearchEntityType.DESTINATION],
+      lat: 6.1,
+      lng: 37.1,
+      radiusKm: 2,
+    });
+    expect(result.meta.total).toBe(1);
+    expect(result.data[0]).toEqual(
+      expect.objectContaining({ id: destination.id, distanceKm: 0 }),
+    );
+    expect(prisma.destination.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 1001 }),
+    );
+  });
+
+  it('rejects oversized Nearby candidate sets rather than omitting closer results', async () => {
+    const prisma = prismaMock();
+    prisma.destination.findMany.mockResolvedValue(
+      Array.from({ length: 1001 }, (_, index) => ({
+        ...destination,
+        id: `candidate-${index}`,
+      })),
+    );
+    await expect(
+      new SearchService(prisma as unknown as PrismaService).search({
+        page: 1,
+        limit: 20,
+        sort: SearchSort.DISTANCE,
+        types: [SearchEntityType.DESTINATION],
+        lat: 6.1,
+        lng: 37.1,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('orders the complete Nearby candidate set by exact Haversine distance', async () => {
+    const prisma = prismaMock();
+    prisma.destination.findMany.mockResolvedValue([
+      { ...destination, id: 'farther', name: 'A result', latitude: 6.11 },
+      { ...destination, id: 'closer', name: 'Z result', latitude: 6.101 },
+    ]);
+    const result = await new SearchService(
+      prisma as unknown as PrismaService,
+    ).search({
+      page: 1,
+      limit: 20,
+      sort: SearchSort.DISTANCE,
+      types: [SearchEntityType.DESTINATION],
+      lat: 6.1,
+      lng: 37.1,
+      radiusKm: 5,
+    });
+    expect(result.meta.total).toBe(2);
+    expect(result.data.map((item) => item.id)).toEqual(['closer', 'farther']);
+    const secondPage = await new SearchService(
+      prisma as unknown as PrismaService,
+    ).search({
+      page: 2,
+      limit: 1,
+      sort: SearchSort.DISTANCE,
+      types: [SearchEntityType.DESTINATION],
+      lat: 6.1,
+      lng: 37.1,
+      radiusKm: 5,
+    });
+    expect(secondPage.meta).toEqual(
+      expect.objectContaining({ total: 2, page: 2, totalPages: 2 }),
+    );
+    expect(secondPage.data.map((item) => item.id)).toEqual(['farther']);
+  });
+  it('composes public eligibility with public location text matching and explicit selects', async () => {
+    const prisma = prismaMock();
+    await new SearchService(prisma as unknown as PrismaService).search({
+      page: 1,
+      limit: 20,
+      sort: SearchSort.RELEVANCE,
+      types: [SearchEntityType.BUSINESS],
+      q: 'South Ethiopia',
+    });
+    const searchCall = prisma.business.findMany.mock.calls.at(0);
+    if (!searchCall?.[0]) throw new Error('Expected a business search query.');
+    const call = searchCall[0] as {
+      where: { AND: Array<Record<string, unknown>> };
+      select: Record<string, unknown>;
+      include?: unknown;
+    };
+    expect(call.where.AND).toHaveLength(3);
+    expect(call.where.AND[1]).toEqual(
+      expect.objectContaining({ OR: expect.any(Array) }),
+    );
+    expect(call.select).toEqual(
+      expect.objectContaining({
+        category: expect.any(Object),
+        city: expect.any(Object),
+      }),
+    );
+    expect(call.include).toBeUndefined();
+  });
+
+  it('orders a complete Nearby map candidate set by distance and rejects an oversized one', async () => {
+    const prisma = prismaMock();
+    prisma.destination.findMany.mockResolvedValue([
+      { ...destination, id: 'farther', name: 'A result', latitude: 6.11 },
+      { ...destination, id: 'closer', name: 'Z result', latitude: 6.101 },
+    ]);
+    const service = new MapsService(prisma as unknown as PrismaService);
+    const result = await service.findPlaces({
+      north: 10,
+      south: 0,
+      east: 40,
+      west: 30,
+      limit: 20,
+      types: [SearchEntityType.DESTINATION],
+      lat: 6.1,
+      lng: 37.1,
+      radiusKm: 5,
+    });
+    expect(result.data.map((marker) => marker.id)).toEqual([
+      'closer',
+      'farther',
+    ]);
+    expect(prisma.destination.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 1001 }),
+    );
+    prisma.destination.findMany.mockResolvedValue(
+      Array.from({ length: 1001 }, (_, index) => ({
+        ...destination,
+        id: `candidate-${index}`,
+      })),
+    );
+    await expect(
+      service.findPlaces({
+        north: 10,
+        south: 0,
+        east: 40,
+        west: 30,
+        limit: 20,
+        types: [SearchEntityType.DESTINATION],
+        lat: 6.1,
+        lng: 37.1,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+  it('rejects invalid map scope and returns a fair bounded merge with no broad includes', async () => {
+    const prisma = prismaMock();
+    const attraction = {
+      id: 'attraction',
+      name: 'Lake Walk',
+      slug: 'lake-walk',
+      category: 'NATURE',
+      latitude: 6.15,
+      longitude: 37.15,
+      destination,
+    };
+    prisma.destination.findMany.mockResolvedValue([destination]);
+    prisma.attraction.findMany.mockResolvedValue([attraction]);
+    prisma.business.findMany.mockResolvedValue([business]);
+    prisma.service.findMany.mockResolvedValue([serviceRecord]);
+    const service = new MapsService(prisma as unknown as PrismaService);
+    await expect(
+      service.findPlaces({
+        north: 10,
+        south: 0,
+        east: 40,
+        west: 30,
+        limit: 3,
+        citySlug: 'sodo',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    const result = await service.findPlaces({
+      north: 10,
+      south: 0,
+      east: 40,
+      west: 30,
+      limit: 3,
+    });
+    expect(result.data.map((marker) => marker.type)).toEqual([
+      SearchEntityType.DESTINATION,
+      SearchEntityType.ATTRACTION,
+      SearchEntityType.BUSINESS,
+    ]);
+    const mapCall = prisma.business.findMany.mock.calls.at(0);
+    if (!mapCall?.[0]) throw new Error('Expected a business map query.');
+    const businessCall = mapCall[0] as {
+      select: Record<string, unknown>;
+      include?: unknown;
+    };
+    expect(businessCall.select).toEqual(expect.any(Object));
+    expect(businessCall.include).toBeUndefined();
   });
 });

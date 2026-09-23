@@ -10,6 +10,7 @@ import {
 } from '../../lib/favorite-utils';
 import { categoryName, formatPricing } from '../../lib/format';
 import { publicBusinessPath } from '../../lib/public-business-route';
+import { publicDestinationPath } from '../../lib/public-destination-route';
 import type {
   Business,
   Destination,
@@ -42,6 +43,7 @@ function LocationLine({
 }
 
 export function DestinationCard({ destination }: { destination: Destination }) {
+  const destinationHref = publicDestinationPath(destination);
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
       <Placeholder label="Destination" />
@@ -51,6 +53,14 @@ export function DestinationCard({ destination }: { destination: Destination }) {
           {destination.shortDescription}
         </p>
         <LocationLine city={destination.city} region={destination.region} />
+        {destinationHref ? (
+          <Link
+            href={destinationHref}
+            className="mt-4 inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+          >
+            View destination
+          </Link>
+        ) : null}
       </div>
     </article>
   );
@@ -108,16 +118,27 @@ export function SearchResultCard({
   result,
   favoriteLookup = {},
   reviewLookup = {},
+  onShowOnMap,
 }: {
   result: SearchResult;
   favoriteLookup?: FavoriteLookup;
   reviewLookup?: Record<string, MyReview>;
+  onShowOnMap?: () => void;
 }) {
   const typeLabel =
     result.type === 'business'
       ? 'Verified Business'
       : result.type.charAt(0).toUpperCase() + result.type.slice(1);
   const targetType = result.type.toUpperCase() as FavoriteTargetType;
+  const destinationHref =
+    result.type === 'destination'
+      ? publicDestinationPath({
+          slug: result.slug,
+          city: result.location.city,
+          region: result.location.region,
+        })
+      : null;
+
   const businessHref =
     result.type === 'business'
       ? publicBusinessPath({
@@ -169,6 +190,15 @@ export function SearchResultCard({
           compact
         />
       ) : null}
+      {onShowOnMap && result.latitude != null && result.longitude != null ? (
+        <button
+          type="button"
+          onClick={onShowOnMap}
+          className="mt-4 text-sm font-semibold text-highland hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland"
+        >
+          Show on map
+        </button>
+      ) : null}
       <div className="mt-5 space-y-4">
         <ReviewForm
           targetType={targetType}
@@ -194,12 +224,10 @@ export function SearchResultCard({
           View service details
         </Link>
       ) : null}
-      {result.type === 'destination' &&
-      result.location.region &&
-      result.location.city ? (
+      {destinationHref ? (
         <Link
           className="mt-4 inline-block text-sm font-semibold text-highland"
-          href={`/destinations/${result.location.region.slug}/${result.location.city.slug}/${result.slug}`}
+          href={destinationHref}
         >
           View destination
         </Link>

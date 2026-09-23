@@ -84,7 +84,7 @@ void test('explore cards hydrate own reviews without per-card requests', () => {
 });
 
 void test('authenticated navbar exposes My Reviews link', () => {
-  const source = read('components/layout/HeaderNavigation.tsx');
+  const source = read('components/layout/AccountDropdown.tsx');
   assert.match(source, /href: '\/reviews'/);
   assert.match(source, /My Reviews/);
 });

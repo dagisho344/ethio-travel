@@ -31,21 +31,22 @@ void test('business workspace eligibility combines global role hints with active
 void test('business dashboard navigation is safe and shared by desktop and mobile account menus', () => {
   const layout = read('components/layout/PublicLayout.tsx');
   const navigation = read('components/layout/HeaderNavigation.tsx');
+  const accountDropdown = read('components/layout/AccountDropdown.tsx');
 
   assert.match(
     layout,
     /hasBusinessWorkspace=\{session\.hasBusinessWorkspace\}/,
   );
   assert.match(navigation, /hasBusinessWorkspace: boolean/);
-  assert.match(navigation, /authenticated && hasBusinessWorkspace/);
+  assert.match(navigation, /<AccountDropdown/);
   assert.match(
-    navigation,
+    accountDropdown,
     /href: '\/businesses\/manage', label: 'Business Dashboard'/,
   );
-  assert.equal((navigation.match(/accountLinks\.map/g) ?? []).length, 2);
-  assert.match(navigation, /role="menuitem"/);
+  assert.match(accountDropdown, /hasBusinessWorkspace/);
+  assert.match(accountDropdown, /role="menuitem"/);
   assert.match(navigation, /Mobile primary navigation/);
-  assert.match(navigation, /\.\.\.standardAccountLinks/);
+  assert.match(accountDropdown, /List Your Business/);
 });
 
 void test('login default keeps explicit safe returns ahead of workspace eligibility', () => {

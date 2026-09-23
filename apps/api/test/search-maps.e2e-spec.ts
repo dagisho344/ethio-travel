@@ -165,4 +165,55 @@ describe('Phase 5 search and map routes', () => {
       .get('/api/v1/map/places?north=10&south=0&east=20&west=30')
       .expect(400);
   });
+  it('transforms bounded Nearby search and map filters without authentication', async () => {
+    await request(httpServer)
+      .get(
+        '/api/v1/search?types=service&lat=6.1&lng=37.1&radiusKm=25&sort=distance',
+      )
+      .expect(200);
+    expect(search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        types: [SearchEntityType.SERVICE],
+        lat: 6.1,
+        lng: 37.1,
+        radiusKm: 25,
+        sort: 'distance',
+      }),
+    );
+
+    await request(httpServer)
+      .get(
+        '/api/v1/map/places?north=10&south=0&east=40&west=30&q=hotel&types=service&pricingModel=FIXED&currency=ETB&minPrice=10&maxPrice=100',
+      )
+      .expect(200);
+    expect(findPlaces).toHaveBeenCalledWith(
+      expect.objectContaining({
+        q: 'hotel',
+        types: [SearchEntityType.SERVICE],
+        pricingModel: 'FIXED',
+        currency: 'ETB',
+        minPrice: 10,
+        maxPrice: 100,
+      }),
+    );
+  });
+
+  it('validates ISO currency before forwarding safe price filters', async () => {
+    await request(httpServer)
+      .get('/api/v1/search?types=service&currency=etb')
+      .expect(400);
+    await request(httpServer)
+      .get(
+        '/api/v1/map/places?north=10&south=0&east=40&west=30&types=service&currency=etb',
+      )
+      .expect(400);
+  });
+  it('rejects non-finite discovery coordinate values before reaching a service', async () => {
+    await request(httpServer)
+      .get('/api/v1/search?lat=not-a-number&lng=37.1')
+      .expect(400);
+    await request(httpServer)
+      .get('/api/v1/map/places?north=10&south=0&east=40&west=not-a-number')
+      .expect(400);
+  });
 });

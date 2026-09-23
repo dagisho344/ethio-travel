@@ -17,11 +17,15 @@ function isBusinessPortalPath(pathname: string): boolean {
 
 export function RouteAwareChrome({
   authenticated,
+  hasAdminDashboard,
+  hasBusinessWorkspace,
   children,
   footer,
   header,
 }: {
   authenticated: boolean;
+  hasAdminDashboard: boolean;
+  hasBusinessWorkspace: boolean;
   children: React.ReactNode;
   footer: React.ReactNode;
   header: React.ReactNode;
@@ -34,9 +38,17 @@ export function RouteAwareChrome({
   return (
     <>
       {isAdminPortal ? (
-        <AdminPortalTopBar authenticated={authenticated} />
+        <AdminPortalTopBar
+          authenticated={authenticated}
+          hasAdminDashboard={hasAdminDashboard}
+          hasBusinessWorkspace={hasBusinessWorkspace}
+        />
       ) : isBusinessPortal ? (
-        <BusinessPortalTopBar authenticated={authenticated} />
+        <BusinessPortalTopBar
+          authenticated={authenticated}
+          hasAdminDashboard={hasAdminDashboard}
+          hasBusinessWorkspace={hasBusinessWorkspace}
+        />
       ) : (
         header
       )}

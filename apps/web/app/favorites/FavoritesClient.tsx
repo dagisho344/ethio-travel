@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, Heart, MapPin, Trash2 } from 'lucide-react';
 import { formatPricing } from '../../lib/format';
+import { publicBusinessPath } from '../../lib/public-business-route';
+import { publicDestinationPath } from '../../lib/public-destination-route';
 import type {
   Favorite,
   FavoriteTarget,
@@ -27,15 +29,21 @@ function targetLabel(type: FavoriteTargetType) {
 
 function targetPath(target: FavoriteTarget) {
   if (target.type === 'DESTINATION') {
-    return `/explore?types=destination&regionSlug=${encodeURIComponent(target.region?.slug ?? '')}&citySlug=${encodeURIComponent(target.city?.slug ?? '')}&destinationSlug=${encodeURIComponent(target.slug)}`;
+    return (
+      publicDestinationPath(target) ??
+      `/search?types=destination&regionSlug=${encodeURIComponent(target.region.slug)}&citySlug=${encodeURIComponent(target.city.slug)}&destinationSlug=${encodeURIComponent(target.slug)}`
+    );
   }
   if (target.type === 'ATTRACTION') {
-    return `/explore?types=attraction&regionSlug=${encodeURIComponent(target.region?.slug ?? '')}&citySlug=${encodeURIComponent(target.city?.slug ?? '')}&destinationSlug=${encodeURIComponent(target.destination?.slug ?? '')}&q=${encodeURIComponent(target.name)}`;
+    return `/search?types=attraction&regionSlug=${encodeURIComponent(target.region.slug)}&citySlug=${encodeURIComponent(target.city.slug)}&destinationSlug=${encodeURIComponent(target.destination.slug)}&q=${encodeURIComponent(target.name)}`;
   }
   if (target.type === 'BUSINESS') {
-    return `/explore?types=business&regionSlug=${encodeURIComponent(target.region?.slug ?? '')}&citySlug=${encodeURIComponent(target.city?.slug ?? '')}&q=${encodeURIComponent(target.name)}`;
+    return (
+      publicBusinessPath(target) ??
+      `/search?types=business&regionSlug=${encodeURIComponent(target.region.slug)}&citySlug=${encodeURIComponent(target.city.slug)}&q=${encodeURIComponent(target.name)}`
+    );
   }
-  return `/explore?types=service&regionSlug=${encodeURIComponent(target.region?.slug ?? '')}&citySlug=${encodeURIComponent(target.city?.slug ?? '')}&q=${encodeURIComponent(target.name)}`;
+  return `/services/${encodeURIComponent(target.id)}`;
 }
 
 function locationLine(target: FavoriteTarget) {
@@ -277,7 +285,7 @@ export function FavoritesClient() {
             revisit.
           </p>
           <Link
-            href="/explore"
+            href="/search"
             className="mt-5 inline-flex rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
           >
             Start exploring

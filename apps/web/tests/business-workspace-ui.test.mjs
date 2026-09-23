@@ -14,6 +14,7 @@ void test('route-aware chrome preserves public pages and replaces marketplace ch
   const publicLayout = read('components/layout/PublicLayout.tsx');
   const chrome = read('components/layout/RouteAwareChrome.tsx');
   const portal = read('components/layout/BusinessPortalTopBar.tsx');
+  const accountDropdown = read('components/layout/AccountDropdown.tsx');
 
   assert.match(publicLayout, /RouteAwareChrome/);
   assert.match(chrome, /pathname === '\/businesses\/manage'/);
@@ -22,7 +23,10 @@ void test('route-aware chrome preserves public pages and replaces marketplace ch
   assert.match(chrome, /isBusinessPortal \?[\s(]*<BusinessPortalTopBar/);
   assert.match(portal, /Business Portal/);
   assert.match(portal, /NotificationBell/);
-  assert.match(portal, /LogoutButton/);
+  assert.match(portal, /AccountDropdown/);
+  assert.doesNotMatch(portal, /LogoutButton/);
+  assert.match(accountDropdown, /LogoutButton/);
+  assert.match(chrome, /hasBusinessWorkspace/);
   assert.match(portal, /Back to EthioTravel/);
 });
 

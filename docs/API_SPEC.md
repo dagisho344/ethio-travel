@@ -13,12 +13,12 @@ GET/PATCH /users/me
 GET /regions
 GET /cities
 GET /destinations
-GET /destinations/:slug
-GET /destinations/:id/attractions
+GET /regions/:regionSlug/cities/:citySlug/destinations/:destinationSlug
+GET /regions/:regionSlug/cities/:citySlug/destinations
 
 ## Search
 GET /search
-GET /search/nearby
+GET /map/places
 
 ## Businesses
 POST /businesses
