@@ -4,7 +4,9 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, Building2, MapPin } from 'lucide-react';
 import { BookingWidget } from '../../../components/bookings/BookingWidget';
 import { FavoriteButton } from '../../../components/favorites/FavoriteButton';
+import { StartConversationButton } from '../../../components/messaging/StartConversationButton';
 import { ReviewPanel } from '../../../components/reviews/ReviewPanel';
+import { AddToTripButton } from '../../../components/trips/AddToTripButton';
 import { ServiceCategoryDetails } from '../../../components/public/ServiceCategoryDetails';
 import { Container } from '../../../components/ui/Container';
 import { ApiError, getJson } from '../../../lib/api';
@@ -143,6 +145,19 @@ export default async function PublicServiceDetailPage({
               targetName={service.name}
               className="w-full justify-center rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-highland hover:text-highland"
             />
+            <AddToTripButton
+              targetType="SERVICE"
+              targetId={service.id}
+              targetName={service.name}
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+            />
+            {service.business?.id ? (
+              <StartConversationButton
+                businessId={service.business.id}
+                label="Message business"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-highland px-4 py-2.5 text-sm font-semibold text-highland transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            ) : null}
             <BookingWidget
               serviceId={service.id}
               serviceName={service.name}

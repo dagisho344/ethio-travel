@@ -44,6 +44,7 @@ function prismaMock() {
     businessCategory: delegate(),
     businessLocation: delegate(),
     businessLocationOperatingHour: delegate(),
+    businessMedia: delegate(),
     businessMember: delegate(),
     businessVerification: delegate(),
     city: delegate(),
@@ -141,6 +142,12 @@ describe('Phase 3 business services', () => {
           caption: null,
           media: { id: '55555555-5555-4555-8555-555555555555' },
         },
+        {
+          role: 'LOGO',
+          altText: 'Public logo',
+          caption: null,
+          media: { id: '66666666-6666-4666-8666-666666666666' },
+        },
       ],
       members: [{ userId, role: BusinessMemberRole.OWNER }],
       verifications: [{ id: 'private-verification' }],
@@ -148,6 +155,20 @@ describe('Phase 3 business services', () => {
       payments: [{ id: 'private-payment' }],
       reports: [{ id: 'private-report' }],
     });
+    prisma.businessMedia.findMany.mockResolvedValue([
+      {
+        role: 'GALLERY',
+        altText: 'First gallery image',
+        caption: 'First caption',
+        media: { id: '77777777-7777-4777-8777-777777777777' },
+      },
+      {
+        role: 'GALLERY',
+        altText: 'Second gallery image',
+        caption: null,
+        media: { id: '88888888-8888-4888-8888-888888888888' },
+      },
+    ]);
     const service = new BusinessesService(prisma as PrismaService);
 
     const result = await service.findPublicBySlugs(
@@ -166,6 +187,14 @@ describe('Phase 3 business services', () => {
             slug: 'wolaita-sodo',
             region: expect.objectContaining({ slug: 'south-ethiopia' }),
           }),
+          AND: [
+            {
+              OR: [
+                { destinationId: null },
+                { destination: { is: { status: 'PUBLISHED' } } },
+              ],
+            },
+          ],
         }),
         select: expect.objectContaining({
           category: { select: { code: true, name: true } },
@@ -185,6 +214,25 @@ describe('Phase 3 business services', () => {
     expect(query.select).not.toHaveProperty('verifications');
     expect(query.select).not.toHaveProperty('bookings');
     expect(query.select).not.toHaveProperty('payments');
+    expect(prisma.businessMedia.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          businessId,
+          role: 'GALLERY',
+          media: {
+            status: 'READY',
+            visibility: 'PUBLIC',
+          },
+          business: expect.objectContaining({
+            slug: 'sodo-sample-hotel',
+            status: BusinessStatus.ACTIVE,
+            verificationSummary: BusinessVerificationSummary.VERIFIED,
+          }),
+        }),
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        take: 12,
+      }),
+    );
 
     expect(result).toEqual({
       id: businessId,
@@ -205,7 +253,13 @@ describe('Phase 3 business services', () => {
       region: { name: 'South Ethiopia', slug: 'south-ethiopia' },
       destination: null,
       media: {
-        logo: null,
+        logo: {
+          id: '66666666-6666-4666-8666-666666666666',
+          altText: 'Public logo',
+          caption: null,
+          accessPath:
+            '/api/v1/media/public/66666666-6666-4666-8666-666666666666',
+        },
         hero: {
           id: '55555555-5555-4555-8555-555555555555',
           altText: 'Public hero',
@@ -213,6 +267,22 @@ describe('Phase 3 business services', () => {
           accessPath:
             '/api/v1/media/public/55555555-5555-4555-8555-555555555555',
         },
+        gallery: [
+          {
+            id: '77777777-7777-4777-8777-777777777777',
+            altText: 'First gallery image',
+            caption: 'First caption',
+            accessPath:
+              '/api/v1/media/public/77777777-7777-4777-8777-777777777777',
+          },
+          {
+            id: '88888888-8888-4888-8888-888888888888',
+            altText: 'Second gallery image',
+            caption: null,
+            accessPath:
+              '/api/v1/media/public/88888888-8888-4888-8888-888888888888',
+          },
+        ],
       },
     });
     expect(result).not.toHaveProperty('members');
@@ -220,6 +290,48 @@ describe('Phase 3 business services', () => {
     expect(result).not.toHaveProperty('bookings');
     expect(result).not.toHaveProperty('payments');
     expect(result).not.toHaveProperty('reports');
+  });
+
+  it('keeps gallery media out of paginated public business cards', async () => {
+    const prisma = prismaMock();
+    const record = {
+      id: businessId,
+      name: 'Sodo Sample Hotel',
+      slug: 'sodo-sample-hotel',
+      description: 'A verified public business.',
+      phone: null,
+      email: null,
+      website: null,
+      addressLine1: 'Main road',
+      addressLine2: null,
+      neighborhood: null,
+      postalCode: null,
+      latitude: 6.855,
+      longitude: 37.761,
+      category: { code: 'HOTEL', name: 'Hotel' },
+      city: {
+        name: 'Wolaita Sodo',
+        slug: 'wolaita-sodo',
+        region: { name: 'South Ethiopia', slug: 'south-ethiopia' },
+      },
+      destination: null,
+      media: [],
+    };
+    prisma.business.findMany.mockResolvedValue([record]);
+    prisma.business.count.mockResolvedValue(1);
+    const service = new BusinessesService(prisma as PrismaService);
+
+    const result = await service.findPublic({ page: 1, limit: 20 });
+
+    const listQuery = prisma.business.findMany.mock.calls[0][0];
+    expect(listQuery.select.media.where.role).toEqual({
+      in: ['HERO', 'LOGO'],
+    });
+    expect(listQuery.select.media.where.media).toEqual({
+      status: 'READY',
+      visibility: 'PUBLIC',
+    });
+    expect(result.data[0]?.media).not.toHaveProperty('gallery');
   });
   it('does not authorize by global role without business membership', async () => {
     const prisma = prismaMock();

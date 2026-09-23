@@ -1,14 +1,10 @@
 import Link from 'next/link';
-import {
-  ArrowRight,
-  BadgeCheck,
-  Building2,
-  ImageIcon,
-  MapPin,
-} from 'lucide-react';
+import { ArrowRight, BadgeCheck, Building2, MapPin } from 'lucide-react';
 import { BusinessFilters } from './BusinessFilters';
 import { FavoriteButton } from '../../components/favorites/FavoriteButton';
 import { StartConversationButton } from '../../components/messaging/StartConversationButton';
+import { PublicBusinessCardImage } from '../../components/public/PublicBusinessMedia';
+import { AddToTripButton } from '../../components/trips/AddToTripButton';
 import { Container } from '../../components/ui/Container';
 import { SectionHeading } from '../../components/ui/States';
 import { safePage } from '../../lib/api';
@@ -48,11 +44,11 @@ function BusinessResultCard({
         initialFavoriteId={favoriteId}
         className="absolute right-3 top-3 z-10"
       />
-      <div className="flex h-32 items-center justify-center bg-gradient-to-br from-emerald-50 via-sky-50 to-amber-50 text-highland">
-        <div className="rounded-full bg-white/75 p-4 shadow-sm ring-1 ring-slate-200/70">
-          <ImageIcon className="h-7 w-7" aria-hidden="true" />
-        </div>
-      </div>
+      <PublicBusinessCardImage
+        businessName={business.name}
+        hero={business.media?.hero}
+        logo={business.media?.logo}
+      />
       <div className="flex flex-1 flex-col p-5">
         <div className="flex flex-wrap items-center gap-2">
           {business.category?.name ? (
@@ -101,6 +97,11 @@ function BusinessResultCard({
               />
             </Link>
           ) : null}
+          <AddToTripButton
+            targetType="BUSINESS"
+            targetId={business.id}
+            targetName={business.name}
+          />
           <StartConversationButton
             businessId={business.id}
             label="Contact business"

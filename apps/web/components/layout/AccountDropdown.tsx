@@ -3,7 +3,7 @@
 import { ChevronDown, UserRound } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useId, useRef, useState } from 'react';
+import { type RefObject, useEffect, useId, useRef, useState } from 'react';
 import { LogoutButton } from '../auth/LogoutButton';
 
 type NavigationLink = {
@@ -63,6 +63,12 @@ function linkClass(active: boolean): string {
 type AccountDropdownProps = AccountNavigationOptions & {
   authenticated: boolean;
   onNavigate?: () => void;
+};
+
+type MobileAccountNavigationProps = AccountDropdownProps & {
+  buttonRef: RefObject<HTMLButtonElement | null>;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 };
 
 /**
@@ -163,5 +169,78 @@ export function AccountDropdown({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The mobile account navigation stays in the hamburger panel so its links
+ * remain visible and reachable without a nested floating popup.
+ */
+export function MobileAccountNavigation({
+  authenticated,
+  hasAdminDashboard,
+  hasBusinessWorkspace,
+  onNavigate,
+  buttonRef,
+  open,
+  onOpenChange,
+}: MobileAccountNavigationProps) {
+  const pathname = usePathname();
+  const menuId = useId();
+  const links = accountNavigationLinks({
+    hasAdminDashboard,
+    hasBusinessWorkspace,
+  });
+
+  if (!authenticated) return null;
+
+  function closeMenu() {
+    onOpenChange(false);
+    onNavigate?.();
+  }
+
+  return (
+    <section aria-label="Account navigation">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-expanded={open}
+        aria-controls={menuId}
+        onClick={() => onOpenChange(!open)}
+        className="flex w-full items-center justify-between rounded-md px-2 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
+      >
+        <span className="inline-flex items-center gap-2">
+          <UserRound className="h-5 w-5" aria-hidden="true" />
+          Account
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        />
+      </button>
+      {open ? (
+        <nav
+          id={menuId}
+          aria-label="Mobile account navigation"
+          className="mt-1 space-y-1 border-l border-slate-200 pl-2"
+        >
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={isActive(pathname, link.href) ? 'page' : undefined}
+              onClick={closeMenu}
+              className={linkClass(isActive(pathname, link.href))}
+            >
+              {link.label}
+            </Link>
+          ))}
+          <div className="my-2 border-t border-slate-100" />
+          <div className="w-full" onClick={closeMenu}>
+            <LogoutButton className="block w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60" />
+          </div>
+        </nav>
+      ) : null}
+    </section>
   );
 }

@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { FavoriteButton } from '../../../../../../../components/favorites/FavoriteButton';
+import { AddToTripButton } from '../../../../../../../components/trips/AddToTripButton';
 import { Container } from '../../../../../../../components/ui/Container';
 import { getJson } from '../../../../../../../lib/api';
 import type { Destination } from '../../../../../../../lib/types';
@@ -45,6 +47,19 @@ export default async function PublicDestinationPage({
               {destination.fullDescription}
             </p>
           ) : null}
+          <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-5">
+            <FavoriteButton
+              targetType="DESTINATION"
+              targetId={destination.id}
+              targetName={destination.name}
+              className="shrink-0"
+            />
+            <AddToTripButton
+              targetType="DESTINATION"
+              targetId={destination.id}
+              targetName={destination.name}
+            />
+          </div>
         </article>
       </Container>
     </main>

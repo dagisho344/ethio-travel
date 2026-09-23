@@ -83,7 +83,7 @@ void test('Others is an accessible desktop dropdown with a working mobile submen
   assert.doesNotMatch(navigation, />Register</);
 });
 
-void test('shared account dropdown keeps account routes separate and supports accessible dismissal', () => {
+void test('shared account navigation keeps account routes separate and supports accessible dismissal', () => {
   const navigation = read('components/layout/HeaderNavigation.tsx');
   const accountDropdown = read('components/layout/AccountDropdown.tsx');
   const accountLabels = [
@@ -106,6 +106,10 @@ void test('shared account dropdown keeps account routes separate and supports ac
     previousIndex = index;
   }
   assert.match(navigation, /<AccountDropdown/);
+  assert.match(navigation, /<MobileAccountNavigation/);
+  assert.match(navigation, /mobileAccountOpen/);
+  assert.match(navigation, /mobileAccountButtonRef\.current\?\.focus\(\)/);
+  assert.match(navigation, /max-h-\[calc\(100dvh-5rem\)\].*overflow-y-auto/);
   assert.match(accountDropdown, /accountNavigationLinks/);
   assert.match(
     accountDropdown,
@@ -119,6 +123,9 @@ void test('shared account dropdown keeps account routes separate and supports ac
   assert.match(accountDropdown, /buttonRef\.current\?\.focus\(\)/);
   assert.match(accountDropdown, /aria-expanded=\{open\}/);
   assert.match(accountDropdown, /aria-haspopup="menu"/);
+  assert.match(accountDropdown, /Mobile account navigation/);
+  assert.match(accountDropdown, /aria-expanded=\{open\}/);
+  assert.match(accountDropdown, /onOpenChange\(false\)/);
   assert.doesNotMatch(accountDropdown, /href: '\/admin\/payments'/);
   assert.match(accountDropdown, /flex w-56.*flex-col items-stretch/);
   assert.match(accountDropdown, /block w-full rounded-md/);

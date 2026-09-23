@@ -54,7 +54,9 @@ const businessInclude = {
 type BusinessRecord = Prisma.BusinessGetPayload<{
   include: typeof businessInclude;
 }>;
-const publicBusinessSelect = Prisma.validator<Prisma.BusinessSelect>()({
+const MAX_PUBLIC_BUSINESS_GALLERY = 12;
+
+const publicBusinessFields = {
   id: true,
   name: true,
   slug: true,
@@ -77,23 +79,32 @@ const publicBusinessSelect = Prisma.validator<Prisma.BusinessSelect>()({
     },
   },
   destination: { select: { name: true, slug: true } },
+} satisfies Prisma.BusinessSelect;
+
+const publicBusinessMediaFields = {
+  role: true,
+  altText: true,
+  caption: true,
+  media: { select: { id: true } },
+} satisfies Prisma.BusinessMediaSelect;
+
+const publicBusinessListSelect = Prisma.validator<Prisma.BusinessSelect>()({
+  ...publicBusinessFields,
   media: {
     where: {
       role: { in: [MediaRole.HERO, MediaRole.LOGO] },
       media: { status: MediaStatus.READY, visibility: MediaVisibility.PUBLIC },
     },
-    orderBy: [{ role: 'asc' }, { sortOrder: 'asc' }],
+    orderBy: [{ role: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
     take: 2,
-    select: {
-      role: true,
-      altText: true,
-      caption: true,
-      media: { select: { id: true } },
-    },
+    select: publicBusinessMediaFields,
   },
 });
 type PublicBusinessRecord = Prisma.BusinessGetPayload<{
-  select: typeof publicBusinessSelect;
+  select: typeof publicBusinessListSelect;
+}>;
+type PublicBusinessMediaAttachment = Prisma.BusinessMediaGetPayload<{
+  select: typeof publicBusinessMediaFields;
 }>;
 type MemberRole = BusinessMemberRole;
 type CurrentBusinessMember = {
@@ -178,7 +189,7 @@ export class BusinessesService {
     const [records, total] = await this.prisma.$transaction([
       this.prisma.business.findMany({
         where,
-        select: publicBusinessSelect,
+        select: publicBusinessListSelect,
         orderBy: { name: 'asc' },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -203,10 +214,27 @@ export class BusinessesService {
         ...this.publicWhere({ page: 1, limit: 1, regionSlug, citySlug }),
         slug: businessSlug,
       },
-      select: publicBusinessSelect,
+      select: publicBusinessListSelect,
     });
     if (!business) throw new NotFoundException('Business not found.');
-    return this.toPublic(business);
+    const gallery = await this.prisma.businessMedia.findMany({
+      where: {
+        businessId: business.id,
+        role: MediaRole.GALLERY,
+        media: {
+          status: MediaStatus.READY,
+          visibility: MediaVisibility.PUBLIC,
+        },
+        business: {
+          ...this.publicWhere({ page: 1, limit: 1, regionSlug, citySlug }),
+          slug: businessSlug,
+        },
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      take: MAX_PUBLIC_BUSINESS_GALLERY,
+      select: publicBusinessMediaFields,
+    });
+    return this.toPublic(business, gallery);
   }
 
   async findMine(
@@ -754,6 +782,18 @@ export class BusinessesService {
       destination: query.destinationSlug
         ? { slug: query.destinationSlug, status: PublicationStatus.PUBLISHED }
         : undefined,
+      AND: query.destinationSlug
+        ? undefined
+        : [
+            {
+              OR: [
+                { destinationId: null },
+                {
+                  destination: { is: { status: PublicationStatus.PUBLISHED } },
+                },
+              ],
+            },
+          ],
       ...this.searchWhere(query.q),
     };
   }
@@ -819,7 +859,14 @@ export class BusinessesService {
         'Business slug already exists within this city.',
       );
   }
-  private toPublic(business: PublicBusinessRecord) {
+  private toPublic(
+    business: PublicBusinessRecord,
+    gallery?: PublicBusinessMediaAttachment[],
+  ) {
+    const media = {
+      logo: this.publicMediaForRole(business, MediaRole.LOGO),
+      hero: this.publicMediaForRole(business, MediaRole.HERO),
+    };
     return {
       id: business.id,
       name: business.name,
@@ -843,10 +890,17 @@ export class BusinessesService {
       destination: business.destination
         ? { name: business.destination.name, slug: business.destination.slug }
         : null,
-      media: {
-        logo: this.publicMediaForRole(business, MediaRole.LOGO),
-        hero: this.publicMediaForRole(business, MediaRole.HERO),
-      },
+      media: gallery
+        ? {
+            ...media,
+            gallery: gallery.map((item) => ({
+              id: item.media.id,
+              altText: item.altText,
+              caption: item.caption,
+              accessPath: `/api/v1/media/public/${item.media.id}`,
+            })),
+          }
+        : media,
     };
   }
 

@@ -5,7 +5,7 @@ import { ChevronDown, Menu, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { NotificationBell } from '../notifications/NotificationBell';
-import { AccountDropdown } from './AccountDropdown';
+import { AccountDropdown, MobileAccountNavigation } from './AccountDropdown';
 
 type NavigationLink = {
   href: string;
@@ -45,10 +45,12 @@ export function HeaderNavigation({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [othersOpen, setOthersOpen] = useState(false);
   const [mobileOthersOpen, setMobileOthersOpen] = useState(false);
+  const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
   const othersRef = useRef<HTMLDivElement>(null);
   const othersButtonRef = useRef<HTMLButtonElement>(null);
   const mobileRef = useRef<HTMLDivElement>(null);
   const mobileButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileAccountButtonRef = useRef<HTMLButtonElement>(null);
 
   const navigationLinks = publicLinks;
   const othersActive = otherPublicLinks.some((link) =>
@@ -65,6 +67,7 @@ export function HeaderNavigation({
       if (mobileRef.current && !mobileRef.current.contains(event.target)) {
         setMobileOpen(false);
         setMobileOthersOpen(false);
+        setMobileAccountOpen(false);
       }
     }
 
@@ -72,9 +75,15 @@ export function HeaderNavigation({
       if (event.key !== 'Escape') return;
       const wasOthersOpen = othersOpen;
       const wasMobileOpen = mobileOpen;
+      const wasMobileAccountOpen = mobileAccountOpen;
       setOthersOpen(false);
-      setMobileOpen(false);
       setMobileOthersOpen(false);
+      setMobileAccountOpen(false);
+      if (wasMobileAccountOpen) {
+        mobileAccountButtonRef.current?.focus();
+        return;
+      }
+      setMobileOpen(false);
       if (wasOthersOpen) {
         othersButtonRef.current?.focus();
       } else if (wasMobileOpen) {
@@ -88,7 +97,7 @@ export function HeaderNavigation({
       document.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [mobileOpen, othersOpen]);
+  }, [mobileAccountOpen, mobileOpen, othersOpen]);
 
   return (
     <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-3">
@@ -188,6 +197,7 @@ export function HeaderNavigation({
             onClick={() => {
               setMobileOpen((open) => !open);
               setMobileOthersOpen(false);
+              setMobileAccountOpen(false);
             }}
             className="flex items-center justify-center rounded-md border border-slate-200 p-2 text-slate-700 transition hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
           >
@@ -200,7 +210,7 @@ export function HeaderNavigation({
           {mobileOpen ? (
             <div
               id="mobile-navigation"
-              className="absolute right-0 z-[1200] mt-3 w-[min(20rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white p-3 shadow-xl"
+              className="absolute right-0 z-[1200] mt-3 max-h-[calc(100dvh-5rem)] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-white p-3 shadow-xl"
             >
               <nav aria-label="Mobile primary navigation" className="space-y-1">
                 {navigationLinks.map((link) => (
@@ -221,7 +231,10 @@ export function HeaderNavigation({
                     type="button"
                     aria-expanded={mobileOthersOpen}
                     aria-controls="mobile-other-navigation"
-                    onClick={() => setMobileOthersOpen((open) => !open)}
+                    onClick={() => {
+                      setMobileOthersOpen((open) => !open);
+                      setMobileAccountOpen(false);
+                    }}
                     className={`flex w-full items-center justify-between ${linkClass(othersActive)}`}
                   >
                     <span>Others</span>
@@ -258,16 +271,20 @@ export function HeaderNavigation({
               <div className="mt-3 border-t border-slate-100 pt-3">
                 {authenticated ? (
                   <>
-                    <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Account
-                    </p>
-                    <AccountDropdown
+                    <MobileAccountNavigation
                       authenticated={authenticated}
                       hasAdminDashboard={hasAdminDashboard}
                       hasBusinessWorkspace={hasBusinessWorkspace}
+                      buttonRef={mobileAccountButtonRef}
+                      open={mobileAccountOpen}
+                      onOpenChange={(open) => {
+                        setMobileAccountOpen(open);
+                        if (open) setMobileOthersOpen(false);
+                      }}
                       onNavigate={() => {
                         setMobileOpen(false);
                         setMobileOthersOpen(false);
+                        setMobileAccountOpen(false);
                       }}
                     />
                   </>

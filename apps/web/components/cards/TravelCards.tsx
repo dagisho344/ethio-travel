@@ -2,8 +2,11 @@ import Link from 'next/link';
 import { Briefcase, Landmark, MapPin, Sparkles } from 'lucide-react';
 import { BookingWidget } from '../bookings/BookingWidget';
 import { FavoriteButton } from '../favorites/FavoriteButton';
+import { StartConversationButton } from '../messaging/StartConversationButton';
+import { PublicBusinessCardImage } from '../public/PublicBusinessMedia';
 import { ReviewForm } from '../reviews/ReviewForm';
 import { ReviewPanel } from '../reviews/ReviewPanel';
+import { AddToTripButton } from '../trips/AddToTripButton';
 import {
   favoriteLookupKey,
   type FavoriteLookup,
@@ -45,7 +48,13 @@ function LocationLine({
 export function DestinationCard({ destination }: { destination: Destination }) {
   const destinationHref = publicDestinationPath(destination);
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+    <article className="relative rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+      <FavoriteButton
+        targetType="DESTINATION"
+        targetId={destination.id}
+        targetName={destination.name}
+        className="absolute right-4 top-4 z-10"
+      />
       <Placeholder label="Destination" />
       <div className="p-2">
         <h3 className="text-lg font-bold text-slate-950">{destination.name}</h3>
@@ -53,14 +62,21 @@ export function DestinationCard({ destination }: { destination: Destination }) {
           {destination.shortDescription}
         </p>
         <LocationLine city={destination.city} region={destination.region} />
-        {destinationHref ? (
-          <Link
-            href={destinationHref}
-            className="mt-4 inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
-          >
-            View destination
-          </Link>
-        ) : null}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {destinationHref ? (
+            <Link
+              href={destinationHref}
+              className="inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+            >
+              View destination
+            </Link>
+          ) : null}
+          <AddToTripButton
+            targetType="DESTINATION"
+            targetId={destination.id}
+            targetName={destination.name}
+          />
+        </div>
       </div>
     </article>
   );
@@ -69,7 +85,18 @@ export function BusinessCard({ business }: { business: Business }) {
   const businessHref = publicBusinessPath(business);
 
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="relative rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <FavoriteButton
+        targetType="BUSINESS"
+        targetId={business.id}
+        targetName={business.name}
+        className="absolute right-4 top-4 z-10"
+      />
+      <PublicBusinessCardImage
+        businessName={business.name}
+        hero={business.media?.hero}
+        logo={business.media?.logo}
+      />
       <div className="mb-3 inline-flex items-center gap-2 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
         <Briefcase className="h-3.5 w-3.5" />
         {categoryName(business.category) ?? 'Verified Business'}
@@ -79,20 +106,38 @@ export function BusinessCard({ business }: { business: Business }) {
         {business.description}
       </p>
       <LocationLine city={business.city} region={business.region} />
-      {businessHref ? (
-        <Link
-          href={businessHref}
-          className="mt-4 inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
-        >
-          View business
-        </Link>
-      ) : null}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {businessHref ? (
+          <Link
+            href={businessHref}
+            className="inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+          >
+            View business
+          </Link>
+        ) : null}
+        <AddToTripButton
+          targetType="BUSINESS"
+          targetId={business.id}
+          targetName={business.name}
+        />
+        <StartConversationButton
+          businessId={business.id}
+          label="Message business"
+          className="inline-flex min-h-10 items-center justify-center rounded-md border border-highland px-3 py-2 text-sm font-semibold text-highland hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        />
+      </div>
     </article>
   );
 }
 export function ServiceCard({ service }: { service: Service }) {
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="relative rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <FavoriteButton
+        targetType="SERVICE"
+        targetId={service.id}
+        targetName={service.name}
+        className="absolute right-4 top-4 z-10"
+      />
       <div className="mb-3 inline-flex items-center gap-2 rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">
         <Sparkles className="h-3.5 w-3.5" />
         {categoryName(service.category) ?? 'Service'}
@@ -105,12 +150,34 @@ export function ServiceCard({ service }: { service: Service }) {
         {formatPricing(service.pricingModel, service.price, service.currency)}
       </p>
       <p className="mt-2 text-sm text-slate-500">{service.business?.name}</p>
-      <Link
-        href={`/services/${service.id}`}
-        className="mt-4 inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
-      >
-        View service details
-      </Link>
+      <BookingWidget
+        serviceId={service.id}
+        serviceName={service.name}
+        pricingModel={service.pricingModel}
+        price={service.price}
+        currency={service.currency}
+        compact
+      />
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Link
+          href={`/services/${service.id}`}
+          className="inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+        >
+          View service details
+        </Link>
+        <AddToTripButton
+          targetType="SERVICE"
+          targetId={service.id}
+          targetName={service.name}
+        />
+        {service.business?.id ? (
+          <StartConversationButton
+            businessId={service.business.id}
+            label="Message business"
+            className="inline-flex min-h-10 items-center justify-center rounded-md border border-highland px-3 py-2 text-sm font-semibold text-highland hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          />
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -190,6 +257,20 @@ export function SearchResultCard({
           compact
         />
       ) : null}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <AddToTripButton
+          targetType={targetType}
+          targetId={result.id}
+          targetName={result.name}
+        />
+        {result.type === 'business' ? (
+          <StartConversationButton
+            businessId={result.id}
+            label="Message business"
+            className="inline-flex min-h-10 items-center justify-center rounded-md border border-highland px-3 py-2 text-sm font-semibold text-highland hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          />
+        ) : null}
+      </div>
       {onShowOnMap && result.latitude != null && result.longitude != null ? (
         <button
           type="button"

@@ -68,6 +68,7 @@ export interface Business {
   media?: {
     hero: PublicMedia | null;
     logo: PublicMedia | null;
+    gallery?: PublicMedia[];
   };
 }
 export type PricingModel =

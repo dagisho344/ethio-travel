@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import { ArrowRight, MapPin, ShieldCheck } from 'lucide-react';
+import { BookingWidget } from '../bookings/BookingWidget';
 import { FavoriteButton } from '../favorites/FavoriteButton';
+import { StartConversationButton } from '../messaging/StartConversationButton';
+import { AddToTripButton } from '../trips/AddToTripButton';
+import { PublicBusinessCardImage } from './PublicBusinessMedia';
 import { publicBusinessPath } from '../../lib/public-business-route';
 import { getPublicServiceCategoryPresentation } from '../../lib/public-service-category';
 import type { PricingModel, Service } from '../../lib/types';
@@ -32,9 +36,6 @@ export function PublicServiceCard({ service }: { service: Service }) {
         region: service.region,
       })
     : null;
-  const publicApiBase =
-    process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
-
   return (
     <article className="relative flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-highland/30 hover:shadow-md">
       <FavoriteButton
@@ -55,14 +56,13 @@ export function PublicServiceCard({ service }: { service: Service }) {
         ) : null}
       </div>
       {media ? (
-        <a
-          href={`${publicApiBase}${media.accessPath}`}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 block rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 hover:text-highland focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
-        >
-          {media.altText || media.caption || 'View public business photo'}
-        </a>
+        <div className="mt-4">
+          <PublicBusinessCardImage
+            businessName={service.business?.name ?? 'EthioTravel business'}
+            hero={media}
+            logo={null}
+          />
+        </div>
       ) : null}
       <h2 className="mt-4 text-lg font-bold text-slate-950">{service.name}</h2>
       {businessHref && service.business?.name ? (
@@ -99,13 +99,35 @@ export function PublicServiceCard({ service }: { service: Service }) {
           </Link>
         ) : null}
       </div>
-      <Link
-        href={`/services/${service.id}`}
-        className="mt-5 inline-flex w-fit items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
-      >
-        View service details{' '}
-        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-      </Link>
+      <BookingWidget
+        serviceId={service.id}
+        serviceName={service.name}
+        pricingModel={service.pricingModel}
+        price={service.price}
+        currency={service.currency}
+        compact
+      />
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <Link
+          href={`/services/${service.id}`}
+          className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+        >
+          View service details{' '}
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Link>
+        <AddToTripButton
+          targetType="SERVICE"
+          targetId={service.id}
+          targetName={service.name}
+        />
+        {service.business?.id ? (
+          <StartConversationButton
+            businessId={service.business.id}
+            label="Message business"
+            className="inline-flex min-h-10 items-center justify-center rounded-md border border-highland px-3 py-2 text-sm font-semibold text-highland hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          />
+        ) : null}
+      </div>
     </article>
   );
 }

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight, ImageIcon, Map, MapPin } from 'lucide-react';
 import { DestinationFilters } from './DestinationFilters';
 import { FavoriteButton } from '../../components/favorites/FavoriteButton';
+import { AddToTripButton } from '../../components/trips/AddToTripButton';
 import { Container } from '../../components/ui/Container';
 import { SectionHeading } from '../../components/ui/States';
 import { safePage } from '../../lib/api';
@@ -155,16 +156,23 @@ function DestinationResultCard({
             More travel details will be added soon.
           </p>
         )}
-        <Link
-          className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-highland transition hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
-          href={destinationPath(region?.slug, city?.slug, destination.slug)}
-        >
-          View destination
-          <ArrowRight
-            className="h-4 w-4 transition group-hover:translate-x-0.5"
-            aria-hidden="true"
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <Link
+            className="inline-flex items-center gap-2 text-sm font-semibold text-highland transition hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
+            href={destinationPath(region?.slug, city?.slug, destination.slug)}
+          >
+            View destination
+            <ArrowRight
+              className="h-4 w-4 transition group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
+          </Link>
+          <AddToTripButton
+            targetType="DESTINATION"
+            targetId={destination.id}
+            targetName={destination.name}
           />
-        </Link>
+        </div>
       </div>
     </article>
   );
