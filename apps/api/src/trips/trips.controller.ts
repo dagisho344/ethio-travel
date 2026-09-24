@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -24,8 +25,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import {
   CreateTripDto,
   CreateTripItemDto,
+  CreateTripPlannedExpenseDto,
   ReorderTripItemsDto,
   TripQueryDto,
+  UpdateTripPlannedExpenseDto,
+  UpsertTripBudgetDto,
   UpdateTripDayDto,
   UpdateTripDto,
   UpdateTripItemDto,
@@ -81,6 +85,67 @@ export class TripsController {
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.trips.archive(user.sub, id);
+  }
+
+  @Get('trips/:id/budget')
+  @ApiOkResponse({ description: 'Owned private trip budget.' })
+  budget(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.trips.budget(user.sub, id);
+  }
+
+  @Put('trips/:id/budget')
+  @ApiOkResponse({ description: 'Owned trip budget created or updated.' })
+  upsertBudget(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpsertTripBudgetDto,
+  ) {
+    return this.trips.upsertBudget(user.sub, id, dto);
+  }
+
+  @Delete('trips/:id/budget')
+  @HttpCode(204)
+  @ApiNoContentResponse({ description: 'Owned private budget plan removed.' })
+  async deleteBudget(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<void> {
+    await this.trips.deleteBudget(user.sub, id);
+  }
+
+  @Post('trips/:id/budget/expenses')
+  @ApiCreatedResponse({ description: 'Owned planned expense created.' })
+  createPlannedExpense(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: CreateTripPlannedExpenseDto,
+  ) {
+    return this.trips.createPlannedExpense(user.sub, id, dto);
+  }
+
+  @Patch('trips/:id/budget/expenses/:expenseId')
+  @ApiOkResponse({ description: 'Owned planned expense updated.' })
+  updatePlannedExpense(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('expenseId', new ParseUUIDPipe()) expenseId: string,
+    @Body() dto: UpdateTripPlannedExpenseDto,
+  ) {
+    return this.trips.updatePlannedExpense(user.sub, id, expenseId, dto);
+  }
+
+  @Delete('trips/:id/budget/expenses/:expenseId')
+  @HttpCode(204)
+  @ApiNoContentResponse({ description: 'Owned planned expense removed.' })
+  async deletePlannedExpense(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('expenseId', new ParseUUIDPipe()) expenseId: string,
+  ): Promise<void> {
+    await this.trips.deletePlannedExpense(user.sub, id, expenseId);
   }
 
   @Get('trips/:id/days')

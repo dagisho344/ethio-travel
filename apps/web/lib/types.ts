@@ -604,6 +604,31 @@ export interface TripCostEstimate {
   reason: 'MULTIPLE_OR_UNKNOWN_CURRENCIES' | null;
 }
 
+export type TripBudgetCategory =
+  'ACCOMMODATION' | 'TRANSPORT' | 'FOOD' | 'ACTIVITIES' | 'OTHER';
+
+export interface TripPlannedExpense {
+  id: string;
+  category: TripBudgetCategory;
+  amount: string;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TripBudget {
+  amount: string;
+  currency: string;
+  expenses: TripPlannedExpense[];
+  categoryTotals: Record<TripBudgetCategory, string>;
+  plannedTotal: string;
+  remainingAmount: string;
+  overBudget: boolean;
+  overBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Trip {
   id: string;
   title: string;
@@ -620,9 +645,13 @@ export interface Trip {
   days: TripDay[];
   dayCount: number;
   estimatedBookingCost: TripCostEstimate | null;
+  budget: TripBudget | null;
 }
 
-export type TripListItem = Omit<Trip, 'days' | 'estimatedBookingCost'>;
+export type TripListItem = Omit<
+  Trip,
+  'days' | 'estimatedBookingCost' | 'budget' | 'notes'
+>;
 export type TripListResponse = PaginatedResponse<TripListItem>;
 
 export type AiIntent =

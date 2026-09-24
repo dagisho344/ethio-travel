@@ -5,7 +5,13 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Prisma, TripItemType, TripStatus, UserStatus } from '@prisma/client';
+import {
+  Prisma,
+  TripBudgetCategory,
+  TripItemType,
+  TripStatus,
+  UserStatus,
+} from '@prisma/client';
 import { paginate } from '../common/dto/pagination.dto';
 import {
   publicAttractionWhere,
@@ -21,14 +27,19 @@ import {
   TripQueryDto,
   TripSort,
   TripTimingFilter,
+  CreateTripPlannedExpenseDto,
+  UpdateTripPlannedExpenseDto,
+  UpsertTripBudgetDto,
   UpdateTripDayDto,
   UpdateTripDto,
   UpdateTripItemDto,
 } from './dto/trip.dto';
 
 const MAX_TRIP_DAYS = 90;
+const MAX_TRIP_BUDGET_EXPENSES = 100;
 const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+const supportedCurrencies = new Set(Intl.supportedValuesOf('currency'));
 
 type TripClient = Prisma.TransactionClient | PrismaService;
 
@@ -73,6 +84,30 @@ const daySelect = Prisma.validator<Prisma.TripDaySelect>()({
   items: { orderBy: { position: 'asc' }, select: itemSelect },
 });
 
+const budgetExpenseSelect = Prisma.validator<Prisma.TripPlannedExpenseSelect>()(
+  {
+    id: true,
+    category: true,
+    amount: true,
+    note: true,
+    createdAt: true,
+    updatedAt: true,
+  },
+);
+
+const tripBudgetSelect = Prisma.validator<Prisma.TripBudgetSelect>()({
+  id: true,
+  amount: true,
+  currency: true,
+  createdAt: true,
+  updatedAt: true,
+  expenses: {
+    orderBy: [{ category: 'asc' }, { createdAt: 'asc' }],
+    take: MAX_TRIP_BUDGET_EXPENSES,
+    select: budgetExpenseSelect,
+  },
+});
+
 const tripDetailSelect = Prisma.validator<Prisma.TripSelect>()({
   id: true,
   userId: true,
@@ -88,6 +123,7 @@ const tripDetailSelect = Prisma.validator<Prisma.TripSelect>()({
   destinationCity: { select: { id: true, name: true, slug: true } },
   primaryDestination: { select: { id: true, name: true, slug: true } },
   days: { orderBy: { date: 'asc' }, select: daySelect },
+  budget: { select: tripBudgetSelect },
 });
 
 const tripListSelect = Prisma.validator<Prisma.TripSelect>()({
@@ -116,6 +152,9 @@ type TripDayRecord = Prisma.TripDayGetPayload<{
 }>;
 type TripItemRecord = Prisma.TripItemGetPayload<{
   select: typeof itemSelect;
+}>;
+type TripBudgetRecord = Prisma.TripBudgetGetPayload<{
+  select: typeof tripBudgetSelect;
 }>;
 
 type ItemTarget = {
@@ -272,6 +311,151 @@ export class TripsService {
       if (!exists) throw new NotFoundException('Trip not found.');
     }
     return this.findOne(userId, id);
+  }
+
+  async budget(userId: string, tripId: string) {
+    await this.ensureActiveUser(userId);
+    const trip = await this.findOwnedTrip(userId, tripId);
+    return this.toBudget(trip.budget);
+  }
+
+  async upsertBudget(userId: string, tripId: string, dto: UpsertTripBudgetDto) {
+    await this.ensureActiveUser(userId);
+    const trip = await this.findOwnedBudgetTrip(userId, tripId);
+    this.assertMutable(trip.status);
+    const amount = this.positiveAmount(dto.amount);
+    const currency = this.supportedCurrency(dto.currency);
+    await this.prisma.$transaction(
+      async (tx) => {
+        const existing = await tx.tripBudget.findUnique({
+          where: { tripId },
+          select: {
+            id: true,
+            currency: true,
+            _count: { select: { expenses: true } },
+          },
+        });
+        if (
+          existing &&
+          existing.currency !== currency &&
+          existing._count.expenses > 0
+        ) {
+          throw new ConflictException(
+            'Remove planned expenses before changing the budget currency.',
+          );
+        }
+        await tx.tripBudget.upsert({
+          where: { tripId },
+          create: { tripId, amount, currency },
+          update: { amount, currency },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+    return this.budget(userId, tripId);
+  }
+
+  async deleteBudget(userId: string, tripId: string) {
+    await this.ensureActiveUser(userId);
+    const trip = await this.findOwnedBudgetTrip(userId, tripId);
+    this.assertMutable(trip.status);
+    await this.prisma.$transaction(
+      async (tx) => {
+        const budget = await tx.tripBudget.findUnique({
+          where: { tripId },
+          select: { id: true },
+        });
+        if (!budget) throw new NotFoundException('Trip budget not found.');
+        await tx.tripPlannedExpense.deleteMany({
+          where: { budgetId: budget.id },
+        });
+        await tx.tripBudget.delete({ where: { id: budget.id } });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  }
+
+  async createPlannedExpense(
+    userId: string,
+    tripId: string,
+    dto: CreateTripPlannedExpenseDto,
+  ) {
+    await this.ensureActiveUser(userId);
+    const trip = await this.findOwnedBudgetTrip(userId, tripId);
+    this.assertMutable(trip.status);
+    const amount = this.positiveAmount(dto.amount);
+    await this.prisma.$transaction(
+      async (tx) => {
+        const budget = await tx.tripBudget.findUnique({
+          where: { tripId },
+          select: { id: true },
+        });
+        if (!budget) {
+          throw new ConflictException('Set an overall trip budget first.');
+        }
+        const count = await tx.tripPlannedExpense.count({
+          where: { budgetId: budget.id },
+        });
+        if (count >= MAX_TRIP_BUDGET_EXPENSES) {
+          throw new ConflictException(
+            `A trip budget may contain at most ${MAX_TRIP_BUDGET_EXPENSES} planned expenses.`,
+          );
+        }
+        await tx.tripPlannedExpense.create({
+          data: {
+            budgetId: budget.id,
+            category: dto.category,
+            amount,
+            note: this.optionalText(dto.note),
+          },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+    return this.budget(userId, tripId);
+  }
+
+  async updatePlannedExpense(
+    userId: string,
+    tripId: string,
+    expenseId: string,
+    dto: UpdateTripPlannedExpenseDto,
+  ) {
+    await this.ensureActiveUser(userId);
+    const trip = await this.findOwnedBudgetTrip(userId, tripId);
+    this.assertMutable(trip.status);
+    const expense = await this.prisma.tripPlannedExpense.findFirst({
+      where: { id: expenseId, budget: { tripId } },
+      select: { id: true },
+    });
+    if (!expense) throw new NotFoundException('Planned expense not found.');
+    await this.prisma.tripPlannedExpense.update({
+      where: { id: expense.id },
+      data: {
+        category: dto.category,
+        amount:
+          dto.amount === undefined
+            ? undefined
+            : this.positiveAmount(dto.amount),
+        note: dto.note === undefined ? undefined : this.optionalText(dto.note),
+      },
+    });
+    return this.budget(userId, tripId);
+  }
+
+  async deletePlannedExpense(
+    userId: string,
+    tripId: string,
+    expenseId: string,
+  ) {
+    await this.ensureActiveUser(userId);
+    const trip = await this.findOwnedBudgetTrip(userId, tripId);
+    this.assertMutable(trip.status);
+    const removed = await this.prisma.tripPlannedExpense.deleteMany({
+      where: { id: expenseId, budget: { tripId } },
+    });
+    if (removed.count !== 1)
+      throw new NotFoundException('Planned expense not found.');
   }
 
   async days(userId: string, tripId: string) {
@@ -488,6 +672,15 @@ export class TripsService {
           },
         },
       },
+    });
+    if (!trip) throw new NotFoundException('Trip not found.');
+    return trip;
+  }
+
+  private async findOwnedBudgetTrip(userId: string, id: string) {
+    const trip = await this.prisma.trip.findFirst({
+      where: { id, userId },
+      select: { id: true, status: true },
     });
     if (!trip) throw new NotFoundException('Trip not found.');
     return trip;
@@ -896,6 +1089,7 @@ export class TripsService {
       days,
       dayCount: days.length,
       estimatedBookingCost: this.estimatedBookingCost(days),
+      budget: this.toBudget(record.budget),
     };
   }
 
@@ -978,5 +1172,63 @@ export class TripsService {
       currency: [...currencies][0],
       reason: null,
     };
+  }
+
+  private toBudget(budget: TripBudgetRecord | null) {
+    if (!budget) return null;
+    const categoryTotals = Object.fromEntries(
+      Object.values(TripBudgetCategory).map((category) => [category, '0']),
+    ) as Record<TripBudgetCategory, string>;
+    const totals = new Map<TripBudgetCategory, Prisma.Decimal>();
+    for (const expense of budget.expenses) {
+      totals.set(
+        expense.category,
+        (totals.get(expense.category) ?? new Prisma.Decimal(0)).plus(
+          expense.amount,
+        ),
+      );
+    }
+    for (const [category, total] of totals)
+      categoryTotals[category] = total.toString();
+    const plannedTotal = [...totals.values()].reduce(
+      (sum, amount) => sum.plus(amount),
+      new Prisma.Decimal(0),
+    );
+    const remainingAmount = budget.amount.minus(plannedTotal);
+    const overBudget = remainingAmount.isNegative();
+    return {
+      amount: budget.amount.toString(),
+      currency: budget.currency,
+      expenses: budget.expenses.map((expense) => ({
+        id: expense.id,
+        category: expense.category,
+        amount: expense.amount.toString(),
+        note: expense.note,
+        createdAt: expense.createdAt,
+        updatedAt: expense.updatedAt,
+      })),
+      categoryTotals,
+      plannedTotal: plannedTotal.toString(),
+      remainingAmount: remainingAmount.toString(),
+      overBudget,
+      overBy: overBudget ? remainingAmount.abs().toString() : '0',
+      createdAt: budget.createdAt,
+      updatedAt: budget.updatedAt,
+    };
+  }
+
+  private positiveAmount(value: string): Prisma.Decimal {
+    const amount = new Prisma.Decimal(value);
+    if (!amount.isPositive())
+      throw new BadRequestException('Amount must be greater than zero.');
+    return amount;
+  }
+
+  private supportedCurrency(value: string): string {
+    if (!supportedCurrencies.has(value))
+      throw new BadRequestException(
+        'Currency must be a supported ISO 4217 code.',
+      );
+    return value;
   }
 }

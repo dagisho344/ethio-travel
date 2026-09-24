@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { TripAiAssistant } from '../ai/TripAiAssistant';
+import { TripBudgetPlanner } from './TripBudgetPlanner';
 import { Container } from '../../components/ui/Container';
 import { getJson } from '../../lib/api';
 import { BffRequestError, bffJson } from '../../lib/private-api';
@@ -301,6 +302,13 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
             </p>
           ) : null}
         </header>
+        <TripBudgetPlanner
+          tripId={trip.id}
+          budget={trip.budget}
+          bookingCost={trip.estimatedBookingCost}
+          readOnly={readOnly}
+          onChanged={loadTrip}
+        />
         {actionError ? (
           <p
             role="alert"

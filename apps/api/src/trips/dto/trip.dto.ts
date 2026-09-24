@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { TripItemType, TripStatus } from '@prisma/client';
+import { TripBudgetCategory, TripItemType, TripStatus } from '@prisma/client';
+import { Transform } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
@@ -15,6 +16,66 @@ import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/;
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+const positiveMoneyPattern =
+  /^(?:0\.(?:0[1-9]|[1-9]\d?)|[1-9]\d{0,9}(?:\.\d{1,2})?)$/;
+
+function trimString(value: unknown): unknown {
+  return typeof value === 'string' ? value.trim() : value;
+}
+
+export class UpsertTripBudgetDto {
+  @ApiProperty({ example: '15000.00', pattern: positiveMoneyPattern.source })
+  @Transform(({ value }: { value: unknown }) => trimString(value))
+  @IsString()
+  @Matches(positiveMoneyPattern)
+  amount!: string;
+
+  @ApiProperty({ example: 'ETB', pattern: '^[A-Z]{3}$' })
+  @Transform(({ value }: { value: unknown }) => trimString(value))
+  @IsString()
+  @Matches(/^[A-Z]{3}$/)
+  currency!: string;
+}
+
+export class CreateTripPlannedExpenseDto {
+  @ApiProperty({ enum: TripBudgetCategory })
+  @IsEnum(TripBudgetCategory)
+  category!: TripBudgetCategory;
+
+  @ApiProperty({ example: '1200.00', pattern: positiveMoneyPattern.source })
+  @Transform(({ value }: { value: unknown }) => trimString(value))
+  @IsString()
+  @Matches(positiveMoneyPattern)
+  amount!: string;
+
+  @ApiPropertyOptional({ maxLength: 180, nullable: true })
+  @Transform(({ value }: { value: unknown }) => trimString(value))
+  @IsString()
+  @MaxLength(180)
+  @IsOptional()
+  note?: string | null;
+}
+
+export class UpdateTripPlannedExpenseDto {
+  @ApiPropertyOptional({ enum: TripBudgetCategory })
+  @IsEnum(TripBudgetCategory)
+  @IsOptional()
+  category?: TripBudgetCategory;
+
+  @ApiPropertyOptional({ pattern: positiveMoneyPattern.source })
+  @Transform(({ value }: { value: unknown }) => trimString(value))
+  @IsString()
+  @Matches(positiveMoneyPattern)
+  @IsOptional()
+  amount?: string;
+
+  @ApiPropertyOptional({ maxLength: 180, nullable: true })
+  @Transform(({ value }: { value: unknown }) => trimString(value))
+  @IsString()
+  @MaxLength(180)
+  @IsOptional()
+  note?: string | null;
+}
 
 export class CreateTripDto {
   @ApiProperty({ maxLength: 160 })

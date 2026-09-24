@@ -1528,6 +1528,14 @@ enum TripItemType {
   CUSTOM
 }
 
+enum TripBudgetCategory {
+  ACCOMMODATION
+  TRANSPORT
+  FOOD
+  ACTIVITIES
+  OTHER
+}
+
 model Trip {
   id                   String     @id @default(uuid()) @db.Uuid
   userId               String     @map("user_id") @db.Uuid
@@ -1548,6 +1556,7 @@ model Trip {
   destinationCity    City?            @relation("TripDestinationCity", fields: [destinationCityId], references: [id], onDelete: Restrict)
   primaryDestination Destination?     @relation("TripPrimaryDestination", fields: [primaryDestinationId], references: [id], onDelete: Restrict)
   days               TripDay[]
+  budget             TripBudget?
   aiConversations    AiConversation[]
   aiSuggestions      AiSuggestion[]
 
@@ -1557,6 +1566,36 @@ model Trip {
   @@index([destinationCityId])
   @@index([primaryDestinationId])
   @@map("trips")
+}
+
+model TripBudget {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @unique @map("trip_id") @db.Uuid
+  amount    Decimal  @db.Decimal(12, 2)
+  currency  String   @db.Char(3)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  trip     Trip                 @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  expenses TripPlannedExpense[]
+
+  @@map("trip_budgets")
+}
+
+model TripPlannedExpense {
+  id        String             @id @default(uuid()) @db.Uuid
+  budgetId  String             @map("budget_id") @db.Uuid
+  category  TripBudgetCategory
+  amount    Decimal            @db.Decimal(12, 2)
+  note      String?            @db.VarChar(180)
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  budget TripBudget @relation(fields: [budgetId], references: [id], onDelete: Restrict)
+
+  @@index([budgetId, category])
+  @@index([budgetId, createdAt])
+  @@map("trip_planned_expenses")
 }
 
 model TripDay {
