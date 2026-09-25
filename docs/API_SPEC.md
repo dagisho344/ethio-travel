@@ -49,6 +49,12 @@ POST /payments/:id/refunds
 ## Trips/Messaging
 GET/POST /trips
 GET/PATCH /trips/:id
+GET /trips/:tripId/share
+GET /trips/:tripId/share/preview
+POST/PATCH /trips/:tripId/share
+POST /trips/:tripId/share/regenerate
+POST /trips/:tripId/share/revoke
+POST /trip-shares/resolve
 GET/POST /conversations
 GET/POST /conversations/:id/messages
 GET /notifications

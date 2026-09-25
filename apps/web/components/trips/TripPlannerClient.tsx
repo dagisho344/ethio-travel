@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { TripAiAssistant } from '../ai/TripAiAssistant';
 import { TripBudgetPlanner } from './TripBudgetPlanner';
+import { TripSharePanel } from './TripSharePanel';
 import { Container } from '../../components/ui/Container';
 import { getJson } from '../../lib/api';
 import { BffRequestError, bffJson } from '../../lib/private-api';
@@ -309,6 +310,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
           readOnly={readOnly}
           onChanged={loadTrip}
         />
+        <TripSharePanel tripId={trip.id} readOnly={readOnly} />
         {actionError ? (
           <p
             role="alert"

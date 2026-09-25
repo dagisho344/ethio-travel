@@ -648,6 +648,48 @@ export interface Trip {
   budget: TripBudget | null;
 }
 
+export type TripShareState =
+  'NONE' | 'ACTIVE' | 'EXPIRED' | 'REVOKED' | 'ARCHIVED';
+
+export interface TripShareOwnerMetadata {
+  state: TripShareState;
+  canCreateOrRegenerate: boolean;
+  canRevoke: boolean;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface SharedTripItem {
+  type: Extract<
+    TripItemType,
+    'DESTINATION' | 'ATTRACTION' | 'BUSINESS' | 'SERVICE'
+  >;
+  title: string;
+  startTime: string | null;
+  endTime: string | null;
+}
+
+export interface SharedTripDay {
+  date: string;
+  dayNumber: number;
+  items: SharedTripItem[];
+}
+
+export interface SharedTrip {
+  title: string;
+  startDate: string;
+  endDate: string;
+  destinations: Array<{
+    name: string;
+    cityName: string;
+    regionName: string;
+  }>;
+  days: SharedTripDay[];
+  truncated: boolean;
+}
+
 export type TripListItem = Omit<
   Trip,
   'days' | 'estimatedBookingCost' | 'budget' | 'notes'
