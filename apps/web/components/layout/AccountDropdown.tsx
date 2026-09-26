@@ -2,6 +2,7 @@
 
 import { ChevronDown, UserRound } from 'lucide-react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
 import { type RefObject, useEffect, useId, useRef, useState } from 'react';
 import { LogoutButton } from '../auth/LogoutButton';
@@ -16,33 +17,39 @@ type AccountNavigationOptions = {
   hasBusinessWorkspace: boolean;
 };
 
-const accountLinks: NavigationLink[] = [
-  { href: '/account', label: 'My Profile' },
-  { href: '/trips', label: 'My Trips' },
-  { href: '/assistant', label: 'AI Assistant' },
-  { href: '/messages', label: 'Messages' },
-];
+type AccountTranslationKey =
+  | 'profile'
+  | 'trips'
+  | 'assistant'
+  | 'messages'
+  | 'adminDashboard'
+  | 'businessDashboard'
+  | 'listBusiness'
+  | 'bookings'
+  | 'favorites'
+  | 'reviews';
 
-const additionalAccountLinks: NavigationLink[] = [
-  { href: '/business/onboarding', label: 'List Your Business' },
-  { href: '/bookings', label: 'My Bookings' },
-  { href: '/favorites', label: 'Favorites' },
-  { href: '/reviews', label: 'My Reviews' },
-];
+type AccountTranslator = (key: AccountTranslationKey) => string;
 
-export function accountNavigationLinks({
-  hasAdminDashboard,
-  hasBusinessWorkspace,
-}: AccountNavigationOptions): NavigationLink[] {
+export function accountNavigationLinks(
+  { hasAdminDashboard, hasBusinessWorkspace }: AccountNavigationOptions,
+  t: AccountTranslator,
+): NavigationLink[] {
   return [
-    ...accountLinks,
+    { href: '/account', label: t('profile') },
+    { href: '/trips', label: t('trips') },
+    { href: '/assistant', label: t('assistant') },
+    { href: '/messages', label: t('messages') },
     ...(hasAdminDashboard
-      ? [{ href: '/admin', label: 'Admin Dashboard' }]
+      ? [{ href: '/admin', label: t('adminDashboard') }]
       : []),
     ...(hasBusinessWorkspace
-      ? [{ href: '/businesses/manage', label: 'Business Dashboard' }]
+      ? [{ href: '/businesses/manage', label: t('businessDashboard') }]
       : []),
-    ...additionalAccountLinks,
+    { href: '/business/onboarding', label: t('listBusiness') },
+    { href: '/bookings', label: t('bookings') },
+    { href: '/favorites', label: t('favorites') },
+    { href: '/reviews', label: t('reviews') },
   ];
 }
 
@@ -82,14 +89,18 @@ export function AccountDropdown({
   onNavigate,
 }: AccountDropdownProps) {
   const pathname = usePathname();
+  const t = useTranslations('account');
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
-  const links = accountNavigationLinks({
-    hasAdminDashboard,
-    hasBusinessWorkspace,
-  });
+  const links = accountNavigationLinks(
+    {
+      hasAdminDashboard,
+      hasBusinessWorkspace,
+    },
+    t,
+  );
 
   useEffect(() => {
     function closeOnOutsidePointer(event: PointerEvent) {
@@ -129,7 +140,7 @@ export function AccountDropdown({
       <button
         ref={buttonRef}
         type="button"
-        aria-label={open ? 'Close account menu' : 'Open account menu'}
+        aria-label={open ? t('closeMenu') : t('openMenu')}
         aria-expanded={open}
         aria-controls={menuId}
         aria-haspopup="menu"
@@ -137,7 +148,7 @@ export function AccountDropdown({
         className="inline-flex items-center gap-2 rounded-md px-2 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
       >
         <UserRound className="h-5 w-5" aria-hidden="true" />
-        <span className="hidden sm:inline">Account</span>
+        <span className="hidden sm:inline">{t('label')}</span>
         <ChevronDown
           className={`hidden h-4 w-4 transition-transform sm:block ${open ? 'rotate-180' : ''}`}
           aria-hidden="true"
@@ -147,7 +158,7 @@ export function AccountDropdown({
         <div
           id={menuId}
           role="menu"
-          aria-label="Account menu"
+          aria-label={t('menu')}
           className="absolute right-0 z-[1200] mt-2 flex w-56 max-w-[calc(100vw-1rem)] flex-col items-stretch rounded-lg border border-slate-200 bg-white p-2 shadow-xl"
         >
           {links.map((link) => (
@@ -164,7 +175,11 @@ export function AccountDropdown({
           ))}
           <div className="my-2 border-t border-slate-100" />
           <div className="w-full" onClick={closeMenu}>
-            <LogoutButton className="block w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60" />
+            <LogoutButton
+              label={t('logout')}
+              loadingLabel={t('signingOut')}
+              className="block w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            />
           </div>
         </div>
       ) : null}
@@ -186,11 +201,15 @@ export function MobileAccountNavigation({
   onOpenChange,
 }: MobileAccountNavigationProps) {
   const pathname = usePathname();
+  const t = useTranslations('account');
   const menuId = useId();
-  const links = accountNavigationLinks({
-    hasAdminDashboard,
-    hasBusinessWorkspace,
-  });
+  const links = accountNavigationLinks(
+    {
+      hasAdminDashboard,
+      hasBusinessWorkspace,
+    },
+    t,
+  );
 
   if (!authenticated) return null;
 
@@ -200,7 +219,7 @@ export function MobileAccountNavigation({
   }
 
   return (
-    <section aria-label="Account navigation">
+    <section aria-label={t('mobileMenu')}>
       <button
         ref={buttonRef}
         type="button"
@@ -211,7 +230,7 @@ export function MobileAccountNavigation({
       >
         <span className="inline-flex items-center gap-2">
           <UserRound className="h-5 w-5" aria-hidden="true" />
-          Account
+          {t('label')}
         </span>
         <ChevronDown
           className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`}
@@ -221,7 +240,7 @@ export function MobileAccountNavigation({
       {open ? (
         <nav
           id={menuId}
-          aria-label="Mobile account navigation"
+          aria-label={t('mobileMenu')}
           className="mt-1 space-y-1 border-l border-slate-200 pl-2"
         >
           {links.map((link) => (
@@ -237,7 +256,11 @@ export function MobileAccountNavigation({
           ))}
           <div className="my-2 border-t border-slate-100" />
           <div className="w-full" onClick={closeMenu}>
-            <LogoutButton className="block w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60" />
+            <LogoutButton
+              label={t('logout')}
+              loadingLabel={t('signingOut')}
+              className="block w-full rounded-md px-2 py-2 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            />
           </div>
         </nav>
       ) : null}

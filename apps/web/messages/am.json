@@ -1,0 +1,68 @@
+{
+  "common": {
+    "selection": "ቋንቋ፦ {language}",
+    "items": "{count, plural, =0 {ምንም ንጥል የለም} one {# ንጥል} other {# ንጥሎች}}"
+  },
+  "navigation": {
+    "home": "መነሻ",
+    "explore": "ያስሱ",
+    "destinations": "መዳረሻዎች",
+    "businesses": "ንግዶች",
+    "services": "አገልግሎቶች",
+    "others": "ሌሎች",
+    "search": "ፍለጋ",
+    "map": "ካርታ",
+    "hotels": "ሆቴሎች",
+    "restaurants": "ምግብ ቤቶች",
+    "tours": "ጉብኝቶች",
+    "transport": "መጓጓዣ",
+    "signIn": "ግባ",
+    "join": "ከ EthioTravel ጋር ይቀላቀሉ",
+    "primary": "ዋና ማውጫ",
+    "more": "ተጨማሪ የሕዝብ ማውጫ",
+    "mobilePrimary": "የሞባይል ዋና ማውጫ",
+    "openMenu": "የማውጫ ምናሌን ክፈት",
+    "closeMenu": "የማውጫ ምናሌን ዝጋ"
+  },
+  "account": {
+    "label": "መለያ",
+    "menu": "የመለያ ምናሌ",
+    "mobileMenu": "የሞባይል መለያ ማውጫ",
+    "openMenu": "የመለያ ምናሌን ክፈት",
+    "closeMenu": "የመለያ ምናሌን ዝጋ",
+    "profile": "የእኔ መገለጫ",
+    "trips": "የእኔ ጉዞዎች",
+    "assistant": "AI ረዳት",
+    "messages": "መልዕክቶች",
+    "adminDashboard": "የአስተዳዳሪ ዳሽቦርድ",
+    "businessDashboard": "የንግድ ዳሽቦርድ",
+    "listBusiness": "ንግድዎን ያስመዝግቡ",
+    "bookings": "የእኔ ቦታ ማስያዣዎች",
+    "favorites": "ተወዳጆች",
+    "reviews": "የእኔ ግምገማዎች",
+    "logout": "ውጣ",
+    "signingOut": "በመውጣት ላይ..."
+  },
+  "locale": {
+    "label": "ቋንቋ",
+    "menu": "የቋንቋ ምናሌ",
+    "openMenu": "ቋንቋ ቀይር",
+    "closeMenu": "የቋንቋ ምናሌን ዝጋ",
+    "mobileMenu": "የሞባይል ቋንቋ ማውጫ",
+    "english": "English",
+    "amharic": "አማርኛ",
+    "changeFailed": "ቋንቋውን መቀየር አልተቻለም። እባክዎ እንደገና ይሞክሩ።"
+  },
+  "footer": {
+    "description": "በመላው ኢትዮጵያ መዳረሻዎችን፣ የተረጋገጡ የአካባቢ ንግዶችን፣ አገልግሎቶችን እና መስህቦችን ያግኙ።",
+    "navigation": "የግርጌ ማውጫ",
+    "about": "ስለ EthioTravel",
+    "copyright": "መብቱ በ2026 EthioTravel የተጠበቀ ነው።"
+  },
+  "portal": {
+    "admin": "የአስተዳዳሪ ፖርታል",
+    "business": "የንግድ ፖርታል",
+    "back": "ወደ EthioTravel ተመለስ",
+    "backShort": "ተመለስ"
+  }
+}

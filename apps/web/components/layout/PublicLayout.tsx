@@ -1,32 +1,11 @@
 import Link from 'next/link';
 import { Compass } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 import { HeaderNavigation } from './HeaderNavigation';
 import { RealtimeProvider } from '../realtime/RealtimeProvider';
 import { RouteAwareChrome } from './RouteAwareChrome';
 import { currentSessionSnapshot } from '../../lib/auth/session';
 import { Container } from '../ui/Container';
-
-const publicLinks = [
-  { href: '/', label: 'Home' },
-  { href: '/search', label: 'Explore' },
-  { href: '/destinations', label: 'Destinations' },
-  { href: '/businesses', label: 'Businesses' },
-  { href: '/services', label: 'Services' },
-];
-
-const otherPublicLinks = [
-  { href: '/search', label: 'Search' },
-  { href: '/search?view=map', label: 'Map' },
-  { href: '/hotels', label: 'Hotels' },
-  { href: '/restaurants', label: 'Restaurants' },
-  { href: '/tours', label: 'Tours' },
-  { href: '/transport', label: 'Transport' },
-];
-
-const footerPublicLinks = [
-  ...publicLinks.slice(1),
-  ...otherPublicLinks.slice(1),
-];
 
 type HeaderProps = {
   session: Pick<
@@ -35,7 +14,14 @@ type HeaderProps = {
   >;
 };
 
-export function Header({ session }: HeaderProps) {
+export function Header({
+  session,
+  publicLinks,
+  otherPublicLinks,
+}: HeaderProps & {
+  publicLinks: { href: string; label: string }[];
+  otherPublicLinks: { href: string; label: string }[];
+}) {
   const hasAdminDashboard =
     session.authenticated && session.user?.roles.includes('ADMIN') === true;
 
@@ -64,20 +50,29 @@ export function Header({ session }: HeaderProps) {
     </header>
   );
 }
-export function Footer() {
+export function Footer({
+  footerPublicLinks,
+  description,
+  navigationLabel,
+  aboutLabel,
+  copyrightLabel,
+}: {
+  footerPublicLinks: { href: string; label: string }[];
+  description: string;
+  navigationLabel: string;
+  aboutLabel: string;
+  copyrightLabel: string;
+}) {
   return (
     <footer className="border-t border-slate-200 bg-white">
       <Container className="grid gap-6 py-10 text-sm text-slate-600 md:grid-cols-2">
         <div>
           <p className="font-bold text-slate-950">EthioTravel</p>
-          <p className="mt-2 max-w-md">
-            Discover destinations, verified local businesses, services and
-            attractions across Ethiopia.
-          </p>
+          <p className="i18n-wrap mt-2 max-w-md">{description}</p>
         </div>
         <nav
           className="flex flex-wrap gap-4 md:justify-end"
-          aria-label="Footer navigation"
+          aria-label={navigationLabel}
         >
           {footerPublicLinks.map((link) => (
             <Link
@@ -88,9 +83,9 @@ export function Footer() {
               {link.label}
             </Link>
           ))}
-          <span>About EthioTravel</span>
+          <span>{aboutLabel}</span>
         </nav>
-        <p className="md:col-span-2">Copyright 2026 EthioTravel.</p>
+        <p className="md:col-span-2">{copyrightLabel}</p>
       </Container>
     </footer>
   );
@@ -102,8 +97,29 @@ export async function PublicLayout({
   children: React.ReactNode;
 }) {
   const session = await currentSessionSnapshot();
+  const navigation = await getTranslations('navigation');
+  const footer = await getTranslations('footer');
   const hasAdminDashboard =
     session.authenticated && session.user?.roles.includes('ADMIN') === true;
+  const publicLinks = [
+    { href: '/', label: navigation('home') },
+    { href: '/search', label: navigation('explore') },
+    { href: '/destinations', label: navigation('destinations') },
+    { href: '/businesses', label: navigation('businesses') },
+    { href: '/services', label: navigation('services') },
+  ];
+  const otherPublicLinks = [
+    { href: '/search', label: navigation('search') },
+    { href: '/search?view=map', label: navigation('map') },
+    { href: '/hotels', label: navigation('hotels') },
+    { href: '/restaurants', label: navigation('restaurants') },
+    { href: '/tours', label: navigation('tours') },
+    { href: '/transport', label: navigation('transport') },
+  ];
+  const footerPublicLinks = [
+    ...publicLinks.slice(1),
+    ...otherPublicLinks.slice(1),
+  ];
 
   return (
     <RealtimeProvider enabled={session.authenticated}>
@@ -111,8 +127,22 @@ export async function PublicLayout({
         authenticated={session.authenticated}
         hasAdminDashboard={hasAdminDashboard}
         hasBusinessWorkspace={session.hasBusinessWorkspace}
-        header={<Header session={session} />}
-        footer={<Footer />}
+        header={
+          <Header
+            session={session}
+            publicLinks={publicLinks}
+            otherPublicLinks={otherPublicLinks}
+          />
+        }
+        footer={
+          <Footer
+            footerPublicLinks={footerPublicLinks}
+            description={footer('description')}
+            navigationLabel={footer('navigation')}
+            aboutLabel={footer('about')}
+            copyrightLabel={footer('copyright')}
+          />
+        }
       >
         {children}
       </RouteAwareChrome>

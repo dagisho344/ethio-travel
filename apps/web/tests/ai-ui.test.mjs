@@ -165,7 +165,7 @@ void test('trip assistant handles provider unavailability without modifying the 
 
 void test('authenticated navigation exposes the AI assistant without storing credentials', () => {
   const dropdown = read('components/layout/AccountDropdown.tsx');
-  assert.match(dropdown, /AI Assistant/);
+  assert.match(dropdown, /t\('assistant'\)/);
   assert.match(dropdown, /href: '\/assistant'/);
   assert.match(dropdown, /accountNavigationLinks/);
   assert.doesNotMatch(dropdown, /localStorage|sessionStorage/);

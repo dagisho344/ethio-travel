@@ -21,13 +21,14 @@ void test('route-aware chrome preserves public pages and replaces marketplace ch
   assert.match(chrome, /pathname\.startsWith\('\/businesses\/manage\/'\)/);
   assert.match(chrome, /isBusinessPortal \? null : footer/);
   assert.match(chrome, /isBusinessPortal \?[\s(]*<BusinessPortalTopBar/);
-  assert.match(portal, /Business Portal/);
+  assert.match(portal, /useTranslations\('portal'\)/);
+  assert.match(portal, /t\('business'\)/);
   assert.match(portal, /NotificationBell/);
   assert.match(portal, /AccountDropdown/);
   assert.doesNotMatch(portal, /LogoutButton/);
   assert.match(accountDropdown, /LogoutButton/);
   assert.match(chrome, /hasBusinessWorkspace/);
-  assert.match(portal, /Back to EthioTravel/);
+  assert.match(portal, /t\('back'\)/);
 });
 
 void test('nested shell provides all real workspace routes, active links, mobile drawer, and server-authorized switcher', () => {

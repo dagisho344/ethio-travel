@@ -11,6 +11,8 @@ html {
 body {
   background: #f8fafc;
   color: #172033;
+  font-family:
+    'Noto Sans Ethiopic', 'Abyssinica SIL', 'Segoe UI', Arial, sans-serif;
 }
 a,
 button,
@@ -24,6 +26,10 @@ select {
 }
 .leaflet-container {
   font: inherit;
+}
+
+.i18n-wrap {
+  overflow-wrap: anywhere;
 }
 
 .ethio-map-marker {

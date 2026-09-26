@@ -102,7 +102,7 @@ void test('service and explore cards expose booking only for services', () => {
 void test('authenticated navbar exposes My Bookings link', () => {
   const dropdown = read('components/layout/AccountDropdown.tsx');
   assert.match(dropdown, /href: '\/bookings'/);
-  assert.match(dropdown, /My Bookings/);
+  assert.match(dropdown, /t\('bookings'\)/);
 });
 
 void test('booking frontend does not store auth tokens in browser storage', () => {

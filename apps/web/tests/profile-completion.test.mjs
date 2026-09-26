@@ -17,7 +17,7 @@ void test('My Profile is a cookie-gated account page with a safe login handoff',
   assert.match(page, /currentTokens\(\)/);
   assert.match(page, /redirect\('\/login\?returnTo=%2Faccount'\)/);
   assert.match(page, /<AccountProfileClient\s*\/>/);
-  assert.match(navigation, /href: '\/account', label: 'My Profile'/);
+  assert.match(navigation, /href: '\/account', label: t\('profile'\)/);
 });
 
 void test('the account BFF has a fixed self-only backend path and a strict profile allowlist', () => {

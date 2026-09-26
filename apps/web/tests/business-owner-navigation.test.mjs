@@ -41,12 +41,12 @@ void test('business dashboard navigation is safe and shared by desktop and mobil
   assert.match(navigation, /<AccountDropdown/);
   assert.match(
     accountDropdown,
-    /href: '\/businesses\/manage', label: 'Business Dashboard'/,
+    /href: '\/businesses\/manage', label: t\('businessDashboard'\)/,
   );
   assert.match(accountDropdown, /hasBusinessWorkspace/);
   assert.match(accountDropdown, /role="menuitem"/);
-  assert.match(navigation, /Mobile primary navigation/);
-  assert.match(accountDropdown, /List Your Business/);
+  assert.match(navigation, /t\('mobilePrimary'\)/);
+  assert.match(accountDropdown, /t\('listBusiness'\)/);
 });
 
 void test('login default keeps explicit safe returns ahead of workspace eligibility', () => {

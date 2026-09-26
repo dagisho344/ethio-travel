@@ -20,15 +20,16 @@ void test('admin route chrome is distinct while public chrome remains available 
   assert.match(chrome, /pathname\.startsWith\('\/admin\/'/);
   assert.match(chrome, /AdminPortalTopBar/);
   assert.match(chrome, /isAdminPortal \? null : nonBusinessFooter/);
-  assert.match(topBar, /Admin Portal/);
+  assert.match(topBar, /useTranslations\('portal'\)/);
+  assert.match(topBar, /t\('admin'\)/);
   assert.match(topBar, /NotificationBell/);
   assert.match(topBar, /AccountDropdown/);
   assert.doesNotMatch(topBar, /LogoutButton/);
   assert.match(accountDropdown, /LogoutButton/);
-  assert.match(accountDropdown, /My Profile/);
-  assert.match(accountDropdown, /My Trips/);
-  assert.match(accountDropdown, /AI Assistant/);
-  assert.match(accountDropdown, /Messages/);
+  assert.match(accountDropdown, /t\('profile'\)/);
+  assert.match(accountDropdown, /t\('trips'\)/);
+  assert.match(accountDropdown, /t\('assistant'\)/);
+  assert.match(accountDropdown, /t\('messages'\)/);
   assert.match(chrome, /hasAdminDashboard/);
   assert.match(topBar, /border-slate-200 bg-white\/95 backdrop-blur/);
   assert.match(

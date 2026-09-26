@@ -10,28 +10,36 @@ function read(path) {
   return readFileSync(join(root, path), 'utf8');
 }
 
+function readJson(path) {
+  return JSON.parse(read(path));
+}
+
 void test('header has the requested main and Others navigation order without Demo', () => {
   const layout = read('components/layout/PublicLayout.tsx');
   const navigation = read('components/layout/HeaderNavigation.tsx');
+  const english = readJson('messages/en.json');
   const mainLabels = [
-    'Home',
-    'Explore',
-    'Destinations',
-    'Businesses',
-    'Services',
+    'home',
+    'explore',
+    'destinations',
+    'businesses',
+    'services',
   ];
   const otherLabels = [
-    'Search',
-    'Map',
-    'Hotels',
-    'Restaurants',
-    'Tours',
-    'Transport',
+    'search',
+    'map',
+    'hotels',
+    'restaurants',
+    'tours',
+    'transport',
   ];
 
   let previousIndex = layout.indexOf('const publicLinks');
   for (const label of mainLabels) {
-    const index = layout.indexOf(`label: '${label}'`, previousIndex);
+    const index = layout.indexOf(
+      `label: navigation('${label}')`,
+      previousIndex,
+    );
     assert.ok(
       index > previousIndex,
       `${label} should follow the preceding main item`,
@@ -41,7 +49,10 @@ void test('header has the requested main and Others navigation order without Dem
 
   previousIndex = layout.indexOf('const otherPublicLinks');
   for (const label of otherLabels) {
-    const index = layout.indexOf(`label: '${label}'`, previousIndex);
+    const index = layout.indexOf(
+      `label: navigation('${label}')`,
+      previousIndex,
+    );
     assert.ok(
       index > previousIndex,
       `${label} should follow the preceding Others item`,
@@ -49,19 +60,26 @@ void test('header has the requested main and Others navigation order without Dem
     previousIndex = index;
   }
 
-  assert.match(layout, /href: '\/search', label: 'Explore'/);
-  assert.match(layout, /href: '\/search\?view=map', label: 'Map'/);
+  assert.equal(english.navigation.explore, 'Explore');
+  assert.equal(english.navigation.map, 'Map');
+  assert.match(layout, /href: '\/search', label: navigation\('explore'\)/);
+  assert.match(
+    layout,
+    /href: '\/search\?view=map', label: navigation\('map'\)/,
+  );
   assert.doesNotMatch(layout, /const authenticatedLinks/);
   assert.match(navigation, /const navigationLinks = publicLinks/);
   assert.match(navigation, /href="\/login"/);
   assert.match(navigation, /href="\/register"/);
-  assert.match(navigation, /Join EthioTravel/);
+  assert.match(navigation, /t\('join'\)/);
   assert.match(navigation, /hidden items-center gap-2 lg:flex/);
   assert.ok(
     navigation.indexOf('href="/login"') >
-      navigation.indexOf('aria-label="Primary navigation"'),
+      navigation.indexOf("aria-label={t('primary')}"),
     'desktop guest actions should follow the main navigation',
   );
+  assert.match(navigation, /<LanguageSwitcher/);
+  assert.match(navigation, /<MobileLanguageNavigation/);
   assert.doesNotMatch(layout, /href="\/login"/);
   assert.doesNotMatch(layout, /Demo/);
 });
@@ -86,19 +104,20 @@ void test('Others is an accessible desktop dropdown with a working mobile submen
 void test('shared account navigation keeps account routes separate and supports accessible dismissal', () => {
   const navigation = read('components/layout/HeaderNavigation.tsx');
   const accountDropdown = read('components/layout/AccountDropdown.tsx');
+  const english = readJson('messages/en.json');
   const accountLabels = [
-    'My Profile',
-    'My Trips',
-    'AI Assistant',
-    'Messages',
-    'My Bookings',
-    'Favorites',
-    'My Reviews',
+    'profile',
+    'trips',
+    'assistant',
+    'messages',
+    'bookings',
+    'favorites',
+    'reviews',
   ];
 
   let previousIndex = -1;
   for (const label of accountLabels) {
-    const index = accountDropdown.indexOf(`label: '${label}'`);
+    const index = accountDropdown.indexOf(`t('${label}')`);
     assert.ok(
       index > previousIndex,
       `${label} should follow the preceding account item`,
@@ -111,9 +130,10 @@ void test('shared account navigation keeps account routes separate and supports 
   assert.match(navigation, /mobileAccountButtonRef\.current\?\.focus\(\)/);
   assert.match(navigation, /max-h-\[calc\(100dvh-5rem\)\].*overflow-y-auto/);
   assert.match(accountDropdown, /accountNavigationLinks/);
+  assert.equal(english.account.profile, 'My Profile');
   assert.match(
     accountDropdown,
-    /hasBusinessWorkspace\s*\? \[\{ href: '\/businesses\/manage', label: 'Business Dashboard' \}\]/,
+    /hasBusinessWorkspace\s*\? \[\{ href: '\/businesses\/manage', label: t\('businessDashboard'\) \}\]/,
   );
   assert.match(navigation, /NotificationBell/);
   assert.match(accountDropdown, /LogoutButton/);
@@ -123,7 +143,7 @@ void test('shared account navigation keeps account routes separate and supports 
   assert.match(accountDropdown, /buttonRef\.current\?\.focus\(\)/);
   assert.match(accountDropdown, /aria-expanded=\{open\}/);
   assert.match(accountDropdown, /aria-haspopup="menu"/);
-  assert.match(accountDropdown, /Mobile account navigation/);
+  assert.match(accountDropdown, /t\('mobileMenu'\)/);
   assert.match(accountDropdown, /aria-expanded=\{open\}/);
   assert.match(accountDropdown, /onOpenChange\(false\)/);
   assert.doesNotMatch(accountDropdown, /href: '\/admin\/payments'/);
@@ -139,7 +159,7 @@ void test('only a server-derived ADMIN role adds Admin Dashboard to both account
   assert.match(accountDropdown, /hasAdminDashboard/);
   assert.match(
     accountDropdown,
-    /hasAdminDashboard\s*\? \[\{ href: '\/admin', label: 'Admin Dashboard' \}\]/,
+    /hasAdminDashboard\s*\? \[\{ href: '\/admin', label: t\('adminDashboard'\) \}\]/,
   );
   assert.match(accountDropdown, /\{links\.map\(\(link\) => \(/);
   assert.doesNotMatch(accountDropdown, /href: '\/admin\/payments'/);

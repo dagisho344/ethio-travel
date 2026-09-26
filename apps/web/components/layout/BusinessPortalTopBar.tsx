@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { ChevronLeft, Compass } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { NotificationBell } from '../notifications/NotificationBell';
 import { AccountDropdown } from './AccountDropdown';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 export function BusinessPortalTopBar({
   authenticated,
@@ -14,6 +16,8 @@ export function BusinessPortalTopBar({
   hasAdminDashboard: boolean;
   hasBusinessWorkspace: boolean;
 }) {
+  const t = useTranslations('portal');
+
   return (
     <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-[96rem] items-center gap-3 px-4 sm:px-6 lg:px-8">
@@ -25,9 +29,10 @@ export function BusinessPortalTopBar({
           <span className="text-lg font-bold">EthioTravel</span>
         </Link>
         <span className="hidden border-l border-slate-200 pl-3 text-sm font-semibold text-slate-600 sm:inline">
-          Business Portal
+          {t('business')}
         </span>
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+          <LanguageSwitcher />
           {authenticated ? <NotificationBell /> : null}
           {authenticated ? (
             <AccountDropdown
@@ -41,8 +46,8 @@ export function BusinessPortalTopBar({
             className="inline-flex items-center gap-1 rounded-md px-2 py-2 text-sm font-semibold text-highland transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Back to EthioTravel</span>
-            <span className="sm:hidden">Back</span>
+            <span className="hidden sm:inline">{t('back')}</span>
+            <span className="sm:hidden">{t('backShort')}</span>
           </Link>
         </div>
       </div>

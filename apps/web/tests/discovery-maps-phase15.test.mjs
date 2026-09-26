@@ -23,8 +23,11 @@ void test('Search is canonical while Explore and Map remain compatibility redire
   );
   assert.match(explore, /publicSearchParamKeys/);
   assert.match(map, /redirect\('\/search\?view=map'\)/);
-  assert.match(layout, /\{ href: '\/search', label: 'Search' \}/);
-  assert.match(layout, /\{ href: '\/search\?view=map', label: 'Map' \}/);
+  assert.match(layout, /\{ href: '\/search', label: navigation\('search'\) \}/);
+  assert.match(
+    layout,
+    /\{ href: '\/search\?view=map', label: navigation\('map'\) \}/,
+  );
 });
 
 void test('discovery requests are allowlisted and Nearby coordinates stay ephemeral', () => {

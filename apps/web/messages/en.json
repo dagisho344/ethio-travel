@@ -1,0 +1,68 @@
+{
+  "common": {
+    "selection": "Language: {language}",
+    "items": "{count, plural, =0 {No items} one {# item} other {# items}}"
+  },
+  "navigation": {
+    "home": "Home",
+    "explore": "Explore",
+    "destinations": "Destinations",
+    "businesses": "Businesses",
+    "services": "Services",
+    "others": "Others",
+    "search": "Search",
+    "map": "Map",
+    "hotels": "Hotels",
+    "restaurants": "Restaurants",
+    "tours": "Tours",
+    "transport": "Transport",
+    "signIn": "Sign In",
+    "join": "Join EthioTravel",
+    "primary": "Primary navigation",
+    "more": "More public navigation",
+    "mobilePrimary": "Mobile primary navigation",
+    "openMenu": "Open navigation menu",
+    "closeMenu": "Close navigation menu"
+  },
+  "account": {
+    "label": "Account",
+    "menu": "Account menu",
+    "mobileMenu": "Mobile account navigation",
+    "openMenu": "Open account menu",
+    "closeMenu": "Close account menu",
+    "profile": "My Profile",
+    "trips": "My Trips",
+    "assistant": "AI Assistant",
+    "messages": "Messages",
+    "adminDashboard": "Admin Dashboard",
+    "businessDashboard": "Business Dashboard",
+    "listBusiness": "List Your Business",
+    "bookings": "My Bookings",
+    "favorites": "Favorites",
+    "reviews": "My Reviews",
+    "logout": "Logout",
+    "signingOut": "Signing out..."
+  },
+  "locale": {
+    "label": "Language",
+    "menu": "Language menu",
+    "openMenu": "Change language",
+    "closeMenu": "Close language menu",
+    "mobileMenu": "Mobile language navigation",
+    "english": "English",
+    "amharic": "Amharic (አማርኛ)",
+    "changeFailed": "We could not change the language. Please try again."
+  },
+  "footer": {
+    "description": "Discover destinations, verified local businesses, services and attractions across Ethiopia.",
+    "navigation": "Footer navigation",
+    "about": "About EthioTravel",
+    "copyright": "Copyright 2026 EthioTravel."
+  },
+  "portal": {
+    "admin": "Admin Portal",
+    "business": "Business Portal",
+    "back": "Back to EthioTravel",
+    "backShort": "Back"
+  }
+}

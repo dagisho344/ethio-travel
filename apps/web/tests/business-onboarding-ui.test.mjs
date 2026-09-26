@@ -22,7 +22,7 @@ void test('business onboarding and workspace pages require an HttpOnly-backed se
   }
   assert.match(
     read('components/layout/AccountDropdown.tsx'),
-    /href: '\/business\/onboarding', label: 'List Your Business'/,
+    /href: '\/business\/onboarding', label: t\('listBusiness'\)/,
   );
 });
 
