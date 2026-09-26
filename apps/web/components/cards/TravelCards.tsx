@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Briefcase, Landmark, MapPin, Sparkles } from 'lucide-react';
 import { BookingWidget } from '../bookings/BookingWidget';
 import { FavoriteButton } from '../favorites/FavoriteButton';
@@ -37,15 +40,17 @@ function LocationLine({
   city?: { name: string };
   region?: { name: string };
 }) {
+  const t = useTranslations('marketplace');
   return (
     <p className="mt-2 flex items-center gap-1 text-sm text-slate-500">
       <MapPin className="h-4 w-4" aria-hidden="true" />
-      {[city?.name, region?.name].filter(Boolean).join(', ') || 'Ethiopia'}
+      {[city?.name, region?.name].filter(Boolean).join(', ') || t('ethiopia')}
     </p>
   );
 }
 
 export function DestinationCard({ destination }: { destination: Destination }) {
+  const t = useTranslations('marketplace');
   const destinationHref = publicDestinationPath(destination);
   return (
     <article className="relative rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
@@ -55,7 +60,7 @@ export function DestinationCard({ destination }: { destination: Destination }) {
         targetName={destination.name}
         className="absolute right-4 top-4 z-10"
       />
-      <Placeholder label="Destination" />
+      <Placeholder label={t('destination')} />
       <div className="p-2">
         <h3 className="text-lg font-bold text-slate-950">{destination.name}</h3>
         <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">
@@ -68,7 +73,7 @@ export function DestinationCard({ destination }: { destination: Destination }) {
               href={destinationHref}
               className="inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
             >
-              View destination
+              {t('viewDestination')}
             </Link>
           ) : null}
           <AddToTripButton
@@ -82,6 +87,7 @@ export function DestinationCard({ destination }: { destination: Destination }) {
   );
 }
 export function BusinessCard({ business }: { business: Business }) {
+  const t = useTranslations('marketplace');
   const businessHref = publicBusinessPath(business);
 
   return (
@@ -99,7 +105,7 @@ export function BusinessCard({ business }: { business: Business }) {
       />
       <div className="mb-3 inline-flex items-center gap-2 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
         <Briefcase className="h-3.5 w-3.5" />
-        {categoryName(business.category) ?? 'Verified Business'}
+        {categoryName(business.category) ?? t('verifiedBusiness')}
       </div>
       <h3 className="text-lg font-bold text-slate-950">{business.name}</h3>
       <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">
@@ -112,7 +118,7 @@ export function BusinessCard({ business }: { business: Business }) {
             href={businessHref}
             className="inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
           >
-            View business
+            {t('viewBusiness')}
           </Link>
         ) : null}
         <AddToTripButton
@@ -122,7 +128,7 @@ export function BusinessCard({ business }: { business: Business }) {
         />
         <StartConversationButton
           businessId={business.id}
-          label="Message business"
+          label={t('messageBusiness')}
           className="inline-flex min-h-10 items-center justify-center rounded-md border border-highland px-3 py-2 text-sm font-semibold text-highland hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         />
       </div>
@@ -130,6 +136,7 @@ export function BusinessCard({ business }: { business: Business }) {
   );
 }
 export function ServiceCard({ service }: { service: Service }) {
+  const t = useTranslations('marketplace');
   return (
     <article className="relative rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <FavoriteButton
@@ -140,7 +147,7 @@ export function ServiceCard({ service }: { service: Service }) {
       />
       <div className="mb-3 inline-flex items-center gap-2 rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">
         <Sparkles className="h-3.5 w-3.5" />
-        {categoryName(service.category) ?? 'Service'}
+        {categoryName(service.category) ?? t('service')}
       </div>
       <h3 className="text-lg font-bold text-slate-950">{service.name}</h3>
       <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">
@@ -163,7 +170,7 @@ export function ServiceCard({ service }: { service: Service }) {
           href={`/services/${service.id}`}
           className="inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
         >
-          View service details
+          {t('viewService')}
         </Link>
         <AddToTripButton
           targetType="SERVICE"
@@ -173,7 +180,7 @@ export function ServiceCard({ service }: { service: Service }) {
         {service.business?.id ? (
           <StartConversationButton
             businessId={service.business.id}
-            label="Message business"
+            label={t('messageBusiness')}
             className="inline-flex min-h-10 items-center justify-center rounded-md border border-highland px-3 py-2 text-sm font-semibold text-highland hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           />
         ) : null}
@@ -192,10 +199,16 @@ export function SearchResultCard({
   reviewLookup?: Record<string, MyReview>;
   onShowOnMap?: () => void;
 }) {
+  const t = useTranslations('marketplace');
+  const mapT = useTranslations('map');
   const typeLabel =
     result.type === 'business'
-      ? 'Verified Business'
-      : result.type.charAt(0).toUpperCase() + result.type.slice(1);
+      ? t('verifiedBusiness')
+      : result.type === 'destination'
+        ? mapT('destination')
+        : result.type === 'attraction'
+          ? mapT('attraction')
+          : mapT('service');
   const targetType = result.type.toUpperCase() as FavoriteTargetType;
   const destinationHref =
     result.type === 'destination'
@@ -266,7 +279,7 @@ export function SearchResultCard({
         {result.type === 'business' ? (
           <StartConversationButton
             businessId={result.id}
-            label="Message business"
+            label={t('messageBusiness')}
             className="inline-flex min-h-10 items-center justify-center rounded-md border border-highland px-3 py-2 text-sm font-semibold text-highland hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           />
         ) : null}
@@ -277,7 +290,7 @@ export function SearchResultCard({
           onClick={onShowOnMap}
           className="mt-4 text-sm font-semibold text-highland hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland"
         >
-          Show on map
+          {t('showOnMap')}
         </button>
       ) : null}
       <div className="mt-5 space-y-4">
@@ -294,7 +307,7 @@ export function SearchResultCard({
           className="mt-4 inline-block text-sm font-semibold text-highland"
           href={businessHref}
         >
-          View business
+          {t('viewBusiness')}
         </Link>
       ) : null}
       {result.type === 'service' ? (
@@ -302,7 +315,7 @@ export function SearchResultCard({
           className="mt-4 inline-block text-sm font-semibold text-highland"
           href={`/services/${result.id}`}
         >
-          View service details
+          {t('viewService')}
         </Link>
       ) : null}
       {destinationHref ? (
@@ -310,7 +323,7 @@ export function SearchResultCard({
           className="mt-4 inline-block text-sm font-semibold text-highland"
           href={destinationHref}
         >
-          View destination
+          {t('viewDestination')}
         </Link>
       ) : null}
     </article>

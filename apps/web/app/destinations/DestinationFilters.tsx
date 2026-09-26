@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Search } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
@@ -34,6 +35,7 @@ export function DestinationFilters({
   regions,
   cities,
 }: DestinationFiltersProps) {
+  const t = useTranslations('discovery');
   const router = useRouter();
   const [search, setSearch] = useState(q);
   const [selectedRegion, setSelectedRegion] = useState(regionSlug);
@@ -58,18 +60,18 @@ export function DestinationFilters({
       className="mb-8 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[minmax(220px,1fr)_220px_220px_auto] lg:items-end"
     >
       <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-        Search
+        {t('search')}
         <input
           name="q"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           className="h-11 rounded-md border border-slate-300 px-3 text-sm font-normal text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-highland focus:ring-2 focus:ring-highland/20"
-          placeholder="Search destinations"
+          placeholder={t('searchPlaceholder')}
         />
       </label>
 
       <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-        Region
+        {t('region')}
         <select
           name="regionSlug"
           value={selectedRegion}
@@ -81,7 +83,7 @@ export function DestinationFilters({
           }}
           className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition focus:border-highland focus:ring-2 focus:ring-highland/20"
         >
-          <option value="">All regions</option>
+          <option value="">{t('allRegions')}</option>
           {regions.map((region) => (
             <option key={region.slug} value={region.slug}>
               {region.name}
@@ -91,7 +93,7 @@ export function DestinationFilters({
       </label>
 
       <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-        City
+        {t('city')}
         <select
           name="citySlug"
           value={cityOptionsLoaded ? selectedCity : ''}
@@ -109,7 +111,7 @@ export function DestinationFilters({
           disabled={!cityOptionsLoaded}
           className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 focus:border-highland focus:ring-2 focus:ring-highland/20"
         >
-          <option value="">All cities</option>
+          <option value="">{t('allCities')}</option>
           {cityOptionsLoaded
             ? cities.map((city) => (
                 <option key={city.slug} value={city.slug}>
@@ -122,7 +124,7 @@ export function DestinationFilters({
 
       <button className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-highland px-5 text-sm font-semibold text-white transition hover:bg-highland/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2">
         <Search className="h-4 w-4" aria-hidden="true" />
-        Search
+        {t('search')}
       </button>
     </form>
   );

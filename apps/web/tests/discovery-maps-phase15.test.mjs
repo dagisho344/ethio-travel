@@ -59,14 +59,17 @@ void test('discovery requests are allowlisted and Nearby coordinates stay epheme
 
 void test('unified price ranges are explicitly scoped to a pricing model and currency', () => {
   const client = read('components/explore/ExploreClient.tsx');
+  const english = read('messages/en.json');
 
   assert.match(client, /hasPriceContext/);
-  assert.match(client, /Pricing model/);
-  assert.match(client, /Currency/);
+  assert.match(client, /useTranslations\('discovery'\)/);
+  assert.match(client, /t\('pricing'\)/);
+  assert.match(client, /t\('currency'\)/);
   assert.match(client, /disabled=\{!hasPriceContext\}/);
+  assert.match(client, /t\('priceRangeNotice'\)/);
   assert.match(
-    client,
-    /Price ranges compare services only when both pricing model and\s+currency\s+match/,
+    english,
+    /"priceRangeNotice": "Price ranges compare services only when both pricing model and currency match\.",/,
   );
 });
 

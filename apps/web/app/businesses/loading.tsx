@@ -1,15 +1,17 @@
 import { Building2 } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 import { Container } from '../../components/ui/Container';
 import { CardSkeleton, SectionHeading } from '../../components/ui/States';
 
-export default function BusinessesLoading() {
+export default async function BusinessesLoading() {
+  const t = await getTranslations('businesses');
   return (
     <main className="bg-slate-50">
       <Container className="py-10 sm:py-12">
         <SectionHeading
-          eyebrow="Businesses"
-          title="Verified Businesses"
-          description="Find trusted local businesses that are ready to welcome travelers across Ethiopia."
+          eyebrow={t('eyebrow')}
+          title={t('title')}
+          description={t('listingDescription')}
         />
         <div className="mb-8 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[minmax(220px,1fr)_190px_190px_210px_auto] lg:items-end">
           <div className="h-16 rounded-md bg-slate-100" />

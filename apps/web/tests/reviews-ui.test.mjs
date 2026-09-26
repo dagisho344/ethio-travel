@@ -55,10 +55,13 @@ void test('review form validates rating and supports edit pending behavior', () 
 
 void test('public review panel uses published list and summary endpoints', () => {
   const source = read('components/reviews/ReviewPanel.tsx');
+  const english = read('messages/en.json');
   assert.match(source, /\/api\/reviews\/summary/);
   assert.match(source, /\/api\/reviews\?/);
   assert.match(source, /ratingDistribution/);
-  assert.match(source, /Any rating/);
+  assert.match(source, /useTranslations\('publicReviews'\)/);
+  assert.match(source, /t\('anyRating'\)/);
+  assert.match(english, /"anyRating": "Any rating"/);
   assert.match(source, /sort/);
   assert.doesNotMatch(source, /moderationNote|moderatedById/);
 });

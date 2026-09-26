@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { divIcon } from 'leaflet';
 import { useEffect, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   CircleMarker,
   MapContainer,
@@ -105,25 +106,37 @@ function placeHref(place: MapPlace): string | null {
 }
 
 function MarkerPopup({ place }: { place: MapPlace }) {
+  const t = useTranslations('map');
   const href = placeHref(place);
+  const typeLabel =
+    place.type === 'business'
+      ? t('business')
+      : place.type === 'destination'
+        ? t('destination')
+        : place.type === 'attraction'
+          ? t('attraction')
+          : t('service');
   return (
     <Popup>
       <div className="space-y-1.5">
         <p className="font-semibold text-slate-950">{place.name}</p>
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          {place.type}
+          {typeLabel}
         </p>
         {place.category?.name ? (
           <p className="text-sm text-slate-600">{place.category.name}</p>
         ) : null}
         {place.rating ? (
           <p className="text-sm text-slate-600">
-            {place.rating.average.toFixed(1)} / 5 ({place.rating.count})
+            {t('rating', {
+              rating: place.rating.average.toFixed(1),
+              count: place.rating.count,
+            })}
           </p>
         ) : null}
         {place.distanceKm !== undefined ? (
           <p className="text-sm text-slate-600">
-            {place.distanceKm.toFixed(1)} km away
+            {t('away', { distance: place.distanceKm.toFixed(1) })}
           </p>
         ) : null}
         {href ? (
@@ -131,7 +144,7 @@ function MarkerPopup({ place }: { place: MapPlace }) {
             href={href}
             className="inline-flex text-sm font-semibold text-highland hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland"
           >
-            View details
+            {t('viewDetails')}
           </Link>
         ) : null}
       </div>
@@ -152,6 +165,7 @@ export function MapView({
   onSelectPlace?: (place: MapPlace) => void;
   nearbyPosition?: { lat: number; lng: number } | null;
 }) {
+  const t = useTranslations('map');
   const selectedPlace =
     places.find((place) => `${place.type}:${place.id}` === selectedPlaceKey) ??
     null;
@@ -166,7 +180,7 @@ export function MapView({
       zoom={nearbyPosition ? 11 : 6}
       scrollWheelZoom
       className="h-[min(68vh,680px)] min-h-[420px] w-full rounded-lg border border-slate-200"
-      aria-label="Public discovery map"
+      aria-label={t('ariaLabel')}
     >
       <TileLayer
         attribution={
@@ -186,7 +200,7 @@ export function MapView({
             fillOpacity: 0.9,
           }}
         >
-          <Popup>Your approximate location for this search.</Popup>
+          <Popup>{t('yourLocation')}</Popup>
         </CircleMarker>
       ) : null}
       <MarkerClusterGroup chunkedLoading>

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import {
   BedDouble,
   Bus,
@@ -22,30 +23,6 @@ import { SectionHeading } from '../components/ui/States';
 import { safePage } from '../lib/api';
 import type { Business, Destination, Service } from '../lib/types';
 
-const shortcuts = [
-  {
-    label: 'Hotels',
-    href: '/hotels',
-    icon: BedDouble,
-  },
-  {
-    label: 'Restaurants',
-    href: '/restaurants',
-    icon: Utensils,
-  },
-  { label: 'Attractions', href: '/search?types=attraction', icon: MapPin },
-  {
-    label: 'Tours',
-    href: '/tours',
-    icon: Compass,
-  },
-  {
-    label: 'Transport',
-    href: '/transport',
-    icon: Bus,
-  },
-];
-
 function HomepageEmptyState({
   title,
   message,
@@ -68,7 +45,17 @@ function HomepageEmptyState({
   );
 }
 
-function HeroVisual() {
+function HeroVisual({
+  labels,
+}: {
+  labels: {
+    visualCities: string;
+    visualEyebrow: string;
+    visualStays: string;
+    visualTitle: string;
+    visualTours: string;
+  };
+}) {
   return (
     <div className="relative mx-auto w-full max-w-lg overflow-hidden rounded-lg border border-white/80 bg-white/75 p-5 shadow-xl backdrop-blur">
       <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-amber-100/70" />
@@ -77,10 +64,10 @@ function HeroVisual() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-highland">
-              Ethiopia routes
+              {labels.visualEyebrow}
             </p>
             <p className="mt-1 text-lg font-bold text-slate-950">
-              Plan by place, service and map
+              {labels.visualTitle}
             </p>
           </div>
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-highland text-white">
@@ -114,14 +101,16 @@ function HeroVisual() {
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-3">
-          {['Cities', 'Stays', 'Tours'].map((item) => (
-            <div
-              key={item}
-              className="rounded-md border border-slate-200 bg-white px-3 py-3 text-center text-xs font-semibold text-slate-600"
-            >
-              {item}
-            </div>
-          ))}
+          {[labels.visualCities, labels.visualStays, labels.visualTours].map(
+            (item) => (
+              <div
+                key={item}
+                className="rounded-md border border-slate-200 bg-white px-3 py-3 text-center text-xs font-semibold text-slate-600"
+              >
+                {item}
+              </div>
+            ),
+          )}
         </div>
       </div>
     </div>
@@ -129,6 +118,18 @@ function HeroVisual() {
 }
 
 export default async function HomePage() {
+  const t = await getTranslations('home');
+  const shortcuts = [
+    { label: t('hotels'), href: '/hotels', icon: BedDouble },
+    { label: t('restaurants'), href: '/restaurants', icon: Utensils },
+    {
+      label: t('attractions'),
+      href: '/search?types=attraction',
+      icon: MapPin,
+    },
+    { label: t('tours'), href: '/tours', icon: Compass },
+    { label: t('transport'), href: '/transport', icon: Bus },
+  ];
   const [destinations, businesses, services] = await Promise.all([
     safePage<Destination>('/destinations', { limit: 3 }),
     safePage<Business>('/businesses', { limit: 3 }),
@@ -140,44 +141,49 @@ export default async function HomePage() {
         <Container className="grid min-h-[560px] items-center gap-10 py-12 sm:py-14 lg:grid-cols-[1.02fr_0.98fr] lg:py-16">
           <div className="max-w-2xl">
             <p className="text-sm font-semibold uppercase tracking-wide text-highland">
-              Travel Ethiopia with confidence
+              {t('eyebrow')}
             </p>
             <h1 className="mt-3 text-4xl font-bold leading-tight text-slate-950 sm:text-5xl lg:text-6xl">
-              Discover Ethiopia
+              {t('title')}
             </h1>
             <p className="mt-5 text-base leading-7 text-slate-700 sm:text-lg sm:leading-8">
-              Explore destinations, verified local businesses, stays, food,
-              experiences and attractions across Ethiopia.
+              {t('description')}
             </p>
             <form
               action="/search"
               className="mt-7 flex max-w-2xl flex-col gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-lg shadow-slate-200/70 sm:flex-row"
             >
               <label className="sr-only" htmlFor="q">
-                Where do you want to go?
+                {t('searchLabel')}
               </label>
               <input
                 id="q"
                 name="q"
                 className="min-h-11 min-w-0 flex-1 rounded-md px-3 text-base outline-none focus:ring-2 focus:ring-highland/20"
-                placeholder="Where do you want to go?"
+                placeholder={t('searchPlaceholder')}
               />
               <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-highland px-5 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2">
-                <Search className="h-4 w-4" aria-hidden="true" /> Search
+                <Search className="h-4 w-4" aria-hidden="true" /> {t('search')}
               </button>
             </form>
-            <p className="mt-3 text-sm text-slate-500">
-              Try Wolaita Sodo, hotels, food, or tours.
-            </p>
+            <p className="mt-3 text-sm text-slate-500">{t('searchHint')}</p>
           </div>
-          <HeroVisual />
+          <HeroVisual
+            labels={{
+              visualCities: t('visualCities'),
+              visualEyebrow: t('visualEyebrow'),
+              visualStays: t('visualStays'),
+              visualTitle: t('visualTitle'),
+              visualTours: t('visualTours'),
+            }}
+          />
         </Container>
       </section>
 
       <Container className="py-12">
         <SectionHeading
-          title="Start Exploring"
-          description="Quick paths into destinations, businesses, attractions and services."
+          title={t('shortcutsTitle')}
+          description={t('shortcutsDescription')}
         />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {shortcuts.map((item) => {
@@ -199,7 +205,10 @@ export default async function HomePage() {
       </Container>
 
       <Container className="py-9">
-        <SectionHeading title="Popular Destinations" eyebrow="Explore" />
+        <SectionHeading
+          title={t('popularDestinations')}
+          eyebrow={t('explore')}
+        />
         {destinations?.data.length ? (
           <div className="grid gap-5 md:grid-cols-3">
             {destinations.data.map((item) => (
@@ -209,14 +218,17 @@ export default async function HomePage() {
         ) : (
           <HomepageEmptyState
             icon={MapPin}
-            title="No destinations available yet"
-            message="New destinations will appear here as they become available."
+            title={t('noDestinationsTitle')}
+            message={t('noDestinationsMessage')}
           />
         )}
       </Container>
 
       <Container className="py-9">
-        <SectionHeading title="Verified Businesses" eyebrow="Marketplace" />
+        <SectionHeading
+          title={t('verifiedBusinesses')}
+          eyebrow={t('marketplace')}
+        />
         {businesses?.data.length ? (
           <div className="grid gap-5 md:grid-cols-3">
             {businesses.data.map((item) => (
@@ -226,14 +238,14 @@ export default async function HomePage() {
         ) : (
           <HomepageEmptyState
             icon={Store}
-            title="No businesses available yet"
-            message="Verified local businesses will appear here as they become available."
+            title={t('noBusinessesTitle')}
+            message={t('noBusinessesMessage')}
           />
         )}
       </Container>
 
       <Container className="py-9">
-        <SectionHeading title="Experiences and Services" eyebrow="Book Later" />
+        <SectionHeading title={t('experiences')} eyebrow={t('bookLater')} />
         {services?.data.length ? (
           <div className="grid gap-5 md:grid-cols-3">
             {services.data.map((item) => (
@@ -243,8 +255,8 @@ export default async function HomePage() {
         ) : (
           <HomepageEmptyState
             icon={Sparkles}
-            title="No services available yet"
-            message="New experiences and services will appear here as they become available."
+            title={t('noServicesTitle')}
+            message={t('noServicesMessage')}
           />
         )}
       </Container>
@@ -258,10 +270,10 @@ export default async function HomePage() {
               </div>
               <div>
                 <h2 className="text-2xl font-bold sm:text-3xl">
-                  Explore Ethiopia on the map
+                  {t('mapTitle')}
                 </h2>
                 <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
-                  Switch to map view to browse public places by location.
+                  {t('mapDescription')}
                 </p>
               </div>
             </div>
@@ -269,7 +281,7 @@ export default async function HomePage() {
               href="/search?view=map"
               className="inline-flex min-h-11 items-center justify-center rounded-md bg-white px-5 py-3 text-sm font-semibold text-slate-950 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-950"
             >
-              Open Map
+              {t('openMap')}
             </Link>
           </div>
         </Container>

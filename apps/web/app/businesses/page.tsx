@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { ArrowRight, BadgeCheck, Building2, MapPin } from 'lucide-react';
 import { BusinessFilters } from './BusinessFilters';
 import { FavoriteButton } from '../../components/favorites/FavoriteButton';
@@ -26,9 +27,17 @@ function pick(value: string | string[] | undefined): string | undefined {
 function BusinessResultCard({
   business,
   favoriteId,
+  labels,
 }: {
   business: Business;
   favoriteId?: string;
+  labels: {
+    contact: string;
+    moreDetails: string;
+    near: (values: { destination: string }) => string;
+    verified: string;
+    view: string;
+  };
 }) {
   const location = [business.city?.name, business.region?.name]
     .filter(Boolean)
@@ -58,7 +67,7 @@ function BusinessResultCard({
           ) : null}
           <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
             <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
-            Verified
+            {labels.verified}
           </span>
         </div>
         <h3 className="mt-3 text-lg font-bold text-slate-950">
@@ -72,7 +81,7 @@ function BusinessResultCard({
         ) : null}
         {business.destination?.name ? (
           <p className="mt-2 text-sm text-slate-500">
-            Near {business.destination.name}
+            {labels.near({ destination: business.destination.name })}
           </p>
         ) : null}
         {business.description ? (
@@ -81,7 +90,7 @@ function BusinessResultCard({
           </p>
         ) : (
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            More business details will be added soon.
+            {labels.moreDetails}
           </p>
         )}
         <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -90,7 +99,7 @@ function BusinessResultCard({
               className="inline-flex items-center gap-2 text-sm font-semibold text-highland transition hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
               href={businessHref}
             >
-              View business
+              {labels.view}
               <ArrowRight
                 className="h-4 w-4 transition group-hover:translate-x-0.5"
                 aria-hidden="true"
@@ -104,7 +113,7 @@ function BusinessResultCard({
           />
           <StartConversationButton
             businessId={business.id}
-            label="Contact business"
+            label={labels.contact}
             className="inline-flex items-center gap-2 rounded-md border border-highland px-3 py-1.5 text-sm font-semibold text-highland hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           />
         </div>
@@ -113,35 +122,47 @@ function BusinessResultCard({
   );
 }
 
-function EmptyBusinesses({ hasFilters }: { hasFilters: boolean }) {
+function EmptyBusinesses({
+  hasFilters,
+  labels,
+}: {
+  hasFilters: boolean;
+  labels: {
+    noAvailableMessage: string;
+    noAvailableTitle: string;
+    noMatchingMessage: string;
+    noMatchingTitle: string;
+  };
+}) {
   return (
     <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-highland">
         <Building2 className="h-6 w-6" aria-hidden="true" />
       </div>
       <h3 className="mt-4 text-base font-semibold text-slate-950">
-        {hasFilters
-          ? 'No matching businesses'
-          : 'No verified businesses available yet'}
+        {hasFilters ? labels.noMatchingTitle : labels.noAvailableTitle}
       </h3>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-        {hasFilters
-          ? 'Try changing your search, location or category filters.'
-          : 'Verified local businesses will appear here as they join EthioTravel.'}
+        {hasFilters ? labels.noMatchingMessage : labels.noAvailableMessage}
       </p>
     </div>
   );
 }
 
-function ErrorBusinesses() {
+function ErrorBusinesses({ message }: { message: string }) {
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 px-6 py-5 text-sm text-amber-900">
-      We could not load businesses right now. Please try again soon.
+      {message}
     </div>
   );
 }
 
 export default async function BusinessesPage({ searchParams }: PageProps) {
+  const [t, discoveryT, marketplaceT] = await Promise.all([
+    getTranslations('businesses'),
+    getTranslations('discovery'),
+    getTranslations('marketplace'),
+  ]);
   const params = await searchParams;
   const q = pick(params.q)?.trim();
   const regionSlug = pick(params.regionSlug)?.trim();
@@ -188,9 +209,9 @@ export default async function BusinessesPage({ searchParams }: PageProps) {
     <main className="bg-slate-50">
       <Container className="py-10 sm:py-12">
         <SectionHeading
-          eyebrow="Businesses"
-          title="Verified Businesses"
-          description="Find trusted local businesses that are ready to welcome travelers across Ethiopia."
+          eyebrow={t('eyebrow')}
+          title={t('title')}
+          description={t('listingDescription')}
         />
 
         <BusinessFilters
@@ -204,17 +225,18 @@ export default async function BusinessesPage({ searchParams }: PageProps) {
         />
 
         {!businessesResponse ? (
-          <ErrorBusinesses />
+          <ErrorBusinesses message={t('loadError')} />
         ) : businesses.length ? (
           <>
             <div className="mb-4 flex items-center justify-between gap-4 text-sm text-slate-600">
               <p>
-                {businessesResponse.meta.total} business
-                {businessesResponse.meta.total === 1 ? '' : 'es'} found
+                {t('businessCount', { count: businessesResponse.meta.total })}
               </p>
               <p>
-                Page {businessesResponse.meta.page} of{' '}
-                {Math.max(businessesResponse.meta.totalPages, 1)}
+                {discoveryT('pageOf', {
+                  page: businessesResponse.meta.page,
+                  total: Math.max(businessesResponse.meta.totalPages, 1),
+                })}
               </p>
             </div>
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -222,6 +244,13 @@ export default async function BusinessesPage({ searchParams }: PageProps) {
                 <BusinessResultCard
                   key={business.id}
                   business={business}
+                  labels={{
+                    contact: marketplaceT('contactBusiness'),
+                    moreDetails: marketplaceT('moreBusinessDetails'),
+                    near: (values) => marketplaceT('nearDestination', values),
+                    verified: marketplaceT('verifiedBusiness'),
+                    view: marketplaceT('viewBusiness'),
+                  }}
                   favoriteId={
                     favoriteLookup[favoriteLookupKey('BUSINESS', business.id)]
                   }
@@ -230,7 +259,15 @@ export default async function BusinessesPage({ searchParams }: PageProps) {
             </div>
           </>
         ) : (
-          <EmptyBusinesses hasFilters={hasFilters} />
+          <EmptyBusinesses
+            hasFilters={hasFilters}
+            labels={{
+              noAvailableMessage: t('noAvailableMessage'),
+              noAvailableTitle: t('noAvailableTitle'),
+              noMatchingMessage: t('noMatchingMessage'),
+              noMatchingTitle: t('noMatchingTitle'),
+            }}
+          />
         )}
       </Container>
     </main>

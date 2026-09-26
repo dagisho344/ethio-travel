@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { ArrowRight, ImageIcon, Map, MapPin } from 'lucide-react';
 import { DestinationFilters } from './DestinationFilters';
 import { FavoriteButton } from '../../components/favorites/FavoriteButton';
@@ -117,9 +118,11 @@ async function findDestinations({
 function DestinationResultCard({
   destination,
   favoriteId,
+  labels,
 }: {
   destination: Destination;
   favoriteId?: string;
+  labels: { moreDetails: string; viewDestination: string };
 }) {
   const region = destination.region;
   const city = destination.city;
@@ -153,7 +156,7 @@ function DestinationResultCard({
           </p>
         ) : (
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            More travel details will be added soon.
+            {labels.moreDetails}
           </p>
         )}
         <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -161,7 +164,7 @@ function DestinationResultCard({
             className="inline-flex items-center gap-2 text-sm font-semibold text-highland transition hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
             href={destinationPath(region?.slug, city?.slug, destination.slug)}
           >
-            View destination
+            {labels.viewDestination}
             <ArrowRight
               className="h-4 w-4 transition group-hover:translate-x-0.5"
               aria-hidden="true"
@@ -178,35 +181,47 @@ function DestinationResultCard({
   );
 }
 
-function EmptyDestinations({ hasFilters }: { hasFilters: boolean }) {
+function EmptyDestinations({
+  hasFilters,
+  labels,
+}: {
+  hasFilters: boolean;
+  labels: {
+    noAvailableMessage: string;
+    noAvailableTitle: string;
+    noMatchingMessage: string;
+    noMatchingTitle: string;
+  };
+}) {
   return (
     <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-highland">
         <Map className="h-6 w-6" aria-hidden="true" />
       </div>
       <h3 className="mt-4 text-base font-semibold text-slate-950">
-        {hasFilters
-          ? 'No matching destinations'
-          : 'No destinations available yet'}
+        {hasFilters ? labels.noMatchingTitle : labels.noAvailableTitle}
       </h3>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-        {hasFilters
-          ? 'Try changing your search or location filters.'
-          : "We're adding more places across Ethiopia. Explore another location or check back soon."}
+        {hasFilters ? labels.noMatchingMessage : labels.noAvailableMessage}
       </p>
     </div>
   );
 }
 
-function ErrorDestinations() {
+function ErrorDestinations({ message }: { message: string }) {
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 px-6 py-5 text-sm text-amber-900">
-      We could not load destinations right now. Please try again soon.
+      {message}
     </div>
   );
 }
 
 export default async function DestinationsPage({ searchParams }: PageProps) {
+  const [t, discoveryT, marketplaceT] = await Promise.all([
+    getTranslations('destinations'),
+    getTranslations('discovery'),
+    getTranslations('marketplace'),
+  ]);
   const params = await searchParams;
   const q = pick(params.q)?.trim();
   const regionSlug = pick(params.regionSlug)?.trim();
@@ -244,9 +259,9 @@ export default async function DestinationsPage({ searchParams }: PageProps) {
     <main className="bg-slate-50">
       <Container className="py-10 sm:py-12">
         <SectionHeading
-          eyebrow="Destinations"
-          title="Explore Destinations"
-          description="Find published places across active Ethiopian cities and regions."
+          eyebrow={t('eyebrow')}
+          title={t('title')}
+          description={t('description')}
         />
 
         <DestinationFilters
@@ -258,17 +273,20 @@ export default async function DestinationsPage({ searchParams }: PageProps) {
         />
 
         {!destinationsResponse ? (
-          <ErrorDestinations />
+          <ErrorDestinations message={t('loadError')} />
         ) : destinations.length ? (
           <>
             <div className="mb-4 flex items-center justify-between gap-4 text-sm text-slate-600">
               <p>
-                {destinationsResponse.meta.total} destination
-                {destinationsResponse.meta.total === 1 ? '' : 's'} found
+                {t('destinationCount', {
+                  count: destinationsResponse.meta.total,
+                })}
               </p>
               <p>
-                Page {destinationsResponse.meta.page} of{' '}
-                {Math.max(destinationsResponse.meta.totalPages, 1)}
+                {discoveryT('pageOf', {
+                  page: destinationsResponse.meta.page,
+                  total: Math.max(destinationsResponse.meta.totalPages, 1),
+                })}
               </p>
             </div>
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -276,6 +294,10 @@ export default async function DestinationsPage({ searchParams }: PageProps) {
                 <DestinationResultCard
                   key={destination.id}
                   destination={destination}
+                  labels={{
+                    moreDetails: marketplaceT('moreDestinationDetails'),
+                    viewDestination: marketplaceT('viewDestination'),
+                  }}
                   favoriteId={
                     favoriteLookup[
                       favoriteLookupKey('DESTINATION', destination.id)
@@ -286,7 +308,15 @@ export default async function DestinationsPage({ searchParams }: PageProps) {
             </div>
           </>
         ) : (
-          <EmptyDestinations hasFilters={hasFilters} />
+          <EmptyDestinations
+            hasFilters={hasFilters}
+            labels={{
+              noAvailableMessage: t('noAvailableMessage'),
+              noAvailableTitle: t('noAvailableTitle'),
+              noMatchingMessage: t('noMatchingMessage'),
+              noMatchingTitle: t('noMatchingTitle'),
+            }}
+          />
         )}
       </Container>
     </main>

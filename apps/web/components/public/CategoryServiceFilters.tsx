@@ -2,6 +2,7 @@
 
 import { Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { useState, type FormEvent } from 'react';
 import {
   hasPublicServiceFilters,
@@ -29,15 +30,25 @@ type Props = {
   regions: LocationSummary[];
 };
 
-const pricingLabels: Record<PricingModel, string> = {
-  FREE: 'Free',
-  CONTACT_FOR_PRICE: 'Contact for price',
-  FIXED: 'Fixed price',
-  PER_PERSON: 'Per person',
-  PER_NIGHT: 'Per night',
-  PER_HOUR: 'Per hour',
-  PER_DAY: 'Per day',
-  STARTING_FROM: 'Starting from',
+const pricingLabelKeys: Record<
+  PricingModel,
+  | 'free'
+  | 'contactForPrice'
+  | 'fixedPrice'
+  | 'perPerson'
+  | 'perNight'
+  | 'perHour'
+  | 'perDay'
+  | 'startingFrom'
+> = {
+  FREE: 'free',
+  CONTACT_FOR_PRICE: 'contactForPrice',
+  FIXED: 'fixedPrice',
+  PER_PERSON: 'perPerson',
+  PER_NIGHT: 'perNight',
+  PER_HOUR: 'perHour',
+  PER_DAY: 'perDay',
+  STARTING_FROM: 'startingFrom',
 };
 
 function BooleanSelect({
@@ -45,10 +56,12 @@ function BooleanSelect({
   name,
   value,
   onChange,
+  options,
 }: {
   label: string;
   name: string;
   onChange: (value: 'true' | 'false' | '') => void;
+  options: { any: string; no: string; yes: string };
   value: 'true' | 'false' | undefined;
 }) {
   return (
@@ -62,9 +75,9 @@ function BooleanSelect({
         }
         className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition focus:border-highland focus:ring-2 focus:ring-highland/20"
       >
-        <option value="">Any</option>
-        <option value="true">Yes</option>
-        <option value="false">No</option>
+        <option value="">{options.any}</option>
+        <option value="true">{options.yes}</option>
+        <option value="false">{options.no}</option>
       </select>
     </label>
   );
@@ -80,6 +93,7 @@ export function CategoryServiceFilters({
   originCities,
   regions,
 }: Props) {
+  const t = useTranslations('discovery');
   const router = useRouter();
   const [values, setValues] = useState<PublicServiceFilterValues>(filters);
   const genericCitiesLoaded = values.regionSlug === filters.regionSlug;
@@ -136,9 +150,9 @@ export function CategoryServiceFilters({
       onSubmit={submit}
       className="mb-8 grid gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-4"
     >
-      {input('Search', 'q')}
+      {input(t('search'), 'q')}
       <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-        Region
+        {t('region')}
         <select
           name="regionSlug"
           value={values.regionSlug ?? ''}
@@ -159,7 +173,7 @@ export function CategoryServiceFilters({
           }}
           className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition focus:border-highland focus:ring-2 focus:ring-highland/20"
         >
-          <option value="">All regions</option>
+          <option value="">{t('allRegions')}</option>
           {regions.map((region) => (
             <option key={region.slug} value={region.slug}>
               {region.name}
@@ -168,7 +182,7 @@ export function CategoryServiceFilters({
         </select>
       </label>
       <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-        City
+        {t('city')}
         <select
           name="citySlug"
           value={genericCitiesLoaded ? (values.citySlug ?? '') : ''}
@@ -178,7 +192,7 @@ export function CategoryServiceFilters({
           disabled={!genericCitiesLoaded}
           className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 focus:border-highland focus:ring-2 focus:ring-highland/20"
         >
-          <option value="">All cities</option>
+          <option value="">{t('allCities')}</option>
           {genericCitiesLoaded
             ? cities.map((city) => (
                 <option key={city.slug} value={city.slug}>
@@ -189,7 +203,7 @@ export function CategoryServiceFilters({
         </select>
       </label>
       <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-        Category
+        {t('allCategories')}
         <select
           name="category"
           value={values.category ?? ''}
@@ -198,7 +212,7 @@ export function CategoryServiceFilters({
           }
           className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition focus:border-highland focus:ring-2 focus:ring-highland/20"
         >
-          <option value="">All categories</option>
+          <option value="">{t('allCategories')}</option>
           {categories.map((category) => (
             <option key={category.code} value={category.code}>
               {category.name}
@@ -207,7 +221,7 @@ export function CategoryServiceFilters({
         </select>
       </label>
       <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-        Pricing
+        {t('pricing')}
         <select
           name="pricingModel"
           value={values.pricingModel ?? ''}
@@ -219,20 +233,20 @@ export function CategoryServiceFilters({
           }
           className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition focus:border-highland focus:ring-2 focus:ring-highland/20"
         >
-          <option value="">Any pricing</option>
+          <option value="">{t('anyPricing')}</option>
           {publicPricingModels.map((model) => (
             <option key={model} value={model}>
-              {pricingLabels[model]}
+              {t(pricingLabelKeys[model])}
             </option>
           ))}
         </select>
       </label>
-      {input('Min service price', 'minPrice', {
+      {input(t('minPrice'), 'minPrice', {
         type: 'number',
         min: 0,
         inputMode: 'decimal',
       })}
-      {input('Max service price', 'maxPrice', {
+      {input(t('maxPrice'), 'maxPrice', {
         type: 'number',
         min: 0,
         inputMode: 'decimal',
@@ -241,7 +255,7 @@ export function CategoryServiceFilters({
       {family === 'ACCOMMODATION' ? (
         <>
           <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-            Star class
+            {t('starClass')}
             <select
               name="starClass"
               value={values.starClass ?? ''}
@@ -250,15 +264,15 @@ export function CategoryServiceFilters({
               }
               className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition focus:border-highland focus:ring-2 focus:ring-highland/20"
             >
-              <option value="">Any star class</option>
+              <option value="">{t('anyStarClass')}</option>
               {[1, 2, 3, 4, 5].map((starClass) => (
                 <option key={starClass} value={starClass}>
-                  {starClass} star{starClass === 1 ? '' : 's'}
+                  {t('star', { count: starClass })}
                 </option>
               ))}
             </select>
           </label>
-          {input('Minimum room capacity', 'minRoomCapacity', {
+          {input(t('minRoomCapacity'), 'minRoomCapacity', {
             type: 'number',
             min: 1,
             inputMode: 'numeric',
@@ -269,7 +283,7 @@ export function CategoryServiceFilters({
       {family === 'RESTAURANT' ? (
         <>
           <BooleanSelect
-            label="Reservation supported"
+            label={t('reservationSupported')}
             name="reservationSupported"
             value={values.reservationSupported}
             onChange={(reservationSupported) =>
@@ -277,26 +291,28 @@ export function CategoryServiceFilters({
                 reservationSupported: reservationSupported || undefined,
               })
             }
+            options={{ any: t('any'), no: t('no'), yes: t('yes') }}
           />
           <BooleanSelect
-            label="Delivery supported"
+            label={t('deliverySupported')}
             name="deliverySupported"
             value={values.deliverySupported}
             onChange={(deliverySupported) =>
               update({ deliverySupported: deliverySupported || undefined })
             }
+            options={{ any: t('any'), no: t('no'), yes: t('yes') }}
           />
         </>
       ) : null}
 
       {family === 'TOUR' ? (
         <>
-          {input('Minimum duration (days)', 'minDurationDays', {
+          {input(t('minDuration'), 'minDurationDays', {
             type: 'number',
             min: 1,
             inputMode: 'numeric',
           })}
-          {input('Maximum duration (days)', 'maxDurationDays', {
+          {input(t('maxDuration'), 'maxDurationDays', {
             type: 'number',
             min: 1,
             inputMode: 'numeric',
@@ -307,7 +323,7 @@ export function CategoryServiceFilters({
       {family === 'TRANSPORT' ? (
         <>
           <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-            Origin region
+            {t('originRegion')}
             <select
               name="originRegionSlug"
               value={values.originRegionSlug ?? ''}
@@ -320,7 +336,7 @@ export function CategoryServiceFilters({
               }}
               className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition focus:border-highland focus:ring-2 focus:ring-highland/20"
             >
-              <option value="">Any origin region</option>
+              <option value="">{t('anyOriginRegion')}</option>
               {regions.map((region) => (
                 <option key={region.slug} value={region.slug}>
                   {region.name}
@@ -329,7 +345,7 @@ export function CategoryServiceFilters({
             </select>
           </label>
           <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-            Origin city
+            {t('originCity')}
             <select
               name="originCitySlug"
               value={originCitiesLoaded ? (values.originCitySlug ?? '') : ''}
@@ -339,7 +355,7 @@ export function CategoryServiceFilters({
               disabled={!originCitiesLoaded}
               className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 focus:border-highland focus:ring-2 focus:ring-highland/20"
             >
-              <option value="">Any origin city</option>
+              <option value="">{t('anyOriginCity')}</option>
               {originCitiesLoaded
                 ? originCities.map((city) => (
                     <option key={city.slug} value={city.slug}>
@@ -350,7 +366,7 @@ export function CategoryServiceFilters({
             </select>
           </label>
           <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-            Destination region
+            {t('destinationRegion')}
             <select
               name="destinationRegionSlug"
               value={values.destinationRegionSlug ?? ''}
@@ -369,7 +385,7 @@ export function CategoryServiceFilters({
               }}
               className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition focus:border-highland focus:ring-2 focus:ring-highland/20"
             >
-              <option value="">Any destination region</option>
+              <option value="">{t('anyDestinationRegion')}</option>
               {regions.map((region) => (
                 <option key={region.slug} value={region.slug}>
                   {region.name}
@@ -378,7 +394,7 @@ export function CategoryServiceFilters({
             </select>
           </label>
           <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-            Destination city
+            {t('destinationCity')}
             <select
               name="destinationCitySlug"
               value={
@@ -392,7 +408,7 @@ export function CategoryServiceFilters({
               disabled={!destinationCitiesLoaded}
               className="h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none transition disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 focus:border-highland focus:ring-2 focus:ring-highland/20"
             >
-              <option value="">Any destination city</option>
+              <option value="">{t('anyDestinationCity')}</option>
               {destinationCitiesLoaded
                 ? destinationCities.map((city) => (
                     <option key={city.slug} value={city.slug}>
@@ -408,7 +424,7 @@ export function CategoryServiceFilters({
       <div className="flex items-end gap-2 md:col-span-2 xl:col-span-4">
         <button className="inline-flex h-11 items-center gap-2 rounded-md bg-highland px-5 text-sm font-semibold text-white transition hover:bg-highland/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2">
           <Search className="h-4 w-4" aria-hidden="true" />
-          Apply filters
+          {t('applyFilters')}
         </button>
         {hasPublicServiceFilters(values, true) ? (
           <button
@@ -416,7 +432,7 @@ export function CategoryServiceFilters({
             onClick={() => router.push(basePath)}
             className="inline-flex h-11 items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-highland hover:text-highland focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
           >
-            Clear filters
+            {t('clearFilters')}
           </button>
         ) : null}
       </div>

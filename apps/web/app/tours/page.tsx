@@ -1,11 +1,14 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { CategoryMarketplacePage } from '../../components/public/CategoryMarketplacePage';
 
-export const metadata: Metadata = {
-  title: 'Tours | EthioTravel',
-  description:
-    'Browse verified guided tours and local experiences across Ethiopia.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('services');
+  return {
+    title: `${t('familyTour')} | EthioTravel`,
+    description: t('familyTourDescription'),
+  };
+}
 
 export default function ToursPage({
   searchParams,

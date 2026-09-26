@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import {
   ArrowRight,
   BadgeCheck,
@@ -56,27 +57,20 @@ function servicePath(service: Service) {
   return `/services/${service.id}`;
 }
 
-function pricingLabel(model?: PricingModel) {
-  if (!model) return undefined;
-  const labels: Record<PricingModel, string> = {
-    FREE: 'Free',
-    CONTACT_FOR_PRICE: 'Contact for price',
-    FIXED: 'Fixed price',
-    PER_PERSON: 'Per person',
-    PER_NIGHT: 'Per night',
-    PER_HOUR: 'Per hour',
-    PER_DAY: 'Per day',
-    STARTING_FROM: 'Starting from',
-  };
-  return labels[model];
-}
-
 function ServiceResultCard({
   service,
   favoriteId,
+  labels,
 }: {
   service: Service;
   favoriteId?: string;
+  labels: {
+    moreDetails: string;
+    near: (values: { destination: string }) => string;
+    pricing: (model?: PricingModel) => string | undefined;
+    published: string;
+    view: string;
+  };
 }) {
   const location = [service.city?.name, service.region?.name]
     .filter(Boolean)
@@ -105,7 +99,7 @@ function ServiceResultCard({
           ) : null}
           <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
             <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
-            Published
+            {labels.published}
           </span>
         </div>
         <h3 className="mt-3 text-lg font-bold text-slate-950">
@@ -124,7 +118,7 @@ function ServiceResultCard({
         ) : null}
         {service.destination?.name ? (
           <p className="mt-2 text-sm text-slate-500">
-            Near {service.destination.name}
+            {labels.near({ destination: service.destination.name })}
           </p>
         ) : null}
         {service.shortDescription ? (
@@ -133,7 +127,7 @@ function ServiceResultCard({
           </p>
         ) : (
           <p className="mt-3 text-sm leading-6 text-slate-500">
-            More service details will be added soon.
+            {labels.moreDetails}
           </p>
         )}
         <div className="mt-4 rounded-md bg-slate-50 px-3 py-2 text-sm">
@@ -144,9 +138,9 @@ function ServiceResultCard({
               service.currency,
             )}
           </p>
-          {pricingLabel(service.pricingModel) ? (
+          {labels.pricing(service.pricingModel) ? (
             <p className="mt-1 text-xs text-slate-500">
-              {pricingLabel(service.pricingModel)}
+              {labels.pricing(service.pricingModel)}
             </p>
           ) : null}
         </div>
@@ -154,7 +148,7 @@ function ServiceResultCard({
           className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-highland transition hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
           href={servicePath(service)}
         >
-          View service
+          {labels.view}
           <ArrowRight
             className="h-4 w-4 transition group-hover:translate-x-0.5"
             aria-hidden="true"
@@ -173,35 +167,47 @@ function ServiceResultCard({
   );
 }
 
-function EmptyServices({ hasFilters }: { hasFilters: boolean }) {
+function EmptyServices({
+  hasFilters,
+  labels,
+}: {
+  hasFilters: boolean;
+  labels: {
+    noAvailableMessage: string;
+    noAvailableTitle: string;
+    noMatchingMessage: string;
+    noMatchingTitle: string;
+  };
+}) {
   return (
     <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-highland">
         <Sparkles className="h-6 w-6" aria-hidden="true" />
       </div>
       <h3 className="mt-4 text-base font-semibold text-slate-950">
-        {hasFilters
-          ? 'No matching services'
-          : 'No published services available yet.'}
+        {hasFilters ? labels.noMatchingTitle : labels.noAvailableTitle}
       </h3>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-        {hasFilters
-          ? 'Try adjusting your search or filters.'
-          : 'Services from verified local businesses will appear here.'}
+        {hasFilters ? labels.noMatchingMessage : labels.noAvailableMessage}
       </p>
     </div>
   );
 }
 
-function ErrorServices() {
+function ErrorServices({ message }: { message: string }) {
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 px-6 py-5 text-sm text-amber-900">
-      We could not load services right now. Please try again soon.
+      {message}
     </div>
   );
 }
 
 export default async function ServicesPage({ searchParams }: PageProps) {
+  const [t, discoveryT, marketplaceT] = await Promise.all([
+    getTranslations('services'),
+    getTranslations('discovery'),
+    getTranslations('marketplace'),
+  ]);
   const params = await searchParams;
   const q = pick(params.q)?.trim();
   const regionSlug = pick(params.regionSlug)?.trim();
@@ -265,9 +271,9 @@ export default async function ServicesPage({ searchParams }: PageProps) {
     <main className="bg-slate-50">
       <Container className="py-10 sm:py-12">
         <SectionHeading
-          eyebrow="SERVICES"
-          title="Published Services"
-          description="Browse available travel experiences and services from verified local businesses."
+          eyebrow={t('eyebrow')}
+          title={t('title')}
+          description={t('description')}
         />
 
         <ServiceFilters
@@ -284,17 +290,16 @@ export default async function ServicesPage({ searchParams }: PageProps) {
         />
 
         {!servicesResponse ? (
-          <ErrorServices />
+          <ErrorServices message={t('loadError')} />
         ) : services.length ? (
           <>
             <div className="mb-4 flex items-center justify-between gap-4 text-sm text-slate-600">
+              <p>{t('serviceCount', { count: servicesResponse.meta.total })}</p>
               <p>
-                {servicesResponse.meta.total} service
-                {servicesResponse.meta.total === 1 ? '' : 's'} found
-              </p>
-              <p>
-                Page {servicesResponse.meta.page} of{' '}
-                {Math.max(servicesResponse.meta.totalPages, 1)}
+                {discoveryT('pageOf', {
+                  page: servicesResponse.meta.page,
+                  total: Math.max(servicesResponse.meta.totalPages, 1),
+                })}
               </p>
             </div>
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -302,6 +307,26 @@ export default async function ServicesPage({ searchParams }: PageProps) {
                 <ServiceResultCard
                   key={service.id}
                   service={service}
+                  labels={{
+                    moreDetails: marketplaceT('moreServiceDetails'),
+                    near: (values) => marketplaceT('nearDestination', values),
+                    pricing: (model) => {
+                      if (!model) return undefined;
+                      const pricingLabels: Record<PricingModel, string> = {
+                        CONTACT_FOR_PRICE: t('contactForPrice'),
+                        FIXED: discoveryT('fixedPrice'),
+                        FREE: t('free'),
+                        PER_DAY: discoveryT('perDay'),
+                        PER_HOUR: discoveryT('perHour'),
+                        PER_NIGHT: discoveryT('perNight'),
+                        PER_PERSON: discoveryT('perPerson'),
+                        STARTING_FROM: discoveryT('startingFrom'),
+                      };
+                      return pricingLabels[model];
+                    },
+                    published: marketplaceT('verifiedListing'),
+                    view: marketplaceT('viewService'),
+                  }}
                   favoriteId={
                     favoriteLookup[favoriteLookupKey('SERVICE', service.id)]
                   }
@@ -311,7 +336,9 @@ export default async function ServicesPage({ searchParams }: PageProps) {
             {servicesResponse.meta.totalPages > 1 ? (
               <nav
                 className="mt-8 flex items-center justify-between gap-3"
-                aria-label="Services pagination"
+                aria-label={marketplaceT('pagePagination', {
+                  category: t('title'),
+                })}
               >
                 {servicesResponse.meta.page > 1 ? (
                   <Link
@@ -331,14 +358,16 @@ export default async function ServicesPage({ searchParams }: PageProps) {
                     className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-highland hover:text-highland focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
                   >
                     <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                    Previous
+                    {t('previous')}
                   </Link>
                 ) : (
                   <span />
                 )}
                 <p className="text-sm text-slate-600">
-                  Page {servicesResponse.meta.page} of{' '}
-                  {servicesResponse.meta.totalPages}
+                  {t('pageOf', {
+                    page: servicesResponse.meta.page,
+                    total: servicesResponse.meta.totalPages,
+                  })}
                 </p>
                 {servicesResponse.meta.page <
                 servicesResponse.meta.totalPages ? (
@@ -358,7 +387,7 @@ export default async function ServicesPage({ searchParams }: PageProps) {
                     )}
                     className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-highland hover:text-highland focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
                   >
-                    Next
+                    {t('next')}
                     <ChevronRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
                 ) : (
@@ -369,13 +398,21 @@ export default async function ServicesPage({ searchParams }: PageProps) {
           </>
         ) : (
           <>
-            <EmptyServices hasFilters={hasFilters} />
+            <EmptyServices
+              hasFilters={hasFilters}
+              labels={{
+                noAvailableMessage: t('noAvailableMessage'),
+                noAvailableTitle: t('noAvailableTitle'),
+                noMatchingMessage: t('noMatchingMessage'),
+                noMatchingTitle: t('noMatchingTitle'),
+              }}
+            />
             {hasFilters ? (
               <Link
                 href="/services"
                 className="mt-4 inline-flex min-h-11 items-center rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white transition hover:bg-highland/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
               >
-                Clear filters
+                {t('clear')}
               </Link>
             ) : null}
           </>

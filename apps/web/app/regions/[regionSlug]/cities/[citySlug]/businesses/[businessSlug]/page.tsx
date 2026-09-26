@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ExternalLink, Mail, MapPin, Phone } from 'lucide-react';
 import { FavoriteButton } from '../../../../../../../components/favorites/FavoriteButton';
@@ -46,6 +47,7 @@ export async function generateMetadata({
 }: {
   params: Promise<PublicBusinessRouteParams>;
 }): Promise<Metadata> {
+  const businessesT = await getTranslations('businesses');
   try {
     const business = await publicBusiness(await params);
     return {
@@ -53,7 +55,7 @@ export async function generateMetadata({
       description: business.description,
     };
   } catch {
-    return { title: 'Business | EthioTravel' };
+    return { title: businessesT('metadataFallback') };
   }
 }
 
@@ -62,6 +64,10 @@ export default async function PublicBusinessDetailPage({
 }: {
   params: Promise<PublicBusinessRouteParams>;
 }) {
+  const [businessesT, marketplaceT] = await Promise.all([
+    getTranslations('businesses'),
+    getTranslations('marketplace'),
+  ]);
   const route = await params;
   const business = await publicBusiness(route);
   const services = await safePage<Service>(
@@ -79,7 +85,7 @@ export default async function PublicBusinessDetailPage({
           className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Back to businesses
+          {businessesT('back')}
         </Link>
         <section className="mt-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <PublicBusinessCover
@@ -88,7 +94,7 @@ export default async function PublicBusinessDetailPage({
           />
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
-              Verified business
+              {marketplaceT('verifiedBusiness')}
             </span>
             {business.category?.name ? (
               <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
@@ -127,7 +133,7 @@ export default async function PublicBusinessDetailPage({
           <div className="mt-6 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
             <StartConversationButton
               businessId={business.id}
-              label="Message business"
+              label={marketplaceT('messageBusiness')}
               className="inline-flex min-h-11 items-center justify-center rounded-md border border-highland px-3 font-semibold text-highland hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             />
             <AddToTripButton
@@ -161,7 +167,7 @@ export default async function PublicBusinessDetailPage({
                 target="_blank"
                 rel="noreferrer"
               >
-                Website
+                {marketplaceT('website')}
                 <ExternalLink className="h-4 w-4" aria-hidden="true" />
               </a>
             ) : null}
@@ -173,11 +179,11 @@ export default async function PublicBusinessDetailPage({
         />
         <section className="mt-8">
           <h2 className="text-2xl font-bold text-slate-950">
-            Published services
+            {marketplaceT('publishedServices')}
           </h2>
           {!services ? (
             <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              We could not load this business&apos;s services right now.
+              {marketplaceT('servicesLoadError')}
             </p>
           ) : services.data.length ? (
             <div className="mt-4 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -187,7 +193,7 @@ export default async function PublicBusinessDetailPage({
             </div>
           ) : (
             <p className="mt-4 rounded-lg bg-white px-4 py-5 text-sm text-slate-600 shadow-sm">
-              This verified business has no published services listed yet.
+              {marketplaceT('noPublishedServices')}
             </p>
           )}
         </section>

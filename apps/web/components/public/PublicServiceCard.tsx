@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { ArrowRight, MapPin, ShieldCheck } from 'lucide-react';
 import { BookingWidget } from '../bookings/BookingWidget';
 import { FavoriteButton } from '../favorites/FavoriteButton';
@@ -13,15 +16,17 @@ function pricingText(
   pricingModel: PricingModel,
   price: Service['price'],
   currency: string | null | undefined,
+  labels: { contact: string; free: string; request: string },
 ): string {
-  if (pricingModel === 'FREE') return 'Free';
-  if (pricingModel === 'CONTACT_FOR_PRICE') return 'Contact for price';
-  if (price === null || price === undefined || !currency)
-    return 'Pricing available on request';
+  if (pricingModel === 'FREE') return labels.free;
+  if (pricingModel === 'CONTACT_FOR_PRICE') return labels.contact;
+  if (price === null || price === undefined || !currency) return labels.request;
   return `${currency} ${price}`;
 }
 
 export function PublicServiceCard({ service }: { service: Service }) {
+  const marketplaceT = useTranslations('marketplace');
+  const servicesT = useTranslations('services');
   const categoryPresentation = getPublicServiceCategoryPresentation(
     service.category?.family,
   );
@@ -47,7 +52,7 @@ export function PublicServiceCard({ service }: { service: Service }) {
       <div className="flex flex-wrap items-center gap-2 pr-10">
         <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
           <ShieldCheck className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
-          Verified listing
+          {marketplaceT('verifiedListing')}
         </span>
         {service.category?.name ? (
           <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
@@ -58,7 +63,7 @@ export function PublicServiceCard({ service }: { service: Service }) {
       {media ? (
         <div className="mt-4">
           <PublicBusinessCardImage
-            businessName={service.business?.name ?? 'EthioTravel business'}
+            businessName={service.business?.name ?? 'EthioTravel'}
             hero={media}
             logo={null}
           />
@@ -88,14 +93,27 @@ export function PublicServiceCard({ service }: { service: Service }) {
       </p>
       <div className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-sm">
         <p className="font-semibold text-slate-950">
-          {pricingText(service.pricingModel, service.price, service.currency)}
+          {pricingText(service.pricingModel, service.price, service.currency, {
+            contact: servicesT('contactForPrice'),
+            free: servicesT('free'),
+            request: servicesT('priceOnRequest'),
+          })}
         </p>
         {categoryPresentation ? (
           <Link
             href={categoryPresentation.href}
             className="mt-1 inline-block text-xs font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
           >
-            Browse {categoryPresentation.label}
+            {marketplaceT('browseCategory', {
+              category:
+                service.category?.family === 'ACCOMMODATION'
+                  ? servicesT('familyAccommodation')
+                  : service.category?.family === 'RESTAURANT'
+                    ? servicesT('familyRestaurant')
+                    : service.category?.family === 'TOUR'
+                      ? servicesT('familyTour')
+                      : servicesT('familyTransport'),
+            })}
           </Link>
         ) : null}
       </div>
@@ -112,7 +130,7 @@ export function PublicServiceCard({ service }: { service: Service }) {
           href={`/services/${service.id}`}
           className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
         >
-          View service details{' '}
+          {marketplaceT('viewService')}{' '}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
         <AddToTripButton
@@ -123,7 +141,7 @@ export function PublicServiceCard({ service }: { service: Service }) {
         {service.business?.id ? (
           <StartConversationButton
             businessId={service.business.id}
-            label="Message business"
+            label={marketplaceT('messageBusiness')}
             className="inline-flex min-h-10 items-center justify-center rounded-md border border-highland px-3 py-2 text-sm font-semibold text-highland hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           />
         ) : null}

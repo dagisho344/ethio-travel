@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { safePage } from '../../lib/api';
 import {
@@ -25,8 +26,28 @@ export async function CategoryMarketplacePage({
   family: Exclude<PublicServiceCategoryFamily, 'OTHER'>;
   searchParams: Promise<SearchParameters>;
 }) {
+  const [marketplaceT, servicesT] = await Promise.all([
+    getTranslations('marketplace'),
+    getTranslations('services'),
+  ]);
   const presentation = getPublicServiceCategoryPresentation(family);
   if (!presentation) return null;
+  const categoryLabel =
+    family === 'ACCOMMODATION'
+      ? servicesT('familyAccommodation')
+      : family === 'RESTAURANT'
+        ? servicesT('familyRestaurant')
+        : family === 'TOUR'
+          ? servicesT('familyTour')
+          : servicesT('familyTransport');
+  const categoryDescription =
+    family === 'ACCOMMODATION'
+      ? servicesT('familyAccommodationDescription')
+      : family === 'RESTAURANT'
+        ? servicesT('familyRestaurantDescription')
+        : family === 'TOUR'
+          ? servicesT('familyTourDescription')
+          : servicesT('familyTransportDescription');
 
   const filters = parsePublicServiceFilters(await searchParams, family);
   const page = filters.page ? Number(filters.page) : 1;
@@ -72,9 +93,9 @@ export async function CategoryMarketplacePage({
     <main className="bg-slate-50">
       <Container className="py-10 sm:py-12">
         <SectionHeading
-          eyebrow="EXPLORE ETHIOTRAVEL"
-          title={presentation.label}
-          description={presentation.description}
+          eyebrow={marketplaceT('ethiopia')}
+          title={categoryLabel}
+          description={categoryDescription}
         />
         <CategoryServiceFilters
           basePath={presentation.href}
@@ -88,14 +109,14 @@ export async function CategoryMarketplacePage({
         />
         {!response ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-6 py-5 text-sm text-amber-900">
-            We could not load {presentation.label.toLowerCase()} right now.
-            Please try again soon.
+            {marketplaceT('loadCategoryError', { category: categoryLabel })}
           </div>
         ) : services.length ? (
           <>
             <p className="mb-5 text-sm text-slate-600">
-              {response.meta.total} result
-              {response.meta.total === 1 ? '' : 's'} from verified businesses
+              {marketplaceT('resultsFromVerified', {
+                count: response.meta.total,
+              })}
             </p>
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {services.map((service) => (
@@ -105,7 +126,9 @@ export async function CategoryMarketplacePage({
             {response.meta.totalPages > 1 ? (
               <nav
                 className="mt-8 flex items-center justify-between gap-3"
-                aria-label={`${presentation.label} pagination`}
+                aria-label={marketplaceT('pagePagination', {
+                  category: categoryLabel,
+                })}
               >
                 {response.meta.page > 1 ? (
                   <Link
@@ -118,13 +141,16 @@ export async function CategoryMarketplacePage({
                     className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-highland hover:text-highland focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
                   >
                     <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                    Previous
+                    {servicesT('previous')}
                   </Link>
                 ) : (
                   <span />
                 )}
                 <p className="text-sm text-slate-600">
-                  Page {response.meta.page} of {response.meta.totalPages}
+                  {servicesT('pageOf', {
+                    page: response.meta.page,
+                    total: response.meta.totalPages,
+                  })}
                 </p>
                 {response.meta.page < response.meta.totalPages ? (
                   <Link
@@ -136,7 +162,7 @@ export async function CategoryMarketplacePage({
                     )}
                     className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-highland hover:text-highland focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
                   >
-                    Next
+                    {servicesT('next')}
                     <ChevronRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
                 ) : (
@@ -153,20 +179,22 @@ export async function CategoryMarketplacePage({
             />
             <h2 className="mt-4 text-lg font-semibold text-slate-950">
               {hasFilters
-                ? 'No services match your current filters'
-                : `No ${presentation.label.toLowerCase()} available yet`}
+                ? marketplaceT('noMatchingServices')
+                : marketplaceT('noCategoryServices', {
+                    category: categoryLabel,
+                  })}
             </h2>
             <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-600">
               {hasFilters
-                ? 'Try adjusting or clearing your filters.'
-                : 'Verified services in this category will appear here when they are published.'}
+                ? marketplaceT('adjustOrClear')
+                : marketplaceT('categoryWillAppear')}
             </p>
             {hasFilters ? (
               <Link
                 href={presentation.href}
                 className="mt-5 inline-flex min-h-11 items-center rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white transition hover:bg-highland/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
               >
-                Clear filters
+                {servicesT('clear')}
               </Link>
             ) : null}
           </section>

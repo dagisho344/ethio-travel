@@ -1,15 +1,21 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useTranslations } from 'next-intl';
 import type { MapPlace } from '../../lib/types';
+
+function MapLoading() {
+  const t = useTranslations('map');
+  return (
+    <div className="flex h-[520px] items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-600">
+      {t('loading')}
+    </div>
+  );
+}
 
 const MapView = dynamic(() => import('./MapView').then((mod) => mod.MapView), {
   ssr: false,
-  loading: () => (
-    <div className="flex h-[520px] items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-600">
-      Loading map...
-    </div>
-  ),
+  loading: MapLoading,
 });
 
 export function DynamicMap(props: {

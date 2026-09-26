@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Heart } from 'lucide-react';
 import type {
   Favorite,
@@ -65,6 +66,7 @@ export function FavoriteButton({
   initialFavoriteId,
   className = '',
 }: FavoriteButtonProps) {
+  const t = useTranslations('publicActions');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -73,8 +75,8 @@ export function FavoriteButton({
   const [error, setError] = useState<string | null>(null);
   const favorited = Boolean(favoriteId);
   const label = favorited
-    ? `Remove ${targetName} from favorites`
-    : `Save ${targetName} to favorites`;
+    ? t('removeFavorite', { name: targetName })
+    : t('saveFavorite', { name: targetName });
 
   const loginUrl = useMemo(() => {
     const params = new URLSearchParams({
@@ -131,7 +133,7 @@ export function FavoriteButton({
         setFavoriteId(null);
         return;
       }
-      setError('We could not update your favorite right now.');
+      setError(t('favoriteError'));
     } finally {
       setPending(false);
     }
@@ -145,7 +147,7 @@ export function FavoriteButton({
         disabled={pending}
         aria-label={label}
         aria-pressed={favorited}
-        title={favorited ? 'Saved' : 'Save'}
+        title={favorited ? t('saved') : t('save')}
         className={`inline-flex h-10 w-10 items-center justify-center rounded-full border bg-white/95 text-slate-700 shadow-sm transition hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${favorited ? 'border-highland text-highland' : 'border-slate-200'}`}
       >
         <Heart

@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { getTranslations } from 'next-intl/server';
 import { ExploreClient } from './ExploreClient';
 import { Container } from '../ui/Container';
 import { SectionHeading } from '../ui/States';
@@ -10,6 +11,7 @@ export async function PublicSearchPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const t = await getTranslations('discovery');
   const params = await searchParams;
   const regionSlug =
     typeof params.regionSlug === 'string' ? params.regionSlug : '';
@@ -50,14 +52,14 @@ export async function PublicSearchPage({
     <main className="bg-slate-50">
       <Container className="py-8 sm:py-10">
         <SectionHeading
-          eyebrow="Search"
-          title="Search Ethiopia"
-          description="Search across public destinations, attractions, verified businesses and published services."
+          eyebrow={t('eyebrow')}
+          title={t('title')}
+          description={t('description')}
         />
         <Suspense
           fallback={
             <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
-              Loading explorer...
+              {t('loadingExplorer')}
             </div>
           }
         >

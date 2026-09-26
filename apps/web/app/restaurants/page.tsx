@@ -1,11 +1,14 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { CategoryMarketplacePage } from '../../components/public/CategoryMarketplacePage';
 
-export const metadata: Metadata = {
-  title: 'Restaurants | EthioTravel',
-  description:
-    'Browse verified restaurants and dining services across Ethiopia.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('services');
+  return {
+    title: `${t('familyRestaurant')} | EthioTravel`,
+    description: t('familyRestaurantDescription'),
+  };
+}
 
 export default function RestaurantsPage({
   searchParams,

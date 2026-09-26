@@ -1,9 +1,12 @@
+'use client';
+
 import {
   BedDouble,
   BusFront,
   CalendarDays,
   UtensilsCrossed,
 } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import type { Service } from '../../lib/types';
 
 function CataloguePrice({
@@ -37,6 +40,7 @@ function DetailList({ items, title }: { items: string[]; title: string }) {
 }
 
 export function AccommodationPublicDetails({ service }: { service: Service }) {
+  const t = useTranslations('serviceDetails');
   const accommodation = service.accommodation;
   if (!accommodation) return null;
   return (
@@ -50,33 +54,33 @@ export function AccommodationPublicDetails({ service }: { service: Service }) {
           id="accommodation-details"
           className="text-xl font-bold text-slate-950"
         >
-          Accommodation details
+          {t('accommodation')}
         </h2>
       </div>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
         <div className="rounded-lg bg-slate-50 p-3">
-          <dt className="text-slate-500">Property rating</dt>
+          <dt className="text-slate-500">{t('propertyRating')}</dt>
           <dd className="mt-1 font-semibold text-slate-950">
             {accommodation.starClass
-              ? `${accommodation.starClass} star${accommodation.starClass === 1 ? '' : 's'}`
-              : 'Not listed'}
+              ? t('star', { count: accommodation.starClass })
+              : t('notListed')}
           </dd>
         </div>
         <div className="rounded-lg bg-slate-50 p-3">
-          <dt className="text-slate-500">Check-in</dt>
+          <dt className="text-slate-500">{t('checkIn')}</dt>
           <dd className="mt-1 font-semibold text-slate-950">
-            {accommodation.checkInTime ?? 'Contact business'}
+            {accommodation.checkInTime ?? t('contactBusiness')}
           </dd>
         </div>
         <div className="rounded-lg bg-slate-50 p-3">
-          <dt className="text-slate-500">Check-out</dt>
+          <dt className="text-slate-500">{t('checkOut')}</dt>
           <dd className="mt-1 font-semibold text-slate-950">
-            {accommodation.checkOutTime ?? 'Contact business'}
+            {accommodation.checkOutTime ?? t('contactBusiness')}
           </dd>
         </div>
       </dl>
       <div className="mt-6">
-        <h3 className="text-base font-bold text-slate-950">Room types</h3>
+        <h3 className="text-base font-bold text-slate-950">{t('roomTypes')}</h3>
         {accommodation.roomTypes.length ? (
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {accommodation.roomTypes.map((room) => (
@@ -97,14 +101,14 @@ export function AccommodationPublicDetails({ service }: { service: Service }) {
                   </p>
                 ) : null}
                 <p className="mt-3 text-sm text-slate-600">
-                  Sleeps up to {room.capacity}
+                  {t('sleepsUpTo', { count: room.capacity })}
                 </p>
               </article>
             ))}
           </div>
         ) : (
           <p className="mt-3 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Room details are not listed yet. Contact the business for options.
+            {t('noRooms')}
           </p>
         )}
       </div>
@@ -113,6 +117,7 @@ export function AccommodationPublicDetails({ service }: { service: Service }) {
 }
 
 export function RestaurantPublicDetails({ service }: { service: Service }) {
+  const t = useTranslations('serviceDetails');
   const restaurant = service.restaurant;
   if (!restaurant) return null;
   return (
@@ -126,35 +131,31 @@ export function RestaurantPublicDetails({ service }: { service: Service }) {
           id="restaurant-details"
           className="text-xl font-bold text-slate-950"
         >
-          Restaurant details
+          {t('restaurant')}
         </h2>
       </div>
       {restaurant.cuisineTypes.length ? (
         <p className="mt-4 text-sm text-slate-700">
-          <span className="font-semibold text-slate-950">Cuisine:</span>{' '}
+          <span className="font-semibold text-slate-950">{t('cuisine')}</span>{' '}
           {restaurant.cuisineTypes.join(', ')}
         </p>
       ) : null}
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <div className="rounded-lg bg-slate-50 p-3">
-          <dt className="text-slate-500">Reservations</dt>
+          <dt className="text-slate-500">{t('reservations')}</dt>
           <dd className="mt-1 font-semibold text-slate-950">
-            {restaurant.reservationSupported
-              ? 'Supported — contact the business'
-              : 'Not listed'}
+            {restaurant.reservationSupported ? t('supported') : t('notListed')}
           </dd>
         </div>
         <div className="rounded-lg bg-slate-50 p-3">
-          <dt className="text-slate-500">Delivery</dt>
+          <dt className="text-slate-500">{t('delivery')}</dt>
           <dd className="mt-1 font-semibold text-slate-950">
-            {restaurant.deliverySupported
-              ? 'Supported — contact the business'
-              : 'Not listed'}
+            {restaurant.deliverySupported ? t('supported') : t('notListed')}
           </dd>
         </div>
       </dl>
       <div className="mt-6">
-        <h3 className="text-base font-bold text-slate-950">Menus</h3>
+        <h3 className="text-base font-bold text-slate-950">{t('menus')}</h3>
         {restaurant.menus.length ? (
           <div className="mt-3 space-y-4">
             {restaurant.menus.map((menu) => (
@@ -199,7 +200,7 @@ export function RestaurantPublicDetails({ service }: { service: Service }) {
                   </ul>
                 ) : (
                   <p className="mt-3 text-sm text-slate-600">
-                    No available items are listed for this menu.
+                    {t('noMenuItems')}
                   </p>
                 )}
               </article>
@@ -207,8 +208,7 @@ export function RestaurantPublicDetails({ service }: { service: Service }) {
           </div>
         ) : (
           <p className="mt-3 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            No public menu is listed yet. Contact the business for current
-            options.
+            {t('noMenus')}
           </p>
         )}
       </div>
@@ -217,6 +217,7 @@ export function RestaurantPublicDetails({ service }: { service: Service }) {
 }
 
 export function TourPublicDetails({ service }: { service: Service }) {
+  const t = useTranslations('serviceDetails');
   const tour = service.tour;
   if (!tour) return null;
   return (
@@ -227,37 +228,37 @@ export function TourPublicDetails({ service }: { service: Service }) {
       <div className="flex items-center gap-2">
         <CalendarDays className="h-5 w-5 text-highland" aria-hidden="true" />
         <h2 id="tour-details" className="text-xl font-bold text-slate-950">
-          Tour details
+          {t('tour')}
         </h2>
       </div>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
         <div className="rounded-lg bg-slate-50 p-3">
-          <dt className="text-slate-500">Duration</dt>
+          <dt className="text-slate-500">{t('duration')}</dt>
           <dd className="mt-1 font-semibold text-slate-950">
             {tour.durationDays
-              ? `${tour.durationDays} day${tour.durationDays === 1 ? '' : 's'}`
-              : 'Contact business'}
+              ? t('days', { count: tour.durationDays })
+              : t('contactBusiness')}
           </dd>
         </div>
         <div className="rounded-lg bg-slate-50 p-3">
-          <dt className="text-slate-500">Difficulty</dt>
+          <dt className="text-slate-500">{t('difficulty')}</dt>
           <dd className="mt-1 font-semibold text-slate-950">
-            {tour.difficulty ?? 'Not listed'}
+            {tour.difficulty ?? t('notListed')}
           </dd>
         </div>
         <div className="rounded-lg bg-slate-50 p-3">
-          <dt className="text-slate-500">Meeting point</dt>
+          <dt className="text-slate-500">{t('meetingPoint')}</dt>
           <dd className="mt-1 font-semibold text-slate-950">
-            {tour.meetingPoint ?? 'Contact business'}
+            {tour.meetingPoint ?? t('contactBusiness')}
           </dd>
         </div>
       </dl>
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        <DetailList title="Included" items={tour.inclusions} />
-        <DetailList title="Not included" items={tour.exclusions} />
+        <DetailList title={t('included')} items={tour.inclusions} />
+        <DetailList title={t('notIncluded')} items={tour.exclusions} />
       </div>
       <div className="mt-6">
-        <h3 className="text-base font-bold text-slate-950">Itinerary</h3>
+        <h3 className="text-base font-bold text-slate-950">{t('itinerary')}</h3>
         {tour.itinerary.length ? (
           <ol className="mt-3 space-y-3">
             {tour.itinerary.map((item) => (
@@ -266,7 +267,7 @@ export function TourPublicDetails({ service }: { service: Service }) {
                 className="rounded-lg border border-slate-200 p-4"
               >
                 <p className="text-xs font-semibold uppercase tracking-wide text-highland">
-                  Day {item.dayNumber}
+                  {t('day', { count: item.dayNumber })}
                 </p>
                 <h4 className="mt-1 font-semibold text-slate-950">
                   {item.title}
@@ -281,7 +282,7 @@ export function TourPublicDetails({ service }: { service: Service }) {
           </ol>
         ) : (
           <p className="mt-3 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            An itinerary is not listed yet. Contact the business for details.
+            {t('noItinerary')}
           </p>
         )}
       </div>
@@ -289,8 +290,9 @@ export function TourPublicDetails({ service }: { service: Service }) {
   );
 }
 
-function utcDateTime(value: string): string {
-  return new Intl.DateTimeFormat('en', {
+function utcDateTime(value: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale === 'am' ? 'am-ET' : 'en-ET', {
+    calendar: 'gregory',
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: 'UTC',
@@ -298,6 +300,8 @@ function utcDateTime(value: string): string {
 }
 
 export function TransportPublicDetails({ service }: { service: Service }) {
+  const t = useTranslations('serviceDetails');
+  const locale = useLocale();
   const transport = service.transport;
   if (!transport) return null;
   return (
@@ -308,27 +312,25 @@ export function TransportPublicDetails({ service }: { service: Service }) {
       <div className="flex items-center gap-2">
         <BusFront className="h-5 w-5 text-highland" aria-hidden="true" />
         <h2 id="transport-details" className="text-xl font-bold text-slate-950">
-          Transport details
+          {t('transport')}
         </h2>
       </div>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <div className="rounded-lg bg-slate-50 p-3">
-          <dt className="text-slate-500">Mode</dt>
+          <dt className="text-slate-500">{t('mode')}</dt>
           <dd className="mt-1 font-semibold text-slate-950">
-            {transport.mode ?? 'Not listed'}
+            {transport.mode ?? t('notListed')}
           </dd>
         </div>
         <div className="rounded-lg bg-slate-50 p-3">
-          <dt className="text-slate-500">Operator</dt>
+          <dt className="text-slate-500">{t('operator')}</dt>
           <dd className="mt-1 font-semibold text-slate-950">
-            {transport.operatorName ?? 'Not listed'}
+            {transport.operatorName ?? t('notListed')}
           </dd>
         </div>
       </dl>
       <div className="mt-6">
-        <h3 className="text-base font-bold text-slate-950">
-          Routes and schedules
-        </h3>
+        <h3 className="text-base font-bold text-slate-950">{t('routes')}</h3>
         {transport.routes.length ? (
           <div className="mt-3 space-y-4">
             {transport.routes.map((route) => (
@@ -337,7 +339,7 @@ export function TransportPublicDetails({ service }: { service: Service }) {
                 className="rounded-lg border border-slate-200 p-4"
               >
                 <h4 className="font-semibold text-slate-950">
-                  {route.originCity.name} to {route.destinationCity.name}
+                  {route.originCity.name} {t('to')} {route.destinationCity.name}
                 </h4>
                 {route.schedules.length ? (
                   <ul className="mt-3 divide-y divide-slate-100">
@@ -348,18 +350,18 @@ export function TransportPublicDetails({ service }: { service: Service }) {
                       >
                         <p>
                           <span className="block text-xs text-slate-500">
-                            Departure (UTC)
+                            {t('departureUtc')}
                           </span>
                           <span className="font-medium text-slate-950">
-                            {utcDateTime(schedule.departureAt)}
+                            {utcDateTime(schedule.departureAt, locale)}
                           </span>
                         </p>
                         <p>
                           <span className="block text-xs text-slate-500">
-                            Arrival (UTC)
+                            {t('arrivalUtc')}
                           </span>
                           <span className="font-medium text-slate-950">
-                            {utcDateTime(schedule.arrivalAt)}
+                            {utcDateTime(schedule.arrivalAt, locale)}
                           </span>
                         </p>
                         <p className="sm:text-right">
@@ -368,7 +370,7 @@ export function TransportPublicDetails({ service }: { service: Service }) {
                             currency={schedule.currency}
                           />
                           <span className="mt-1 block text-xs text-slate-500">
-                            Configured capacity: {schedule.capacity}
+                            {t('capacity', { count: schedule.capacity })}
                           </span>
                         </p>
                       </li>
@@ -376,7 +378,7 @@ export function TransportPublicDetails({ service }: { service: Service }) {
                   </ul>
                 ) : (
                   <p className="mt-3 text-sm text-slate-600">
-                    No active schedules are listed for this route.
+                    {t('noSchedules')}
                   </p>
                 )}
               </article>
@@ -384,8 +386,7 @@ export function TransportPublicDetails({ service }: { service: Service }) {
           </div>
         ) : (
           <p className="mt-3 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            No public routes are listed yet. Contact the business for travel
-            options.
+            {t('noRoutes')}
           </p>
         )}
       </div>

@@ -1,15 +1,17 @@
 import { Sparkles } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 import { Container } from '../../components/ui/Container';
 import { CardSkeleton, SectionHeading } from '../../components/ui/States';
 
-export default function ServicesLoading() {
+export default async function ServicesLoading() {
+  const t = await getTranslations('services');
   return (
     <main className="bg-slate-50">
       <Container className="py-10 sm:py-12">
         <SectionHeading
-          eyebrow="SERVICES"
-          title="Published Services"
-          description="Browse available travel experiences and services from verified local businesses."
+          eyebrow={t('eyebrow')}
+          title={t('title')}
+          description={t('description')}
         />
         <div className="mb-8 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_180px_180px_190px_170px_110px_110px_auto] xl:items-end">
           <div className="h-16 rounded-md bg-slate-100 md:col-span-2 xl:col-span-1" />

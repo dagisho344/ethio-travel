@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Building2, MapPin } from 'lucide-react';
 import { BookingWidget } from '../../../components/bookings/BookingWidget';
@@ -17,15 +18,18 @@ import type { Service } from '../../../lib/types';
 const uuidV4 =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function genericPricing(service: Service): string {
-  if (service.pricingModel === 'FREE') return 'Free';
-  if (service.pricingModel === 'CONTACT_FOR_PRICE') return 'Contact for price';
+function genericPricing(
+  service: Service,
+  labels: { contact: string; free: string; request: string },
+): string {
+  if (service.pricingModel === 'FREE') return labels.free;
+  if (service.pricingModel === 'CONTACT_FOR_PRICE') return labels.contact;
   if (
     service.price === null ||
     service.price === undefined ||
     !service.currency
   )
-    return 'Pricing available on request';
+    return labels.request;
   return `${service.currency} ${service.price}`;
 }
 
@@ -48,6 +52,7 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  const servicesT = await getTranslations('services');
   try {
     const service = await publicService((await params).id);
     return {
@@ -55,7 +60,7 @@ export async function generateMetadata({
       description: service.shortDescription,
     };
   } catch {
-    return { title: 'Service | EthioTravel' };
+    return { title: servicesT('metadataFallback') };
   }
 }
 
@@ -64,6 +69,10 @@ export default async function PublicServiceDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const [marketplaceT, servicesT] = await Promise.all([
+    getTranslations('marketplace'),
+    getTranslations('services'),
+  ]);
   const service = await publicService((await params).id);
   const categoryPresentation = getPublicServiceCategoryPresentation(
     service.category?.family,
@@ -87,7 +96,18 @@ export default async function PublicServiceDetailPage({
           className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Back to {categoryPresentation?.label ?? 'Services'}
+          {marketplaceT('backTo', {
+            category:
+              service.category?.family === 'ACCOMMODATION'
+                ? servicesT('familyAccommodation')
+                : service.category?.family === 'RESTAURANT'
+                  ? servicesT('familyRestaurant')
+                  : service.category?.family === 'TOUR'
+                    ? servicesT('familyTour')
+                    : service.category?.family === 'TRANSPORT'
+                      ? servicesT('familyTransport')
+                      : servicesT('title'),
+          })}
         </Link>
         <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
           <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
@@ -98,7 +118,7 @@ export default async function PublicServiceDetailPage({
                 </span>
               ) : null}
               <span className="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
-                Verified listing
+                {marketplaceT('verifiedListing')}
               </span>
             </div>
             <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
@@ -134,9 +154,15 @@ export default async function PublicServiceDetailPage({
           </section>
           <aside className="space-y-4">
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-sm text-slate-500">Service price</p>
+              <p className="text-sm text-slate-500">
+                {marketplaceT('servicePrice')}
+              </p>
               <p className="mt-1 text-xl font-bold text-slate-950">
-                {genericPricing(service)}
+                {genericPricing(service, {
+                  contact: servicesT('contactForPrice'),
+                  free: servicesT('free'),
+                  request: servicesT('priceOnRequest'),
+                })}
               </p>
             </section>
             <FavoriteButton
@@ -154,7 +180,7 @@ export default async function PublicServiceDetailPage({
             {service.business?.id ? (
               <StartConversationButton
                 businessId={service.business.id}
-                label="Message business"
+                label={marketplaceT('messageBusiness')}
                 className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-highland px-4 py-2.5 text-sm font-semibold text-highland transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               />
             ) : null}

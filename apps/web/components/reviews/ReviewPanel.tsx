@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Star } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import type {
   PaginatedResponse,
   PublicReview,
@@ -10,17 +11,18 @@ import type {
 } from '../../lib/types';
 
 const sortOptions = [
-  ['newest', 'Newest'],
-  ['oldest', 'Oldest'],
-  ['highest', 'Highest rating'],
-  ['lowest', 'Lowest rating'],
+  ['newest', 'newest'],
+  ['oldest', 'oldest'],
+  ['highest', 'highest'],
+  ['lowest', 'lowest'],
 ] as const;
 
 function Stars({ rating }: { rating: number }) {
+  const t = useTranslations('publicReviews');
   return (
     <span
       className="inline-flex text-amber-500"
-      aria-label={`${rating} out of 5 stars`}
+      aria-label={t('ratingOutOf', { rating })}
     >
       {[1, 2, 3, 4, 5].map((value) => (
         <Star
@@ -33,11 +35,12 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-function formatDate(value?: string | null) {
+function formatDate(value: string | null | undefined, locale: string) {
   if (!value) return '';
-  return new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(
-    new Date(value),
-  );
+  return new Intl.DateTimeFormat(locale === 'am' ? 'am-ET' : 'en-ET', {
+    calendar: 'gregory',
+    dateStyle: 'medium',
+  }).format(new Date(value));
 }
 
 export function ReviewPanel({
@@ -47,6 +50,8 @@ export function ReviewPanel({
   targetType: ReviewTargetType;
   targetId: string;
 }) {
+  const t = useTranslations('publicReviews');
+  const locale = useLocale();
   const [summary, setSummary] = useState<ReviewSummary | null>(null);
   const [page, setPage] = useState<PaginatedResponse<PublicReview> | null>(
     null,
@@ -92,28 +97,27 @@ export function ReviewPanel({
       } catch {
         setSummary(null);
         setPage(null);
-        setError('We could not load reviews right now.');
+        setError(t('loadError'));
       } finally {
         setLoading(false);
       }
     };
     void run();
-  }, [query, targetId, targetType]);
+  }, [query, t, targetId, targetType]);
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-base font-bold text-slate-950">
-            Traveler reviews
-          </h3>
+          <h3 className="text-base font-bold text-slate-950">{t('heading')}</h3>
           {summary ? (
             <p className="mt-1 text-sm text-slate-600">
               {summary.averageRating === null
-                ? 'No ratings yet'
-                : `${summary.averageRating.toFixed(1)} average rating`}{' '}
-              from {summary.reviewCount} review
-              {summary.reviewCount === 1 ? '' : 's'}
+                ? t('noRatings')
+                : t('average', {
+                    rating: summary.averageRating.toFixed(1),
+                  })}{' '}
+              {t('fromReviews', { count: summary.reviewCount })}
             </p>
           ) : null}
         </div>
@@ -126,10 +130,10 @@ export function ReviewPanel({
             }}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-highland focus:outline-none focus:ring-2 focus:ring-highland/20"
           >
-            <option value="">Any rating</option>
+            <option value="">{t('anyRating')}</option>
             {[5, 4, 3, 2, 1].map((value) => (
               <option key={value} value={value}>
-                {value} stars
+                {t('stars', { count: value })}
               </option>
             ))}
           </select>
@@ -141,9 +145,9 @@ export function ReviewPanel({
             }}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-highland focus:outline-none focus:ring-2 focus:ring-highland/20"
           >
-            {sortOptions.map(([value, label]) => (
+            {sortOptions.map(([value, labelKey]) => (
               <option key={value} value={value}>
-                {label}
+                {t(labelKey)}
               </option>
             ))}
           </select>
@@ -155,7 +159,7 @@ export function ReviewPanel({
           {[5, 4, 3, 2, 1].map((value) => (
             <div key={value} className="rounded-md bg-slate-50 px-3 py-2">
               <span className="font-semibold text-slate-950">{value}</span>{' '}
-              star:{' '}
+              {t('stars', { count: value })}:{' '}
               {
                 summary.ratingDistribution[
                   String(value) as '1' | '2' | '3' | '4' | '5'
@@ -173,7 +177,7 @@ export function ReviewPanel({
       ) : null}
 
       {loading ? (
-        <p className="mt-5 text-sm text-slate-500">Loading reviews...</p>
+        <p className="mt-5 text-sm text-slate-500">{t('loading')}</p>
       ) : page?.data.length ? (
         <div className="mt-5 space-y-4">
           {page.data.map((review) => (
@@ -184,7 +188,7 @@ export function ReviewPanel({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Stars rating={review.rating} />
                 <span className="text-xs text-slate-500">
-                  {formatDate(review.publishedAt ?? review.createdAt)}
+                  {formatDate(review.publishedAt ?? review.createdAt, locale)}
                 </span>
               </div>
               {review.title ? (
@@ -205,7 +209,7 @@ export function ReviewPanel({
         </div>
       ) : (
         <p className="mt-5 rounded-md bg-slate-50 px-3 py-4 text-sm text-slate-600">
-          No published reviews yet.
+          {t('empty')}
         </p>
       )}
 
@@ -217,7 +221,7 @@ export function ReviewPanel({
             onClick={() => setPageNumber((value) => Math.max(value - 1, 1))}
             className="rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold disabled:opacity-40"
           >
-            Previous
+            {t('previous')}
           </button>
           <button
             type="button"
@@ -225,7 +229,7 @@ export function ReviewPanel({
             onClick={() => setPageNumber((value) => value + 1)}
             className="rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold disabled:opacity-40"
           >
-            Next
+            {t('next')}
           </button>
         </div>
       ) : null}

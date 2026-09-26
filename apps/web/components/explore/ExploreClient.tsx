@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Filter, List, LocateFixed, Map, Search, X } from 'lucide-react';
 import { getJson } from '../../lib/api';
 import {
@@ -30,28 +31,28 @@ import { ErrorState } from '../ui/States';
 type ViewMode = 'list' | 'map';
 
 const typeOptions = [
-  ['destination', 'Destinations'],
-  ['attraction', 'Attractions'],
-  ['business', 'Businesses'],
-  ['service', 'Services'],
+  ['destination', 'destinations'],
+  ['attraction', 'attractions'],
+  ['business', 'businesses'],
+  ['service', 'services'],
 ] as const;
 
 const sortOptions = [
-  ['relevance', 'Relevance'],
-  ['name_asc', 'Name A-Z'],
-  ['name_desc', 'Name Z-A'],
-  ['newest', 'Newest'],
+  ['relevance', 'relevance'],
+  ['name_asc', 'nameAsc'],
+  ['name_desc', 'nameDesc'],
+  ['newest', 'newest'],
 ] as const;
 
 const pricingModelOptions = [
-  ['FIXED', 'Fixed price'],
-  ['PER_PERSON', 'Per person'],
-  ['PER_NIGHT', 'Per night'],
-  ['PER_HOUR', 'Per hour'],
-  ['PER_DAY', 'Per day'],
-  ['STARTING_FROM', 'Starting from'],
-  ['FREE', 'Free'],
-  ['CONTACT_FOR_PRICE', 'Contact for price'],
+  ['FIXED', 'fixedPrice'],
+  ['PER_PERSON', 'perPerson'],
+  ['PER_NIGHT', 'perNight'],
+  ['PER_HOUR', 'perHour'],
+  ['PER_DAY', 'perDay'],
+  ['STARTING_FROM', 'startingFrom'],
+  ['FREE', 'free'],
+  ['CONTACT_FOR_PRICE', 'contactForPrice'],
 ] as const;
 
 const filterKeys = [
@@ -127,16 +128,17 @@ function ResultsEmptyState({
   hasFilters: boolean;
   onClear: () => void;
 }) {
+  const t = useTranslations('discovery');
   return (
     <div className="flex min-h-[360px] flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
       <div className="flex h-12 w-12 items-center justify-center rounded-md bg-slate-100 text-highland">
         <Search className="h-5 w-5" aria-hidden="true" />
       </div>
       <h3 className="mt-4 text-lg font-bold text-slate-950">
-        No results found
+        {t('noResultsTitle')}
       </h3>
       <p className="mt-2 max-w-md text-sm leading-6 text-slate-600">
-        Try adjusting your search or removing some filters.
+        {t('noResultsMessage')}
       </p>
       {hasFilters ? (
         <button
@@ -144,7 +146,7 @@ function ResultsEmptyState({
           onClick={onClear}
           className="mt-5 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
         >
-          Clear filters
+          {t('clearFilters')}
         </button>
       ) : null}
     </div>
@@ -170,6 +172,7 @@ export function ExploreClient({
   normalizedCitySlug: string;
   normalizedDestinationSlug: string;
 }) {
+  const t = useTranslations('discovery');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -294,7 +297,7 @@ export function ExploreClient({
       } catch (err) {
         if (requestId === searchRequestId.current) {
           setResults(null);
-          setError(err instanceof Error ? err.message : 'Search failed.');
+          setError(err instanceof Error ? err.message : t('searchFailed'));
         }
       }
     };
@@ -367,16 +370,21 @@ export function ExploreClient({
 
   const activeChips = [
     normalizedParams.get('q')
-      ? { key: 'q', label: `Search: ${normalizedParams.get('q') ?? ''}` }
+      ? {
+          key: 'q',
+          label: t('searchPrefix', {
+            query: normalizedParams.get('q') ?? '',
+          }),
+        }
       : null,
     selectedTypes.length
       ? {
           key: 'types',
           label: selectedTypes
-            .map(
-              (type) =>
-                typeOptions.find(([value]) => value === type)?.[1] ?? type,
-            )
+            .map((type) => {
+              const option = typeOptions.find(([value]) => value === type);
+              return option ? t(option[1]) : type;
+            })
             .join(', '),
         }
       : null,
@@ -419,37 +427,55 @@ export function ExploreClient({
     normalizedParams.get('pricingModel')
       ? {
           key: 'pricingModel',
-          label: `Pricing: ${
-            pricingModelOptions.find(
-              ([value]) => value === normalizedParams.get('pricingModel'),
-            )?.[1] ?? normalizedParams.get('pricingModel')
-          }`,
+          label: t('pricingPrefix', {
+            value: (() => {
+              const option = pricingModelOptions.find(
+                ([value]) => value === normalizedParams.get('pricingModel'),
+              );
+              return option
+                ? t(option[1])
+                : (normalizedParams.get('pricingModel') ?? '');
+            })(),
+          }),
         }
       : null,
     normalizedParams.get('currency')
       ? {
           key: 'currency',
-          label: `Currency: ${normalizedParams.get('currency')}`,
+          label: t('currencyPrefix', {
+            currency: normalizedParams.get('currency') ?? '',
+          }),
         }
       : null,
     normalizedParams.get('minPrice') || normalizedParams.get('maxPrice')
       ? {
           key: 'price',
-          label: `Price ${normalizedParams.get('minPrice') || '0'}-${normalizedParams.get('maxPrice') || 'any'}`,
+          label: t('priceRange', {
+            min: normalizedParams.get('minPrice') || '0',
+            max: normalizedParams.get('maxPrice') || t('any'),
+          }),
         }
       : null,
     normalizedParams.get('sort') && normalizedParams.get('sort') !== 'relevance'
       ? {
           key: 'sort',
-          label:
-            sortOptions.find(
+          label: (() => {
+            const option = sortOptions.find(
               ([value]) => value === normalizedParams.get('sort'),
-            )?.[1] ??
-            (normalizedParams.get('sort') === 'distance' ? 'Distance' : 'Sort'),
+            );
+            return option
+              ? t(option[1])
+              : normalizedParams.get('sort') === 'distance'
+                ? t('distance')
+                : t('sort');
+          })(),
         }
       : null,
     nearby
-      ? { key: 'nearby', label: `Near me within ${nearby.radiusKm} km` }
+      ? {
+          key: 'nearby',
+          label: t('nearMeWithin', { radius: nearby.radiusKm }),
+        }
       : null,
   ].filter((chip): chip is { key: string; label: string } => Boolean(chip));
 
@@ -474,7 +500,7 @@ export function ExploreClient({
         setMapError(
           mapRequestError instanceof Error
             ? mapRequestError.message
-            : 'Map places could not be loaded.',
+            : t('mapFailed'),
         );
       }
     } finally {
@@ -483,9 +509,7 @@ export function ExploreClient({
   };
   const requestNearby = () => {
     if (!navigator.geolocation) {
-      setNearbyError(
-        'Location is unavailable in this browser. Use the Region, City, or Destination filters instead.',
-      );
+      setNearbyError(t('locationUnavailable'));
       return;
     }
     setNearbyError(null);
@@ -499,9 +523,7 @@ export function ExploreClient({
         setSelectedPlaceKey(null);
       },
       () => {
-        setNearbyError(
-          'We could not access your location. Use the Region, City, or Destination filters instead.',
-        );
+        setNearbyError(t('locationDenied'));
       },
       { enableHighAccuracy: false, maximumAge: 0, timeout: 10_000 },
     );
@@ -509,7 +531,7 @@ export function ExploreClient({
 
   const renderFilterPanel = (idPrefix: string) => (
     <div className="space-y-5">
-      <FilterSection title="Search">
+      <FilterSection title={t('search')}>
         <form
           className="flex gap-2"
           onSubmit={(event) => {
@@ -519,37 +541,37 @@ export function ExploreClient({
           }}
         >
           <label className="sr-only" htmlFor={`${idPrefix}-explore-q`}>
-            Search places, businesses and services
+            {t('searchPlaceholder')}
           </label>
           <input
             id={`${idPrefix}-explore-q`}
             name="q"
             defaultValue={normalizedParams.get('q') ?? ''}
             className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
-            placeholder="Search Ethiopia"
+            placeholder={t('searchPlaceholder')}
           />
           <button className="inline-flex items-center justify-center rounded-md bg-highland px-3 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2">
             <Search className="h-4 w-4" aria-hidden="true" />
-            <span className="sr-only">Search</span>
+            <span className="sr-only">{t('search')}</span>
           </button>
         </form>
       </FilterSection>
 
-      <FilterSection title="Near Me">
+      <FilterSection title={t('nearMe')}>
         <button
           type="button"
           onClick={requestNearby}
           className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-highland bg-white px-3 py-2.5 text-sm font-semibold text-highland hover:bg-highland hover:text-white focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
         >
           <LocateFixed className="h-4 w-4" aria-hidden="true" />
-          {nearby ? 'Refresh nearby location' : 'Use my location'}
+          {nearby ? t('refreshLocation') : t('useLocation')}
         </button>
         {nearby ? (
           <label
             className="block text-xs font-semibold text-slate-600"
             htmlFor={`${idPrefix}-nearby-radius`}
           >
-            Search radius
+            {t('distance')}
             <select
               id={`${idPrefix}-nearby-radius`}
               className={controlClassName()}
@@ -577,9 +599,9 @@ export function ExploreClient({
         ) : null}
       </FilterSection>
 
-      <FilterSection title="Type">
+      <FilterSection title={t('allTypes')}>
         <div className="grid gap-2">
-          {typeOptions.map(([type, label]) => {
+          {typeOptions.map(([type, labelKey]) => {
             const active = selectedTypes.includes(type);
             return (
               <button
@@ -593,7 +615,7 @@ export function ExploreClient({
                 }}
                 className={`flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm font-medium focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 ${active ? 'border-highland bg-highland text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-highland hover:text-highland'}`}
               >
-                {label}
+                {t(labelKey)}
                 {active ? (
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
                 ) : null}
@@ -603,12 +625,12 @@ export function ExploreClient({
         </div>
       </FilterSection>
 
-      <FilterSection title="Location">
+      <FilterSection title={t('region')}>
         <label
           className="block text-xs font-semibold text-slate-600"
           htmlFor={`${idPrefix}-regionSlug`}
         >
-          Region
+          {t('region')}
         </label>
         <select
           id={`${idPrefix}-regionSlug`}
@@ -616,7 +638,7 @@ export function ExploreClient({
           onChange={(e) => update({ regionSlug: e.target.value || null })}
           className={controlClassName()}
         >
-          <option value="">All regions</option>
+          <option value="">{t('allRegions')}</option>
           {regions.map((region) => (
             <option key={region.slug} value={region.slug}>
               {region.name}
@@ -628,7 +650,7 @@ export function ExploreClient({
           className="block text-xs font-semibold text-slate-600"
           htmlFor={`${idPrefix}-citySlug`}
         >
-          City
+          {t('city')}
         </label>
         <select
           id={`${idPrefix}-citySlug`}
@@ -637,7 +659,7 @@ export function ExploreClient({
           onChange={(e) => update({ citySlug: e.target.value || null })}
           className={`${controlClassName()} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500`}
         >
-          <option value="">All cities</option>
+          <option value="">{t('allCities')}</option>
           {cities.map((city) => (
             <option key={city.slug} value={city.slug}>
               {city.name}
@@ -649,7 +671,7 @@ export function ExploreClient({
           className="block text-xs font-semibold text-slate-600"
           htmlFor={`${idPrefix}-destinationSlug`}
         >
-          Destination
+          {t('destination')}
         </label>
         <select
           id={`${idPrefix}-destinationSlug`}
@@ -658,7 +680,7 @@ export function ExploreClient({
           onChange={(e) => update({ destinationSlug: e.target.value || null })}
           className={`${controlClassName()} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500`}
         >
-          <option value="">All destinations</option>
+          <option value="">{t('allDestinations')}</option>
           {destinations.map((destination) => (
             <option key={destination.slug} value={destination.slug}>
               {destination.name}
@@ -667,12 +689,12 @@ export function ExploreClient({
         </select>
       </FilterSection>
 
-      <FilterSection title="Category">
+      <FilterSection title={t('allCategories')}>
         <label
           className="block text-xs font-semibold text-slate-600"
           htmlFor={`${idPrefix}-businessCategory`}
         >
-          Business category
+          {t('businessCategory')}
         </label>
         <select
           id={`${idPrefix}-businessCategory`}
@@ -680,7 +702,7 @@ export function ExploreClient({
           value={normalizedParams.get('businessCategory') ?? ''}
           onChange={(e) => update({ businessCategory: e.target.value || null })}
         >
-          <option value="">Any business category</option>
+          <option value="">{t('allCategories')}</option>
           {businessCategories.map((c) => (
             <option key={c.code} value={c.code}>
               {c.name}
@@ -691,7 +713,7 @@ export function ExploreClient({
           className="block text-xs font-semibold text-slate-600"
           htmlFor={`${idPrefix}-serviceCategory`}
         >
-          Service category
+          {t('serviceCategory')}
         </label>
         <select
           id={`${idPrefix}-serviceCategory`}
@@ -699,7 +721,7 @@ export function ExploreClient({
           value={normalizedParams.get('serviceCategory') ?? ''}
           onChange={(e) => update({ serviceCategory: e.target.value || null })}
         >
-          <option value="">Any service category</option>
+          <option value="">{t('allCategories')}</option>
           {serviceCategories.map((c) => (
             <option key={c.code} value={c.code}>
               {c.name}
@@ -708,17 +730,16 @@ export function ExploreClient({
         </select>
       </FilterSection>
 
-      <FilterSection title="Price">
+      <FilterSection title={t('pricing')}>
         <p className="text-xs leading-5 text-slate-500">
-          Price ranges compare services only when both pricing model and
-          currency match.
+          {t('priceRangeNotice')}
         </p>
         <div className="grid grid-cols-2 gap-2">
           <label
             className="block text-xs font-semibold text-slate-600"
             htmlFor={`${idPrefix}-pricingModel`}
           >
-            Pricing model
+            {t('pricing')}
             <select
               id={`${idPrefix}-pricingModel`}
               value={normalizedParams.get('pricingModel') ?? ''}
@@ -732,10 +753,10 @@ export function ExploreClient({
               }}
               className={controlClassName()}
             >
-              <option value="">Choose a model</option>
-              {pricingModelOptions.map(([value, label]) => (
+              <option value="">{t('anyPricing')}</option>
+              {pricingModelOptions.map(([value, labelKey]) => (
                 <option key={value} value={value}>
-                  {label}
+                  {t(labelKey)}
                 </option>
               ))}
             </select>
@@ -744,7 +765,7 @@ export function ExploreClient({
             className="block text-xs font-semibold text-slate-600"
             htmlFor={`${idPrefix}-currency`}
           >
-            Currency
+            {t('currency')}
             <input
               key={`${idPrefix}-currency-${normalizedParams.get('currency') ?? ''}`}
               id={`${idPrefix}-currency`}
@@ -764,14 +785,14 @@ export function ExploreClient({
               className={controlClassName()}
               placeholder="ETB"
               pattern="[A-Za-z]{3}"
-              title="Use a three-letter ISO currency code."
+              title={t('currencyCodeHint')}
             />
           </label>
           <label
             className="block text-xs font-semibold text-slate-600"
             htmlFor={`${idPrefix}-minPrice`}
           >
-            Min price
+            {t('minPrice')}
             <input
               id={`${idPrefix}-minPrice`}
               type="number"
@@ -786,7 +807,7 @@ export function ExploreClient({
             className="block text-xs font-semibold text-slate-600"
             htmlFor={`${idPrefix}-maxPrice`}
           >
-            Max price
+            {t('maxPrice')}
             <input
               id={`${idPrefix}-maxPrice`}
               type="number"
@@ -800,9 +821,9 @@ export function ExploreClient({
         </div>
       </FilterSection>
 
-      <FilterSection title="Sort by">
+      <FilterSection title={t('sort')}>
         <label className="sr-only" htmlFor={`${idPrefix}-sort`}>
-          Sort results
+          {t('sort')}
         </label>
         <select
           id={`${idPrefix}-sort`}
@@ -812,12 +833,12 @@ export function ExploreClient({
           }
           onChange={(e) => update({ sort: e.target.value })}
         >
-          {sortOptions.map(([value, label]) => (
+          {sortOptions.map(([value, labelKey]) => (
             <option key={value} value={value}>
-              {label}
+              {t(labelKey)}
             </option>
           ))}
-          {nearby ? <option value="distance">Distance</option> : null}
+          {nearby ? <option value="distance">{t('distance')}</option> : null}
         </select>
       </FilterSection>
     </div>
@@ -827,14 +848,14 @@ export function ExploreClient({
     <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
       <aside className="hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:block lg:sticky lg:top-24">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-base font-bold text-slate-950">Filters</h2>
+          <h2 className="text-base font-bold text-slate-950">{t('filters')}</h2>
           {activeFilters ? (
             <button
               type="button"
               onClick={clearFilters}
               className="text-sm font-semibold text-highland hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-highland"
             >
-              Clear all
+              {t('clearAll')}
             </button>
           ) : null}
         </div>
@@ -845,7 +866,7 @@ export function ExploreClient({
         <summary className="flex cursor-pointer list-none items-center justify-between rounded-md px-1 py-1 text-sm font-bold text-slate-950 focus:outline-none focus:ring-2 focus:ring-highland [&::-webkit-details-marker]:hidden">
           <span className="inline-flex items-center gap-2">
             <Filter className="h-4 w-4 text-highland" aria-hidden="true" />
-            Filters
+            {t('filters')}
           </span>
           {activeFilters ? (
             <span className="rounded-full bg-highland px-2 py-0.5 text-xs font-semibold text-white">
@@ -862,12 +883,10 @@ export function ExploreClient({
             <div>
               <p className="text-sm font-semibold text-slate-950">
                 {results
-                  ? `${results.meta.total} results`
-                  : 'Searching EthioTravel'}
+                  ? t('results', { count: results.meta.total })
+                  : t('searching')}
               </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Public destinations, attractions, businesses and services
-              </p>
+              <p className="mt-1 text-xs text-slate-500">{t('resultScope')}</p>
             </div>
             <div className="inline-flex w-full rounded-md border border-slate-200 bg-slate-50 p-1 sm:w-auto">
               <button
@@ -878,7 +897,7 @@ export function ExploreClient({
                 }}
                 className={`inline-flex flex-1 items-center justify-center gap-2 rounded px-3 py-1.5 text-sm font-semibold sm:flex-none ${view === 'list' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:text-highland'}`}
               >
-                <List className="h-4 w-4" aria-hidden="true" /> List
+                <List className="h-4 w-4" aria-hidden="true" /> {t('list')}
               </button>
               <button
                 type="button"
@@ -888,7 +907,7 @@ export function ExploreClient({
                 }}
                 className={`inline-flex flex-1 items-center justify-center gap-2 rounded px-3 py-1.5 text-sm font-semibold sm:flex-none ${view === 'map' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:text-highland'}`}
               >
-                <Map className="h-4 w-4" aria-hidden="true" /> Map
+                <Map className="h-4 w-4" aria-hidden="true" /> {t('map')}
               </button>
             </div>
           </div>
@@ -915,7 +934,7 @@ export function ExploreClient({
                 onClick={clearFilters}
                 className="text-xs font-semibold text-highland hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-highland"
               >
-                Clear all
+                {t('clearAll')}
               </button>
             </div>
           ) : null}
@@ -928,7 +947,7 @@ export function ExploreClient({
               {mapError ? <ErrorState message={mapError} /> : null}
               {mapLoading ? (
                 <p className="px-3 py-2 text-sm text-slate-500" role="status">
-                  Updating map places...
+                  {t('updatingMap')}
                 </p>
               ) : null}
               <DynamicMap
@@ -960,7 +979,7 @@ export function ExploreClient({
               ))}
               {isPending || !results ? (
                 <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-                  Loading results...
+                  {t('loadingResults')}
                 </div>
               ) : null}
               {results && results.data.length === 0 ? (
@@ -982,17 +1001,20 @@ export function ExploreClient({
               onClick={() => update({ page: String(results.meta.page - 1) })}
               className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
             >
-              Previous
+              {t('previous')}
             </button>
             <span className="px-3 py-2 text-sm text-slate-600">
-              Page {results.meta.page} of {results.meta.totalPages}
+              {t('pageOf', {
+                page: results.meta.page,
+                total: results.meta.totalPages,
+              })}
             </span>
             <button
               disabled={results.meta.page >= results.meta.totalPages}
               onClick={() => update({ page: String(results.meta.page + 1) })}
               className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
             >
-              Next
+              {t('next')}
             </button>
           </div>
         ) : null}

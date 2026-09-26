@@ -31,7 +31,7 @@ void test('public category pages are explicit, paginated, and reuse one bounded 
   assert.match(marketplace, /family,/);
   assert.match(marketplace, /limit: 12/);
   assert.match(marketplace, /response\.meta\.totalPages/);
-  assert.match(marketplace, /No .* available yet/);
+  assert.match(marketplace, /marketplaceT\('noCategoryServices'/);
   assert.match(marketplace, /\]\);\s+const response = await safePage<Service>/);
   assert.match(pages[0], /family="ACCOMMODATION"/);
   assert.match(pages[1], /family="RESTAURANT"/);
@@ -148,19 +148,19 @@ void test('Phase 14H category filters are family-locked, explicit, accessible, a
   );
   assert.match(marketplace, /family,\n {4}page,\n {4}limit: 12/);
   assert.match(marketplace, /publicServiceFilterHref\(/);
-  assert.match(marketplace, /Clear filters/);
+  assert.match(marketplace, /marketplaceT\('adjustOrClear'\)/);
   assert.match(filters, /family === 'ACCOMMODATION'/);
   assert.match(filters, /family === 'RESTAURANT'/);
   assert.match(filters, /family === 'TOUR'/);
   assert.match(filters, /family === 'TRANSPORT'/);
-  assert.match(filters, /Star class/);
-  assert.match(filters, /Minimum room capacity/);
-  assert.match(filters, /Reservation supported/);
-  assert.match(filters, /Delivery supported/);
-  assert.match(filters, /Minimum duration \(days\)/);
-  assert.match(filters, /Origin region/);
-  assert.match(filters, /Destination city/);
-  assert.match(filters, /Clear filters/);
+  assert.match(filters, /t\('starClass'\)/);
+  assert.match(filters, /t\('minRoomCapacity'\)/);
+  assert.match(filters, /t\('reservationSupported'\)/);
+  assert.match(filters, /t\('deliverySupported'\)/);
+  assert.match(filters, /t\('minDuration'\)/);
+  assert.match(filters, /t\('originRegion'\)/);
+  assert.match(filters, /t\('destinationCity'\)/);
+  assert.match(filters, /t\('clearFilters'\)/);
   assert.doesNotMatch(filters, /ROOM|MEAL|TRANSFER|HOTEL_PREMIUM|BUS_TRANSFER/);
   assert.match(helper, /originCitySlug/);
   assert.match(helper, /destinationCitySlug/);
@@ -168,10 +168,10 @@ void test('Phase 14H category filters are family-locked, explicit, accessible, a
   assert.match(helper, /publicServiceFilterQuery/);
   assert.doesNotMatch(helper, /Object\.entries\(searchParams\)/);
   assert.match(genericFilters, /publicServiceFilterHref\('\/services'/);
-  assert.match(genericFilters, /Clear/);
-  assert.match(servicesPage, /aria-label="Services pagination"/);
+  assert.match(genericFilters, /t\('clearFilters'\)/);
+  assert.match(servicesPage, /marketplaceT\('pagePagination'/);
   assert.match(servicesPage, /publicServiceFilterHref\(/);
-  assert.match(servicesPage, /Clear filters/);
+  assert.match(servicesPage, /t\('clear'\)/);
 });
 
 void test('Phase 14H keeps public Service list responses lightweight and reserves extension trees for detail', async () => {
