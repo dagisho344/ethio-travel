@@ -55,18 +55,25 @@ void test('payment create body forwards only provider-independent idempotency in
     /amount|currency|travelerId|businessId|status/,
   );
   assert.match(panel, /JSON\.stringify\(\{ idempotencyKey \}\)/);
-  assert.doesNotMatch(panel, /amount:/);
-  assert.doesNotMatch(panel, /currency:/);
+  const paymentRequest = panel.slice(
+    panel.indexOf('async function startPayment'),
+    panel.indexOf('return (', panel.indexOf('async function startPayment')),
+  );
+  assert.doesNotMatch(
+    paymentRequest,
+    /body:\s*JSON\.stringify\(\{[^}]*\b(amount|currency)\b/,
+  );
 });
 
 void test('booking detail renders payment action and history states', () => {
   const detail = read('app/bookings/[id]/BookingDetailClient.tsx');
   const panel = read('components/payments/PaymentActionPanel.tsx');
   assert.match(detail, /<PaymentActionPanel/);
-  assert.match(panel, /Pay now|Retry payment/);
-  assert.match(panel, /Payment history/);
-  assert.match(panel, /Payment is not currently available/);
-  assert.match(panel, /A payment is already pending/);
+  assert.match(panel, /useTranslations\('payment'\)/);
+  assert.match(panel, /t\('startPayment'\)|t\('retryPayment'\)/);
+  assert.match(panel, /t\('paymentHistory'\)/);
+  assert.match(panel, /t\('unavailableForBooking'\)/);
+  assert.match(panel, /t\('pendingForBooking'\)/);
   assert.match(panel, /status === 409/);
 });
 
@@ -86,12 +93,10 @@ void test('payment presentation supports required statuses and development provi
     assert.match(bookingHelpers, new RegExp(status));
   }
   assert.match(paymentHelpers, /DEVELOPMENT/);
-  assert.match(
-    summary,
-    /Development payment provider - no real money is being charged/,
-  );
-  assert.match(summary, /Transactions/);
-  assert.match(summary, /Refunds/);
+  assert.match(summary, /useTranslations\('payment'\)/);
+  assert.match(summary, /t\('developmentNotice'\)/);
+  assert.match(summary, /t\('transactions'\)/);
+  assert.match(summary, /t\('refunds'\)/);
 });
 
 void test('business payments are read-only and expose list/detail pages', () => {
@@ -125,9 +130,9 @@ void test('admin payments include list detail and refund controls', () => {
   assert.match(list, /Currency/);
   assert.match(list, /\/api\/admin\/payments/);
   assert.match(detail, /RefundForm/);
-  assert.match(refund, /Full refund/);
-  assert.match(refund, /Partial refund/);
-  assert.match(refund, /remaining\s+refundable\s+balance/);
+  assert.match(refund, /t\('fullRefund'\)/);
+  assert.match(refund, /t\('partialRefund'\)/);
+  assert.match(refund, /t\('remaining'\)/);
   assert.match(refund, /status === 409/);
 });
 

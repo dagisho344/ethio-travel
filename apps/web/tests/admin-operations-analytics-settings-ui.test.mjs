@@ -73,7 +73,8 @@ void test('admin payment UI keeps booking and payment status distinct and avoids
   const summary = read('components/payments/PaymentSummary.tsx');
 
   assert.match(detail, /Relevant audit history/);
-  assert.match(summary, /Booking status/);
-  assert.match(summary, /Payment status/);
+  assert.match(summary, /useTranslations\('payment'\)/);
+  assert.match(summary, /t\('bookingStatus'\)/);
+  assert.match(summary, /t\('paymentStatus'\)/);
   assert.doesNotMatch(detail, /Mark Paid|Force Success|Force Refunded/);
 });

@@ -60,7 +60,8 @@ void test('shared-trip page clears fragment secrets and renders only the safe sh
 void test('owner UI requires exact preview and explicit confirmation before one-time link generation', () => {
   const source = read('components/trips/TripSharePanel.tsx');
   assert.match(source, /\/share\/preview/);
-  assert.match(source, /I reviewed this exact filtered itinerary/);
+  assert.match(source, /useTranslations\('tripSharing'\)/);
+  assert.match(source, /t\('confirm'\)/);
   assert.match(source, /disabled=\{busy \|\| !confirmed\}/);
   assert.match(source, /\/shared-trip#\$\{secret\.token\}/);
   assert.match(source, /navigator\.clipboard\.writeText/);

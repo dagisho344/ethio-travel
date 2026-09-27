@@ -1,15 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import {
-  canTravelerCancel,
-  formatBookingDate,
-  formatBookingRange,
-  formatMoney,
-} from '../../../lib/bookings';
+import { canTravelerCancel } from '../../../lib/bookings';
+import { formatLocaleDate, formatLocaleMoney } from '../../../i18n/format';
+import { resolveLocale } from '../../../i18n/config';
 import type { Booking } from '../../../lib/types';
 import {
   BookingStatusBadge,
@@ -18,7 +16,23 @@ import {
 import { PaymentActionPanel } from '../../../components/payments/PaymentActionPanel';
 import { StartConversationButton } from '../../../components/messaging/StartConversationButton';
 
+function bookingStatusKey(status: Booking['bookingStatus']) {
+  return (
+    {
+      PENDING: 'pending',
+      CONFIRMED: 'confirmed',
+      REJECTED: 'rejected',
+      CANCELLED_BY_TRAVELER: 'cancelledByTraveler',
+      CANCELLED_BY_BUSINESS: 'cancelledByBusiness',
+      COMPLETED: 'completed',
+      NO_SHOW: 'noShow',
+    } as const
+  )[status];
+}
+
 export function BookingDetailClient() {
+  const t = useTranslations('bookings');
+  const locale = resolveLocale(useLocale());
   const router = useRouter();
   const pathname = usePathname();
   const params = useParams<{ id: string }>();
@@ -41,18 +55,18 @@ export function BookingDetailClient() {
       if (!response.ok) throw new Error('Request failed');
       setBooking((await response.json()) as Booking);
     } catch {
-      setError('We could not load this booking right now.');
+      setError(t('detailLoadError'));
     } finally {
       setLoading(false);
     }
-  }, [params.id, pathname, router]);
+  }, [params.id, pathname, router, t]);
 
   useEffect(() => {
     void loadBooking();
   }, [loadBooking]);
 
   async function cancelBooking() {
-    if (!booking || !window.confirm('Cancel this booking?')) return;
+    if (!booking || !window.confirm(t('cancelConfirm'))) return;
     setWorking(true);
     setError(null);
     try {
@@ -66,14 +80,14 @@ export function BookingDetailClient() {
         return;
       }
       if (response.status === 409) {
-        setError('This booking can no longer be cancelled.');
+        setError(t('cancelUnavailable'));
         return;
       }
       if (!response.ok) throw new Error('Request failed');
       setBooking((await response.json()) as Booking);
       router.refresh();
     } catch {
-      setError('We could not cancel this booking right now.');
+      setError(t('cancelError'));
     } finally {
       setWorking(false);
     }
@@ -82,7 +96,7 @@ export function BookingDetailClient() {
   if (loading) {
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-        Loading booking...
+        {t('loading')}
       </div>
     );
   }
@@ -90,7 +104,7 @@ export function BookingDetailClient() {
   if (!booking) {
     return (
       <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-        {error ?? 'Booking not found.'}
+        {error ?? t('notFound')}
       </div>
     );
   }
@@ -101,7 +115,8 @@ export function BookingDetailClient() {
         href="/bookings"
         className="inline-flex items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
       >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> My Bookings
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        {t('backToBookings')}
       </Link>
       {error ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
@@ -128,37 +143,68 @@ export function BookingDetailClient() {
         </div>
         <dl className="mt-6 grid gap-4 text-sm md:grid-cols-2">
           <div>
-            <dt className="font-semibold text-slate-700">Date and time</dt>
+            <dt className="font-semibold text-slate-700">{t('dateAndTime')}</dt>
             <dd className="mt-1 text-slate-600">
-              {formatBookingRange(booking)}
+              {formatLocaleDate(booking.startAt, locale, {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}{' '}
+              –{' '}
+              {formatLocaleDate(booking.endAt, locale, {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-slate-700">Booking mode</dt>
+            <dt className="font-semibold text-slate-700">{t('mode')}</dt>
             <dd className="mt-1 text-slate-600">
-              {booking.bookingModeSnapshot.replace('_', ' ')}
+              {t(
+                (
+                  {
+                    DATE: 'dateBooking',
+                    DATE_RANGE: 'dateRangeBooking',
+                    TIME_SLOT: 'timeSlotBooking',
+                  } as const
+                )[booking.bookingModeSnapshot],
+              )}
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-slate-700">Quantity</dt>
+            <dt className="font-semibold text-slate-700">{t('quantity')}</dt>
             <dd className="mt-1 text-slate-600">{booking.quantity}</dd>
           </div>
           <div>
-            <dt className="font-semibold text-slate-700">Unit price</dt>
+            <dt className="font-semibold text-slate-700">{t('unitPrice')}</dt>
             <dd className="mt-1 text-slate-600">
-              {formatMoney(booking.unitPrice, booking.currency)}
+              {booking.unitPrice === null || !booking.currency
+                ? String(booking.unitPrice ?? '')
+                : formatLocaleMoney(
+                    String(booking.unitPrice),
+                    booking.currency,
+                    locale,
+                  )}
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-slate-700">Total</dt>
+            <dt className="font-semibold text-slate-700">{t('total')}</dt>
             <dd className="mt-1 text-slate-600">
-              {formatMoney(booking.subtotal, booking.currency)}
+              {booking.currency
+                ? formatLocaleMoney(
+                    String(booking.subtotal),
+                    booking.currency,
+                    locale,
+                  )
+                : String(booking.subtotal)}
             </dd>
           </div>
           <div>
-            <dt className="font-semibold text-slate-700">Created</dt>
+            <dt className="font-semibold text-slate-700">{t('created')}</dt>
             <dd className="mt-1 text-slate-600">
-              {formatBookingDate(booking.createdAt)}
+              {formatLocaleDate(booking.createdAt, locale, {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
             </dd>
           </div>
         </dl>
@@ -183,7 +229,7 @@ export function BookingDetailClient() {
               {working ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : null}
-              Cancel booking
+              {t('cancel')}
             </button>
           ) : null}
         </div>
@@ -191,7 +237,9 @@ export function BookingDetailClient() {
       <PaymentActionPanel booking={booking} onPaymentChange={loadBooking} />
       {booking.history.length ? (
         <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-950">Status history</h2>
+          <h2 className="text-lg font-bold text-slate-950">
+            {t('statusHistory')}
+          </h2>
           <ol className="mt-4 space-y-3">
             {booking.history.map((item) => (
               <li
@@ -199,10 +247,13 @@ export function BookingDetailClient() {
                 className="border-l-2 border-slate-200 pl-4 text-sm"
               >
                 <p className="font-semibold text-slate-900">
-                  {item.toStatus.replaceAll('_', ' ')}
+                  {t(bookingStatusKey(item.toStatus))}
                 </p>
                 <p className="text-slate-500">
-                  {formatBookingDate(item.createdAt)}
+                  {formatLocaleDate(item.createdAt, locale, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
                 </p>
                 {item.note ? (
                   <p className="mt-1 text-slate-600">{item.note}</p>

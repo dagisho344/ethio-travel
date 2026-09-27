@@ -45,12 +45,13 @@ void test('booking BFF exposes traveler and business booking endpoints', () => {
 
 void test('book now UI checks availability before creating a booking', () => {
   const widget = read('components/bookings/BookingWidget.tsx');
-  assert.match(widget, /Check availability/);
-  assert.match(widget, /Request booking/);
+  assert.match(widget, /useTranslations\('bookings'\)/);
+  assert.match(widget, /t\('checkAvailability'\)/);
+  assert.match(widget, /t\('requestBooking'\)/);
   assert.match(widget, /\/api\/services\/\$\{serviceId\}\/availability/);
   assert.match(widget, /\/api\/bookings/);
   assert.match(widget, /stage !== 'available'/);
-  assert.match(widget, /Availability changed/);
+  assert.match(widget, /t\('availabilityChanged'\)/);
 });
 
 void test('unauthenticated booking actions redirect with safe returnTo', () => {
@@ -66,7 +67,8 @@ void test('my bookings page is authenticated and supports status pagination', ()
   const client = read('app/bookings/BookingsClient.tsx');
   assert.match(page, /currentTokens/);
   assert.match(page, /redirect\('\/login\?returnTo=\/bookings'\)/);
-  assert.match(client, /Booking status/);
+  assert.match(client, /useTranslations\('bookings'\)/);
+  assert.match(client, /t\('status'\)/);
   assert.match(client, /page: currentPage/);
   assert.match(client, /\/api\/bookings\?\$\{query\}/);
 });
@@ -75,9 +77,9 @@ void test('booking detail renders statuses, history and cancellation state', () 
   const detail = read('app/bookings/[id]/BookingDetailClient.tsx');
   assert.match(detail, /BookingStatusBadge/);
   assert.match(detail, /PaymentStatusBadge/);
-  assert.match(detail, /Status history/);
+  assert.match(detail, /t\('statusHistory'\)/);
   assert.match(detail, /canTravelerCancel/);
-  assert.match(detail, /Cancel booking/);
+  assert.match(detail, /t\('cancel'\)/);
 });
 
 void test('business bookings page includes manager actions and read states', () => {

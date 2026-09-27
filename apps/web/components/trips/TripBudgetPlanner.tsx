@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 import { BffRequestError, bffJson } from '../../lib/private-api';
 import type {
@@ -9,14 +10,28 @@ import type {
   TripCostEstimate,
   TripPlannedExpense,
 } from '../../lib/types';
+import { resolveLocale } from '../../i18n/config';
+import { formatLocaleMoney } from '../../i18n/format';
 
-const categories: Array<{ value: TripBudgetCategory; label: string }> = [
-  { value: 'ACCOMMODATION', label: 'Accommodation' },
-  { value: 'TRANSPORT', label: 'Transport' },
-  { value: 'FOOD', label: 'Food' },
-  { value: 'ACTIVITIES', label: 'Activities' },
-  { value: 'OTHER', label: 'Other' },
+const categories: TripBudgetCategory[] = [
+  'ACCOMMODATION',
+  'TRANSPORT',
+  'FOOD',
+  'ACTIVITIES',
+  'OTHER',
 ];
+
+function categoryKey(category: TripBudgetCategory) {
+  return (
+    {
+      ACCOMMODATION: 'accommodation',
+      TRANSPORT: 'transport',
+      FOOD: 'food',
+      ACTIVITIES: 'activities',
+      OTHER: 'other',
+    } as const
+  )[category];
+}
 
 function messageFor(error: unknown, fallback: string): string {
   return error instanceof BffRequestError ? error.message : fallback;
@@ -37,6 +52,8 @@ export function TripBudgetPlanner({
   readOnly,
   onChanged,
 }: Props) {
+  const t = useTranslations('tripBudget');
+  const locale = resolveLocale(useLocale());
   const [amount, setAmount] = useState(budget?.amount ?? '');
   const [currency, setCurrency] = useState(budget?.currency ?? 'ETB');
   const [expenseAmount, setExpenseAmount] = useState('');
@@ -50,10 +67,11 @@ export function TripBudgetPlanner({
   const categoryRows = useMemo(
     () =>
       categories.map((category) => ({
-        ...category,
-        total: budget?.categoryTotals[category.value] ?? '0',
+        value: category,
+        label: t(categoryKey(category)),
+        total: budget?.categoryTotals[category] ?? '0',
       })),
-    [budget],
+    [budget, t],
   );
 
   async function saveBudget() {
@@ -66,15 +84,14 @@ export function TripBudgetPlanner({
       });
       await onChanged();
     } catch (requestError) {
-      setError(messageFor(requestError, 'We could not save this budget.'));
+      setError(messageFor(requestError, t('saveError')));
     } finally {
       setBusy(false);
     }
   }
 
   async function removeBudget() {
-    if (!window.confirm('Remove this budget and all of its planned expenses?'))
-      return;
+    if (!window.confirm(t('removeConfirm'))) return;
     setBusy(true);
     setError(null);
     try {
@@ -83,7 +100,7 @@ export function TripBudgetPlanner({
       setCurrency('ETB');
       await onChanged();
     } catch (requestError) {
-      setError(messageFor(requestError, 'We could not remove this budget.'));
+      setError(messageFor(requestError, t('removeError')));
     } finally {
       setBusy(false);
     }
@@ -105,9 +122,7 @@ export function TripBudgetPlanner({
       setExpenseNote('');
       await onChanged();
     } catch (requestError) {
-      setError(
-        messageFor(requestError, 'We could not add this planned expense.'),
-      );
+      setError(messageFor(requestError, t('addError')));
     } finally {
       setBusy(false);
     }
@@ -131,9 +146,7 @@ export function TripBudgetPlanner({
       setExpenseNote('');
       await onChanged();
     } catch (requestError) {
-      setError(
-        messageFor(requestError, 'We could not update this planned expense.'),
-      );
+      setError(messageFor(requestError, t('updateError')));
     } finally {
       setBusy(false);
     }
@@ -148,9 +161,7 @@ export function TripBudgetPlanner({
       });
       await onChanged();
     } catch (requestError) {
-      setError(
-        messageFor(requestError, 'We could not remove this planned expense.'),
-      );
+      setError(messageFor(requestError, t('removeExpenseError')));
     } finally {
       setBusy(false);
     }
@@ -174,12 +185,9 @@ export function TripBudgetPlanner({
             id="trip-budget-heading"
             className="text-lg font-bold text-slate-950"
           >
-            Trip budget
+            {t('title')}
           </h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Plan private travel expenses. Remaining budget excludes attached
-            bookings.
-          </p>
+          <p className="mt-1 text-sm text-slate-600">{t('description')}</p>
         </div>
         {budget ? (
           <span className="text-sm font-semibold text-slate-700">
@@ -211,27 +219,35 @@ export function TripBudgetPlanner({
         <>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Summary
-              label="Overall budget"
-              value={`${budget.amount} ${budget.currency}`}
+              label={t('overall')}
+              value={formatLocaleMoney(budget.amount, budget.currency, locale)}
             />
             <Summary
-              label="Planned expenses"
-              value={`${budget.plannedTotal} ${budget.currency}`}
+              label={t('planned')}
+              value={formatLocaleMoney(
+                budget.plannedTotal,
+                budget.currency,
+                locale,
+              )}
             />
             <Summary
-              label={
-                budget.overBudget
-                  ? 'Over budget by'
-                  : 'Remaining (excludes bookings)'
-              }
-              value={`${budget.overBudget ? budget.overBy : budget.remainingAmount} ${budget.currency}`}
+              label={budget.overBudget ? t('overBy') : t('remaining')}
+              value={formatLocaleMoney(
+                budget.overBudget ? budget.overBy : budget.remainingAmount,
+                budget.currency,
+                locale,
+              )}
               danger={budget.overBudget}
             />
             {categoryRows.slice(0, 2).map((category) => (
               <Summary
                 key={category.value}
                 label={category.label}
-                value={`${category.total} ${budget.currency}`}
+                value={formatLocaleMoney(
+                  category.total,
+                  budget.currency,
+                  locale,
+                )}
               />
             ))}
           </div>
@@ -240,17 +256,29 @@ export function TripBudgetPlanner({
               <Summary
                 key={category.value}
                 label={category.label}
-                value={`${category.total} ${budget.currency}`}
+                value={formatLocaleMoney(
+                  category.total,
+                  budget.currency,
+                  locale,
+                )}
               />
             ))}
           </div>
 
           <p className="mt-5 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
             {bookingCost?.amount === null
-              ? 'Attached booking subtotals are kept separate because currencies are mixed or unknown.'
+              ? t('bookingMixed')
               : bookingCost?.amount
-                ? `Attached booking subtotal: ${bookingCost.amount} ${bookingCost.currency ?? ''} — not included above.`
-                : 'No attached booking subtotal is included in this budget.'}
+                ? t('bookingSubtotal', {
+                    amount: bookingCost.currency
+                      ? formatLocaleMoney(
+                          String(bookingCost.amount),
+                          bookingCost.currency,
+                          locale,
+                        )
+                      : String(bookingCost.amount),
+                  })
+                : t('noBookingSubtotal')}
           </p>
 
           {!readOnly ? (
@@ -263,7 +291,7 @@ export function TripBudgetPlanner({
                 onAmount={setAmount}
                 onCurrency={setCurrency}
                 onSubmit={() => void saveBudget()}
-                submitLabel="Update overall budget"
+                submitLabel={t('update')}
               />
               <button
                 type="button"
@@ -272,7 +300,7 @@ export function TripBudgetPlanner({
                 className="mt-3 inline-flex items-center gap-2 rounded-md border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 disabled:opacity-60"
               >
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
-                Remove budget
+                {t('remove')}
               </button>
             </div>
           ) : null}
@@ -280,7 +308,7 @@ export function TripBudgetPlanner({
           {!readOnly ? (
             <div className="mt-6 border-t border-slate-100 pt-5">
               <h3 className="font-semibold text-slate-900">
-                {editing ? 'Edit planned expense' : 'Add planned expense'}
+                {editing ? t('editExpense') : t('addExpense')}
               </h3>
               <ExpenseForm
                 category={expenseCategory}
@@ -291,7 +319,7 @@ export function TripBudgetPlanner({
                 onAmount={setExpenseAmount}
                 onNote={setExpenseNote}
                 onSubmit={() => void (editing ? saveExpense() : addExpense())}
-                submitLabel={editing ? 'Save expense' : 'Add expense'}
+                submitLabel={editing ? t('saveExpense') : t('addExpense')}
                 onCancel={
                   editing
                     ? () => {
@@ -307,7 +335,7 @@ export function TripBudgetPlanner({
 
           <ul
             className="mt-6 divide-y divide-slate-100"
-            aria-label="Planned expenses"
+            aria-label={t('plannedExpenses')}
           >
             {budget.expenses.map((expense) => (
               <li
@@ -316,14 +344,10 @@ export function TripBudgetPlanner({
               >
                 <div>
                   <p className="font-medium text-slate-900">
-                    {
-                      categories.find(
-                        (category) => category.value === expense.category,
-                      )?.label
-                    }
+                    {t(categoryKey(expense.category))}
                   </p>
                   <p className="text-sm text-slate-600">
-                    {expense.amount} {budget.currency}
+                    {formatLocaleMoney(expense.amount, budget.currency, locale)}
                     {expense.note ? ` · ${expense.note}` : ''}
                   </p>
                 </div>
@@ -336,7 +360,7 @@ export function TripBudgetPlanner({
                       className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-semibold text-highland hover:bg-teal-50 disabled:opacity-60"
                     >
                       <Pencil className="h-4 w-4" aria-hidden="true" />
-                      Edit
+                      {t('edit')}
                     </button>
                     <button
                       type="button"
@@ -345,7 +369,7 @@ export function TripBudgetPlanner({
                       className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60"
                     >
                       <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      Remove
+                      {t('removeExpense')}
                     </button>
                   </div>
                 ) : null}
@@ -355,10 +379,7 @@ export function TripBudgetPlanner({
         </>
       )}
       {readOnly ? (
-        <p className="mt-5 text-sm text-slate-600">
-          Archived trip budgets are retained for reference and cannot be
-          changed.
-        </p>
+        <p className="mt-5 text-sm text-slate-600">{t('archivedReadOnly')}</p>
       ) : null}
     </section>
   );
@@ -391,7 +412,7 @@ function BudgetForm({
   onAmount,
   onCurrency,
   onSubmit,
-  submitLabel = 'Save budget',
+  submitLabel,
 }: {
   amount: string;
   currency: string;
@@ -402,6 +423,7 @@ function BudgetForm({
   onSubmit: () => void;
   submitLabel?: string;
 }) {
+  const t = useTranslations('tripBudget');
   return (
     <form
       className="mt-5 grid gap-3 sm:grid-cols-[1fr_130px_auto]"
@@ -411,7 +433,7 @@ function BudgetForm({
       }}
     >
       <label className="text-sm font-medium text-slate-700">
-        Overall budget
+        {t('overall')}
         <input
           required
           disabled={busy || readOnly}
@@ -422,7 +444,7 @@ function BudgetForm({
         />
       </label>
       <label className="text-sm font-medium text-slate-700">
-        Currency
+        {t('currency')}
         <input
           required
           disabled={busy || readOnly}
@@ -442,7 +464,7 @@ function BudgetForm({
         ) : (
           <Plus className="h-4 w-4" />
         )}
-        {submitLabel}
+        {submitLabel ?? t('save')}
       </button>
     </form>
   );
@@ -471,6 +493,7 @@ function ExpenseForm({
   submitLabel: string;
   onCancel?: () => void;
 }) {
+  const t = useTranslations('tripBudget');
   return (
     <form
       className="mt-3 grid gap-3 sm:grid-cols-2"
@@ -480,7 +503,7 @@ function ExpenseForm({
       }}
     >
       <label className="text-sm font-medium text-slate-700">
-        Category
+        {t('category')}
         <select
           value={category}
           disabled={busy}
@@ -490,14 +513,14 @@ function ExpenseForm({
           className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
         >
           {categories.map((item) => (
-            <option key={item.value} value={item.value}>
-              {item.label}
+            <option key={item} value={item}>
+              {t(categoryKey(item))}
             </option>
           ))}
         </select>
       </label>
       <label className="text-sm font-medium text-slate-700">
-        Amount
+        {t('amount')}
         <input
           required
           value={amount}
@@ -508,7 +531,7 @@ function ExpenseForm({
         />
       </label>
       <label className="text-sm font-medium text-slate-700 sm:col-span-2">
-        Note (optional)
+        {t('note')}
         <input
           value={note}
           disabled={busy}
@@ -532,7 +555,7 @@ function ExpenseForm({
             onClick={onCancel}
             className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
           >
-            Cancel
+            {t('cancel')}
           </button>
         ) : null}
       </div>

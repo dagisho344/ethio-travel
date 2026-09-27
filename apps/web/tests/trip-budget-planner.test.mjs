@@ -29,10 +29,11 @@ void test('Trip Budget BFF has fixed paths, UUID validation, body allowlists, an
 
 void test('Trip Budget UI keeps planned expenses and authoritative booking subtotals separate', () => {
   const source = read('components/trips/TripBudgetPlanner.tsx');
-  assert.match(source, /Remaining budget excludes attached\s+bookings/);
-  assert.match(source, /Attached booking subtotal/);
-  assert.match(source, /not included above/);
-  assert.match(source, /window\.confirm\('Remove this budget/);
+  assert.match(source, /useTranslations\('tripBudget'\)/);
+  assert.match(source, /t\('description'\)/);
+  assert.match(source, /t\('bookingSubtotal'/);
+  assert.match(source, /t\('noBookingSubtotal'\)/);
+  assert.match(source, /window\.confirm\(t\('removeConfirm'\)\)/);
   assert.match(source, /disabled=\{busy \|\| readOnly\}/);
   assert.match(source, /ACCOMMODATION/);
   assert.match(source, /TRANSPORT/);

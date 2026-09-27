@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { BffRequestError, bffJson } from '../../lib/private-api';
 import { getJson } from '../../lib/api';
 import { isValidCalendarDate } from '../../lib/trips';
@@ -12,6 +13,7 @@ type CityOption = { id: string; name: string; slug: string; regionId: string };
 type DestinationOption = { id: string; name: string; slug: string };
 
 export function CreateTripForm() {
+  const t = useTranslations('trips');
   const router = useRouter();
   const [regions, setRegions] = useState<RegionOption[]>([]);
   const [cities, setCities] = useState<CityOption[]>([]);
@@ -52,8 +54,7 @@ export function CreateTripForm() {
         setRegions(regionPage.data);
         setCities(cityPage.data);
       } catch {
-        if (current)
-          setError('Locations could not be loaded. Please try again.');
+        if (current) setError(t('locationsLoadError'));
       } finally {
         if (current) setLoadingLocations(false);
       }
@@ -62,7 +63,7 @@ export function CreateTripForm() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let current = true;
@@ -94,15 +95,15 @@ export function CreateTripForm() {
     setError(null);
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
-      setError('A trip title is required.');
+      setError(t('titleRequired'));
       return;
     }
     if (!isValidCalendarDate(startDate) || !isValidCalendarDate(endDate)) {
-      setError('Choose valid calendar dates.');
+      setError(t('invalidDates'));
       return;
     }
     if (startDate > endDate) {
-      setError('The end date cannot be before the start date.');
+      setError(t('endBeforeStart'));
       return;
     }
     setSubmitting(true);
@@ -123,8 +124,8 @@ export function CreateTripForm() {
     } catch (requestError) {
       setError(
         requestError instanceof BffRequestError && requestError.status === 401
-          ? 'Your session has ended. Please sign in again.'
-          : 'We could not create this trip. Check the details and try again.',
+          ? t('sessionEnded')
+          : t('createError'),
       );
     } finally {
       setSubmitting(false);
@@ -146,26 +147,26 @@ export function CreateTripForm() {
       ) : null}
       <div className="grid gap-5 sm:grid-cols-2">
         <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-          Trip title
+          {t('titleLabel')}
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             maxLength={160}
             required
-            placeholder="e.g. A week in Addis Ababa"
+            placeholder={t('titlePlaceholder')}
             className="mt-1.5 block w-full rounded-md border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Origin city{' '}
-          <span className="font-normal text-slate-500">(optional)</span>
+          {t('originCity')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <select
             value={originCityId}
             onChange={(event) => setOriginCityId(event.target.value)}
             disabled={loadingLocations}
             className="mt-1.5 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-highland focus:ring-2 focus:ring-highland/20 disabled:opacity-60"
           >
-            <option value="">Choose an origin</option>
+            <option value="">{t('chooseOrigin')}</option>
             {cities.map((city) => (
               <option key={city.id} value={city.id}>
                 {city.name}
@@ -174,8 +175,8 @@ export function CreateTripForm() {
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Destination region{' '}
-          <span className="font-normal text-slate-500">(optional)</span>
+          {t('destinationRegion')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <select
             value={destinationRegionId}
             onChange={(event) => {
@@ -186,7 +187,7 @@ export function CreateTripForm() {
             disabled={loadingLocations}
             className="mt-1.5 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-highland focus:ring-2 focus:ring-highland/20 disabled:opacity-60"
           >
-            <option value="">Choose a region</option>
+            <option value="">{t('chooseRegion')}</option>
             {regions.map((region) => (
               <option key={region.id} value={region.id}>
                 {region.name}
@@ -195,7 +196,7 @@ export function CreateTripForm() {
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Destination city
+          {t('destinationCity')}
           <select
             value={destinationCityId}
             onChange={(event) => {
@@ -205,7 +206,7 @@ export function CreateTripForm() {
             disabled={!destinationRegionId || loadingLocations}
             className="mt-1.5 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-highland focus:ring-2 focus:ring-highland/20 disabled:opacity-60"
           >
-            <option value="">Choose a destination city</option>
+            <option value="">{t('chooseDestinationCity')}</option>
             {destinationCities.map((city) => (
               <option key={city.id} value={city.id}>
                 {city.name}
@@ -214,14 +215,14 @@ export function CreateTripForm() {
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Primary destination
+          {t('primaryDestination')}
           <select
             value={primaryDestinationId}
             onChange={(event) => setPrimaryDestinationId(event.target.value)}
             disabled={!destinationCityId}
             className="mt-1.5 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-highland focus:ring-2 focus:ring-highland/20 disabled:opacity-60"
           >
-            <option value="">Choose a destination</option>
+            <option value="">{t('chooseDestination')}</option>
             {destinations.map((destination) => (
               <option key={destination.id} value={destination.id}>
                 {destination.name}
@@ -230,7 +231,7 @@ export function CreateTripForm() {
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Start date
+          {t('startDate')}
           <input
             type="date"
             value={startDate}
@@ -240,7 +241,7 @@ export function CreateTripForm() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          End date
+          {t('endDate')}
           <input
             type="date"
             value={endDate}
@@ -250,14 +251,14 @@ export function CreateTripForm() {
           />
         </label>
         <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-          Trip notes{' '}
-          <span className="font-normal text-slate-500">(optional)</span>
+          {t('notes')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <textarea
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             maxLength={2000}
             rows={4}
-            placeholder="Anything you want to remember for this trip"
+            placeholder={t('notes')}
             className="mt-1.5 block w-full resize-y rounded-md border border-slate-300 px-3 py-2.5 text-slate-900 outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
           />
         </label>
@@ -267,7 +268,7 @@ export function CreateTripForm() {
         disabled={submitting || loadingLocations}
         className="mt-6 inline-flex rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {submitting ? 'Creating trip...' : 'Create trip'}
+        {submitting ? t('creating') : t('create')}
       </button>
     </form>
   );

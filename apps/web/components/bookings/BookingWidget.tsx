@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { CalendarClock, Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import {
-  formatMoney,
-  paymentStatusLabel,
-  safeReturnTo,
-} from '../../lib/bookings';
+import { safeReturnTo } from '../../lib/bookings';
+import { formatLocaleMoney } from '../../i18n/format';
+import { resolveLocale } from '../../i18n/config';
 import type {
   AvailabilityResponse,
   Booking,
@@ -53,11 +52,39 @@ async function readJson<T>(response: Response): Promise<T> {
   return data as T;
 }
 
-function modeLabel(mode?: BookingMode) {
-  if (mode === 'DATE') return 'Date booking';
-  if (mode === 'DATE_RANGE') return 'Date range booking';
-  if (mode === 'TIME_SLOT') return 'Time-slot booking';
-  return 'Booking';
+function modeKey(mode?: BookingMode) {
+  if (mode === 'DATE') return 'dateBooking';
+  if (mode === 'DATE_RANGE') return 'dateRangeBooking';
+  if (mode === 'TIME_SLOT') return 'timeSlotBooking';
+  return 'booking';
+}
+
+function bookingStatusKey(status: Booking['bookingStatus']) {
+  return (
+    {
+      PENDING: 'pending',
+      CONFIRMED: 'confirmed',
+      REJECTED: 'rejected',
+      CANCELLED_BY_TRAVELER: 'cancelledByTraveler',
+      CANCELLED_BY_BUSINESS: 'cancelledByBusiness',
+      COMPLETED: 'completed',
+      NO_SHOW: 'noShow',
+    } as const
+  )[status];
+}
+
+function paymentStatusKey(status: Booking['paymentStatus']) {
+  return (
+    {
+      NOT_REQUIRED: 'notRequired',
+      UNPAID: 'unpaid',
+      PENDING: 'pending',
+      PAID: 'paidStatus',
+      PARTIALLY_REFUNDED: 'partiallyRefunded',
+      REFUNDED: 'refundedStatus',
+      FAILED: 'failed',
+    } as const
+  )[status];
 }
 
 export function BookingWidget({
@@ -75,6 +102,9 @@ export function BookingWidget({
   currency?: string | null;
   compact?: boolean;
 }) {
+  const t = useTranslations('bookings');
+  const paymentT = useTranslations('payment');
+  const locale = resolveLocale(useLocale());
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -115,17 +145,14 @@ export function BookingWidget({
       const data = await readJson<AvailabilityResponse>(response);
       setAvailability(data);
       setStage(data.available ? 'available' : 'unavailable');
-      if (!data.available)
-        setError(
-          'This time is not available. Try another date, time or quantity.',
-        );
+      if (!data.available) setError(t('availabilityUnavailable'));
     } catch (err) {
       setAvailability(null);
       setStage('idle');
       setError(
         err instanceof BookingRequestError && err.status === 409
-          ? 'This service is not bookable for the selected time.'
-          : 'We could not check availability right now.',
+          ? t('notBookable')
+          : t('availabilityError'),
       );
     }
   }
@@ -157,14 +184,12 @@ export function BookingWidget({
     } catch (err) {
       if (err instanceof BookingRequestError && err.status === 409) {
         setStage('idle');
-        setError(
-          'Availability changed before booking was created. Check availability again.',
-        );
+        setError(t('availabilityChanged'));
         await checkAvailability();
         return;
       }
       setStage('available');
-      setError('We could not create this booking right now.');
+      setError(t('createError'));
     }
   }
 
@@ -183,24 +208,28 @@ export function BookingWidget({
           className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
         >
           <CalendarClock className="h-4 w-4" aria-hidden="true" />
-          Book now
+          {t('requestBooking')}
         </button>
       ) : (
         <div className="space-y-3">
           <div>
             <p className="text-sm font-bold text-slate-950">
-              Book {serviceName}
+              {t('booking')} {serviceName}
             </p>
             {pricingModel ? (
               <p className="mt-1 text-xs text-slate-500">
-                Server confirms final booking price. Listed price:{' '}
-                {formatMoney(price, currency)}
+                {t('listedPrice', {
+                  price:
+                    price === null || price === undefined || !currency
+                      ? String(price ?? '')
+                      : formatLocaleMoney(String(price), currency, locale),
+                })}
               </p>
             ) : null}
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-xs font-semibold text-slate-600">
-              Start
+              {t('start')}
               <input
                 type="datetime-local"
                 value={startAt}
@@ -214,7 +243,7 @@ export function BookingWidget({
               />
             </label>
             <label className="text-xs font-semibold text-slate-600">
-              End
+              {t('end')}
               <input
                 type="datetime-local"
                 value={endAt}
@@ -229,7 +258,7 @@ export function BookingWidget({
             </label>
           </div>
           <label className="block text-xs font-semibold text-slate-600">
-            Quantity
+            {t('quantity')}
             <input
               type="number"
               min="1"
@@ -245,7 +274,7 @@ export function BookingWidget({
             />
           </label>
           <label className="block text-xs font-semibold text-slate-600">
-            Traveler note optional
+            {t('travelerNoteOptional')}
             <textarea
               maxLength={1000}
               value={note}
@@ -257,10 +286,10 @@ export function BookingWidget({
           {availability ? (
             <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-700">
               <p className="font-semibold text-slate-950">
-                {modeLabel(availability.bookingMode)}
+                {t(modeKey(availability.bookingMode))}
               </p>
               <p className="mt-1">
-                Remaining capacity: {availability.remaining}
+                {t('remainingCapacity', { count: availability.remaining })}
               </p>
             </div>
           ) : null}
@@ -271,17 +300,21 @@ export function BookingWidget({
               role="status"
             >
               <p className="font-semibold">
-                Booking requested: {booking.reference}
+                {t('requested', { reference: booking.reference })}
               </p>
               <p className="mt-1">
-                Status: {booking.bookingStatus}. Payment:{' '}
-                {paymentStatusLabel(booking.paymentStatus)}.
+                {t('requestedStatus', {
+                  bookingStatus: t(bookingStatusKey(booking.bookingStatus)),
+                  paymentStatus: paymentT(
+                    paymentStatusKey(booking.paymentStatus),
+                  ),
+                })}
               </p>
               <Link
                 className="mt-2 inline-block font-semibold text-highland"
                 href={`/bookings/${booking.id}`}
               >
-                View booking details
+                {t('viewBooking')}
               </Link>
             </div>
           ) : null}
@@ -305,7 +338,9 @@ export function BookingWidget({
               {stage === 'checking' ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : null}
-              Check availability
+              {stage === 'checking'
+                ? t('checkingAvailability')
+                : t('checkAvailability')}
             </button>
             <button
               type="button"
@@ -316,7 +351,7 @@ export function BookingWidget({
               {stage === 'creating' ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : null}
-              Request booking
+              {t('requestBooking')}
             </button>
           </div>
         </div>

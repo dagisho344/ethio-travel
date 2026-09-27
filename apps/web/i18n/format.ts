@@ -14,6 +14,26 @@ export function formatLocaleDate(
   }).format(new Date(value));
 }
 
+/**
+ * Formats a calendar-only date without converting it through UTC. Trip dates
+ * are stored as YYYY-MM-DD planning values, so their displayed day must remain
+ * stable in the traveler's local timezone.
+ */
+export function formatLocaleCalendarDate(
+  value: string,
+  locale: AppLocale,
+  options: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  },
+): string {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
+    calendar: 'gregory',
+    ...options,
+  }).format(new Date(`${value}T00:00:00`));
+}
+
 export function formatLocaleNumber(
   value: number | bigint,
   locale: AppLocale,

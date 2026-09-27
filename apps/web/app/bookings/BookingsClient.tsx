@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, CalendarClock } from 'lucide-react';
-import {
-  bookingStatusOptions,
-  formatBookingRange,
-  formatMoney,
-} from '../../lib/bookings';
+import { bookingStatusOptions } from '../../lib/bookings';
+import { formatLocaleDate, formatLocaleMoney } from '../../i18n/format';
+import { resolveLocale } from '../../i18n/config';
 import type {
   Booking,
   BookingListResponse,
@@ -20,6 +19,7 @@ import {
 } from '../../components/bookings/BookingStatusBadge';
 
 export function BookingsClient() {
+  const t = useTranslations('bookings');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -53,13 +53,13 @@ export function BookingsClient() {
         setPage((await response.json()) as BookingListResponse);
       } catch {
         setPage(null);
-        setError('We could not load your bookings right now.');
+        setError(t('loadError'));
       } finally {
         setLoading(false);
       }
     };
     void run();
-  }, [pathname, query, router]);
+  }, [pathname, query, router, t]);
 
   function update(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams);
@@ -75,7 +75,7 @@ export function BookingsClient() {
     <div>
       <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <label className="text-sm font-semibold text-slate-700">
-          Booking status
+          {t('status')}
           <select
             value={status ?? ''}
             onChange={(event) =>
@@ -83,9 +83,22 @@ export function BookingsClient() {
             }
             className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none focus:border-highland focus:ring-2 focus:ring-highland/20 sm:w-72"
           >
-            {bookingStatusOptions.map((option) => (
+            <option value="">{t('allStatuses')}</option>
+            {bookingStatusOptions.slice(1).map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(
+                  (
+                    {
+                      PENDING: 'pending',
+                      CONFIRMED: 'confirmed',
+                      REJECTED: 'rejected',
+                      CANCELLED_BY_TRAVELER: 'cancelledByTraveler',
+                      CANCELLED_BY_BUSINESS: 'cancelledByBusiness',
+                      COMPLETED: 'completed',
+                      NO_SHOW: 'noShow',
+                    } as const
+                  )[option.value as BookingStatus],
+                )}
               </option>
             ))}
           </select>
@@ -99,16 +112,17 @@ export function BookingsClient() {
       ) : null}
       {loading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-          Loading bookings...
+          {t('loading')}
         </div>
       ) : page?.data.length ? (
         <>
           <div className="mb-4 flex items-center justify-between gap-4 text-sm text-slate-600">
+            <p>{t('count', { count: page.meta.total })}</p>
             <p>
-              {page.meta.total} booking{page.meta.total === 1 ? '' : 's'}
-            </p>
-            <p>
-              Page {page.meta.page} of {Math.max(page.meta.totalPages, 1)}
+              {t('pageOf', {
+                page: page.meta.page,
+                total: Math.max(page.meta.totalPages, 1),
+              })}
             </p>
           </div>
           <div className="grid gap-5 lg:grid-cols-2">
@@ -123,16 +137,16 @@ export function BookingsClient() {
             <CalendarClock className="h-6 w-6" aria-hidden="true" />
           </div>
           <h2 className="mt-4 text-base font-semibold text-slate-950">
-            No bookings yet
+            {t('noBookings')}
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-            Your requested trips and services will appear here.
+            {t('noBookingsDescription')}
           </p>
           <Link
             href="/services"
             className="mt-5 inline-flex rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
           >
-            Browse services
+            {t('browseServices')}
           </Link>
         </div>
       )}
@@ -145,7 +159,7 @@ export function BookingsClient() {
             onClick={() => update({ page: String(page.meta.page - 1) })}
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
           >
-            Previous
+            {t('previous')}
           </button>
           <button
             type="button"
@@ -153,7 +167,7 @@ export function BookingsClient() {
             onClick={() => update({ page: String(page.meta.page + 1) })}
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
           >
-            Next
+            {t('next')}
           </button>
         </div>
       ) : null}
@@ -162,6 +176,8 @@ export function BookingsClient() {
 }
 
 function BookingCard({ booking }: { booking: Booking }) {
+  const t = useTranslations('bookings');
+  const locale = resolveLocale(useLocale());
   return (
     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -181,23 +197,47 @@ function BookingCard({ booking }: { booking: Booking }) {
       </div>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <div>
-          <dt className="font-semibold text-slate-700">When</dt>
-          <dd className="mt-1 text-slate-600">{formatBookingRange(booking)}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold text-slate-700">Quantity</dt>
-          <dd className="mt-1 text-slate-600">{booking.quantity}</dd>
-        </div>
-        <div>
-          <dt className="font-semibold text-slate-700">Total</dt>
+          <dt className="font-semibold text-slate-700">{t('when')}</dt>
           <dd className="mt-1 text-slate-600">
-            {formatMoney(booking.subtotal, booking.currency)}
+            {formatLocaleDate(booking.startAt, locale, {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })}{' '}
+            –{' '}
+            {formatLocaleDate(booking.endAt, locale, {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })}
           </dd>
         </div>
         <div>
-          <dt className="font-semibold text-slate-700">Mode</dt>
+          <dt className="font-semibold text-slate-700">{t('quantity')}</dt>
+          <dd className="mt-1 text-slate-600">{booking.quantity}</dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-slate-700">{t('total')}</dt>
           <dd className="mt-1 text-slate-600">
-            {booking.bookingModeSnapshot.replace('_', ' ')}
+            {booking.currency
+              ? formatLocaleMoney(
+                  String(booking.subtotal),
+                  booking.currency,
+                  locale,
+                )
+              : String(booking.subtotal)}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-slate-700">{t('mode')}</dt>
+          <dd className="mt-1 text-slate-600">
+            {t(
+              (
+                {
+                  DATE: 'dateBooking',
+                  DATE_RANGE: 'dateRangeBooking',
+                  TIME_SLOT: 'timeSlotBooking',
+                } as const
+              )[booking.bookingModeSnapshot],
+            )}
           </dd>
         </div>
       </dl>
@@ -205,7 +245,7 @@ function BookingCard({ booking }: { booking: Booking }) {
         href={`/bookings/${booking.id}`}
         className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
       >
-        View details <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        {t('details')} <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </Link>
     </article>
   );

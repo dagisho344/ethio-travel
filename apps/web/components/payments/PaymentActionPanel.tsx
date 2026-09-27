@@ -1,12 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { usePathname, useRouter } from 'next/navigation';
 import { CreditCard, Loader2 } from 'lucide-react';
 import { PaymentStatusBadge } from '../bookings/BookingStatusBadge';
 import { PaymentEmptyState, PaymentSummary } from './PaymentSummary';
-import { formatMoney } from '../../lib/bookings';
 import { isBookingPayable } from '../../lib/payments';
+import { formatLocaleMoney } from '../../i18n/format';
+import { resolveLocale } from '../../i18n/config';
 import type {
   Booking,
   PaymentInitiationResponse,
@@ -20,6 +22,8 @@ export function PaymentActionPanel({
   booking: Booking;
   onPaymentChange: () => void | Promise<void>;
 }) {
+  const t = useTranslations('payment');
+  const locale = resolveLocale(useLocale());
   const router = useRouter();
   const pathname = usePathname();
   const [page, setPage] = useState<PaymentListResponse | null>(null);
@@ -51,11 +55,11 @@ export function PaymentActionPanel({
       setPage((await response.json()) as PaymentListResponse);
     } catch {
       setPage(null);
-      setError('We could not load payment history right now.');
+      setError(t('historyLoadError'));
     } finally {
       setLoading(false);
     }
-  }, [booking.id, pathname, router]);
+  }, [booking.id, pathname, router, t]);
 
   useEffect(() => {
     void loadPayments();
@@ -81,33 +85,29 @@ export function PaymentActionPanel({
         return;
       }
       if (response.status === 409) {
-        setMessage(
-          'This booking already has an active or settled payment. Refreshing payment history.',
-        );
+        setMessage(t('activeOrSettled'));
         await loadPayments();
         await onPaymentChange();
         return;
       }
       if (response.status === 403) {
-        setError('You do not have access to pay for this booking.');
+        setError(t('accessDenied'));
         return;
       }
       if (response.status === 404) {
-        setError('We could not find this booking.');
+        setError(t('bookingNotFound'));
         return;
       }
       if (!response.ok) throw new Error('Request failed');
       const payment = (await response.json()) as PaymentInitiationResponse;
       setMessage(
-        payment.status === 'PENDING'
-          ? 'Payment started. Waiting for provider confirmation.'
-          : 'Payment state updated from the provider.',
+        payment.status === 'PENDING' ? t('started') : t('providerUpdated'),
       );
       await loadPayments();
       await onPaymentChange();
       router.refresh();
     } catch {
-      setError('We could not start payment right now. Please try again.');
+      setError(t('startError'));
     } finally {
       setWorking(false);
     }
@@ -118,13 +118,21 @@ export function PaymentActionPanel({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase text-slate-500">
-            Payment
+            {t('payment')}
           </p>
           <h2 className="mt-1 text-xl font-bold text-slate-950">
-            Booking payment
+            {t('bookingPayment')}
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            Total due: {formatMoney(booking.subtotal, booking.currency)}
+            {t('totalDue', {
+              amount: booking.currency
+                ? formatLocaleMoney(
+                    String(booking.subtotal),
+                    booking.currency,
+                    locale,
+                  )
+                : String(booking.subtotal),
+            })}
           </p>
         </div>
         <PaymentStatusBadge status={booking.paymentStatus} />
@@ -155,25 +163,27 @@ export function PaymentActionPanel({
               <CreditCard className="h-4 w-4" aria-hidden="true" />
             )}
             {working
-              ? 'Starting payment...'
+              ? t('startingPayment')
               : booking.paymentStatus === 'FAILED'
-                ? 'Retry payment'
-                : 'Pay now'}
+                ? t('retryPayment')
+                : t('startPayment')}
           </button>
         ) : (
           <p className="text-sm text-slate-600">
             {paymentInProgress
-              ? 'A payment is already pending for this booking.'
-              : 'Payment is not currently available for this booking.'}
+              ? t('pendingForBooking')
+              : t('unavailableForBooking')}
           </p>
         )}
       </div>
 
       <div className="mt-6">
-        <h3 className="text-base font-bold text-slate-950">Payment history</h3>
+        <h3 className="text-base font-bold text-slate-950">
+          {t('paymentHistory')}
+        </h3>
         {loading ? (
           <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-            Loading payment history...
+            {t('loadingHistory')}
           </div>
         ) : page?.data.length ? (
           <div className="mt-3 space-y-4">

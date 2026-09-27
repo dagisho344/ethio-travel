@@ -101,7 +101,7 @@ void test('existing protected action components retain authorization, eligibilit
   assert.match(conversation, /disabled=\{working\}/);
   assert.match(booking, /\/api\/services\/\$\{serviceId\}\/availability/);
   assert.match(booking, /\/api\/bookings/);
-  assert.match(booking, /Availability changed before booking was created/);
+  assert.match(booking, /t\('availabilityChanged'\)/);
   assert.match(trips, /readOnly = trip\.status === 'ARCHIVED'/);
   assert.match(
     trips,

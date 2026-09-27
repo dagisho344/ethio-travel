@@ -1,14 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, RotateCcw } from 'lucide-react';
-import { formatMoney } from '../../lib/bookings';
 import {
   canAdminRefund,
   refundableBalance,
   refundedAmount,
 } from '../../lib/payments';
 import type { Payment } from '../../lib/types';
+import { resolveLocale } from '../../i18n/config';
+import { formatLocaleMoney } from '../../i18n/format';
 
 export function RefundForm({
   payment,
@@ -17,6 +19,8 @@ export function RefundForm({
   payment: Payment;
   onRefunded: (payment: Payment) => void;
 }) {
+  const t = useTranslations('payment');
+  const locale = resolveLocale(useLocale());
   const [mode, setMode] = useState<'full' | 'partial'>('full');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
@@ -35,7 +39,13 @@ export function RefundForm({
     if (!canAdminRefund(payment) || working || invalidPartial) return;
     if (
       !window.confirm(
-        `Refund ${formatMoney(requestedAmount, payment.currency)}?`,
+        t('refundConfirm', {
+          amount: formatLocaleMoney(
+            String(requestedAmount),
+            payment.currency,
+            locale,
+          ),
+        }),
       )
     )
       return;
@@ -57,25 +67,25 @@ export function RefundForm({
         }),
       });
       if (response.status === 401) {
-        setError('Please sign in as an administrator to refund payments.');
+        setError(t('refundSignIn'));
         return;
       }
       if (response.status === 403) {
-        setError('Only administrators can refund payments.');
+        setError(t('refundAdminOnly'));
         return;
       }
       if (response.status === 409) {
-        setError('This payment can no longer be refunded for that amount.');
+        setError(t('refundConflict'));
         return;
       }
       if (!response.ok) throw new Error('Request failed');
       const updated = (await response.json()) as Payment;
       onRefunded(updated);
-      setMessage('Refund request completed with the provider response.');
+      setMessage(t('refundCompleted'));
       setAmount('');
       setReason('');
     } catch {
-      setError('We could not complete this refund right now.');
+      setError(t('refundError'));
     } finally {
       setWorking(false);
     }
@@ -85,25 +95,37 @@ export function RefundForm({
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-2">
         <RotateCcw className="h-5 w-5 text-highland" aria-hidden="true" />
-        <h2 className="text-lg font-bold text-slate-950">Refund payment</h2>
+        <h2 className="text-lg font-bold text-slate-950">
+          {t('refundPayment')}
+        </h2>
       </div>
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
         <div>
-          <dt className="font-semibold text-slate-700">Original amount</dt>
+          <dt className="font-semibold text-slate-700">
+            {t('originalAmount')}
+          </dt>
           <dd className="mt-1 text-slate-600">
-            {formatMoney(payment.amount, payment.currency)}
+            {formatLocaleMoney(
+              String(payment.amount),
+              payment.currency,
+              locale,
+            )}
           </dd>
         </div>
         <div>
-          <dt className="font-semibold text-slate-700">Refunded</dt>
+          <dt className="font-semibold text-slate-700">{t('refunded')}</dt>
           <dd className="mt-1 text-slate-600">
-            {formatMoney(refundedAmount(payment), payment.currency)}
+            {formatLocaleMoney(
+              String(refundedAmount(payment)),
+              payment.currency,
+              locale,
+            )}
           </dd>
         </div>
         <div>
-          <dt className="font-semibold text-slate-700">Remaining</dt>
+          <dt className="font-semibold text-slate-700">{t('remaining')}</dt>
           <dd className="mt-1 text-slate-600">
-            {formatMoney(remaining, payment.currency)}
+            {formatLocaleMoney(String(remaining), payment.currency, locale)}
           </dd>
         </div>
       </dl>
@@ -111,7 +133,7 @@ export function RefundForm({
       {canAdminRefund(payment) ? (
         <div className="mt-5 grid gap-4 md:grid-cols-[12rem_1fr_1fr_auto] md:items-end">
           <label className="text-sm font-semibold text-slate-700">
-            Refund type
+            {t('refundType')}
             <select
               value={mode}
               onChange={(event) =>
@@ -119,12 +141,12 @@ export function RefundForm({
               }
               className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
             >
-              <option value="full">Full refund</option>
-              <option value="partial">Partial refund</option>
+              <option value="full">{t('fullRefund')}</option>
+              <option value="partial">{t('partialRefund')}</option>
             </select>
           </label>
           <label className="text-sm font-semibold text-slate-700">
-            Amount
+            {t('amount')}
             <input
               type="number"
               min="0.01"
@@ -136,7 +158,7 @@ export function RefundForm({
             />
           </label>
           <label className="text-sm font-semibold text-slate-700">
-            Reason
+            {t('reason')}
             <input
               value={reason}
               maxLength={500}
@@ -153,20 +175,17 @@ export function RefundForm({
             {working ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : null}
-            Refund
+            {t('refund')}
           </button>
         </div>
       ) : (
         <p className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
-          This payment has no refundable balance in its current state.
+          {t('refundUnavailable')}
         </p>
       )}
 
       {invalidPartial ? (
-        <p className="mt-3 text-sm text-red-700">
-          Enter an amount greater than zero and no more than the remaining
-          refundable balance.
-        </p>
+        <p className="mt-3 text-sm text-red-700">{t('refundAmountInvalid')}</p>
       ) : null}
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
       {message ? (

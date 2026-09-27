@@ -33,10 +33,11 @@ void test('Trip list has authenticated loading, empty, status, and pagination st
   const source = read('components/trips/TripsClient.tsx');
   assert.match(source, /\/api\/trips/);
   assert.match(source, /trip\.status/);
-  assert.match(source, /No trips planned yet/);
-  assert.match(source, /Loading your trips/);
-  assert.match(source, /Previous/);
-  assert.match(source, /Next/);
+  assert.match(source, /useTranslations\('trips'\)/);
+  assert.match(source, /t\('noTrips'\)/);
+  assert.match(source, /t\('loadingTrips'\)/);
+  assert.match(source, /t\('previous'\)/);
+  assert.match(source, /t\('next'\)/);
 });
 
 void test('new-trip form uses actual location APIs and validates date-only values before creation', () => {
@@ -54,10 +55,10 @@ void test('new-trip form uses actual location APIs and validates date-only value
 void test('planner renders calendar days, safe booking context, and archived state', () => {
   const source = read('components/trips/TripPlannerClient.tsx');
   assert.match(source, /trip\.days\.map/);
-  assert.match(source, /formatTripDate/);
+  assert.match(source, /formatLocaleCalendarDate/);
   assert.match(source, /item\.booking/);
   assert.match(source, /\/bookings\/\$\{item\.booking\.id\}/);
-  assert.match(source, /This trip is archived/);
+  assert.match(source, /t\('archivedNotice'\)/);
   assert.match(source, /readOnly/);
 });
 

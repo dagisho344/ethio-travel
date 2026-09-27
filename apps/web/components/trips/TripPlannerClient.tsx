@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Archive,
   ChevronDown,
@@ -16,12 +17,9 @@ import { TripSharePanel } from './TripSharePanel';
 import { Container } from '../../components/ui/Container';
 import { getJson } from '../../lib/api';
 import { BffRequestError, bffJson } from '../../lib/private-api';
-import {
-  formatTripDate,
-  formatTripDateRange,
-  itemTypeOptions,
-  statusLabel,
-} from '../../lib/trips';
+import { itemTypeOptions } from '../../lib/trips';
+import { resolveLocale } from '../../i18n/config';
+import { formatLocaleCalendarDate, formatLocaleMoney } from '../../i18n/format';
 import type {
   BookingListResponse,
   SearchResult,
@@ -45,6 +43,12 @@ type ItemCreateInput = {
   notes?: string;
 };
 
+type TripErrorMessages = {
+  sessionEnded: string;
+  changeDenied: string;
+  itemUnavailable: string;
+};
+
 const catalogTypes: Partial<Record<TripItemType, SearchResultType>> = {
   DESTINATION: 'destination',
   ATTRACTION: 'attraction',
@@ -52,7 +56,39 @@ const catalogTypes: Partial<Record<TripItemType, SearchResultType>> = {
   SERVICE: 'service',
 };
 
+function tripStatusKey(status: Trip['status']) {
+  return (
+    {
+      DRAFT: 'draft',
+      UPCOMING: 'upcoming',
+      IN_PROGRESS: 'inProgress',
+      COMPLETED: 'completed',
+      ARCHIVED: 'archived',
+    } as const
+  )[status];
+}
+
+function itemTypeKey(type: TripItemType) {
+  return (
+    {
+      DESTINATION: 'destination',
+      ATTRACTION: 'attraction',
+      BUSINESS: 'business',
+      SERVICE: 'service',
+      BOOKING: 'booking',
+      CUSTOM: 'custom',
+    } as const
+  )[type];
+}
+
 export function TripPlannerClient({ tripId }: { tripId: string }) {
+  const t = useTranslations('trips');
+  const locale = resolveLocale(useLocale());
+  const tripErrorMessages: TripErrorMessages = {
+    sessionEnded: t('sessionEnded'),
+    changeDenied: t('changeDenied'),
+    itemUnavailable: t('itemUnavailable'),
+  };
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +102,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
       setTrip(await bffJson<Trip>(`/api/trips/${tripId}`));
     } catch (requestError) {
       setTrip(null);
-      setError(messageFor(requestError, 'We could not load this trip.'));
+      setError(messageFor(requestError, t('loadError'), tripErrorMessages));
     } finally {
       setLoading(false);
     }
@@ -77,13 +113,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
   }, [tripId]);
 
   async function archiveTrip() {
-    if (
-      !trip ||
-      !window.confirm(
-        'Archive this trip? Its itinerary will remain available but read-only.',
-      )
-    )
-      return;
+    if (!trip || !window.confirm(t('archiveConfirm'))) return;
     setBusy(true);
     setActionError(null);
     try {
@@ -94,7 +124,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
       );
     } catch (requestError) {
       setActionError(
-        messageFor(requestError, 'We could not archive this trip.'),
+        messageFor(requestError, t('archiveError'), tripErrorMessages),
       );
     } finally {
       setBusy(false);
@@ -112,7 +142,9 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
       });
       await loadTrip();
     } catch (requestError) {
-      setActionError(messageFor(requestError, 'We could not update this day.'));
+      setActionError(
+        messageFor(requestError, t('updateDayError'), tripErrorMessages),
+      );
     } finally {
       setBusy(false);
     }
@@ -130,7 +162,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
       await loadTrip();
     } catch (requestError) {
       setActionError(
-        messageFor(requestError, 'We could not add that itinerary item.'),
+        messageFor(requestError, t('addItemError'), tripErrorMessages),
       );
     } finally {
       setBusy(false);
@@ -139,7 +171,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
 
   async function editItem(day: TripDay, item: TripItem) {
     if (!trip) return;
-    const notes = window.prompt('Itinerary notes', item.notes ?? '');
+    const notes = window.prompt(t('editPrompt'), item.notes ?? '');
     if (notes === null) return;
     setBusy(true);
     setActionError(null);
@@ -154,7 +186,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
       await loadTrip();
     } catch (requestError) {
       setActionError(
-        messageFor(requestError, 'We could not update that item.'),
+        messageFor(requestError, t('updateItemError'), tripErrorMessages),
       );
     } finally {
       setBusy(false);
@@ -165,7 +197,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
     if (
       !trip ||
       !window.confirm(
-        `Remove “${item.title ?? 'this item'}” from this itinerary?`,
+        t('removeConfirm', { name: item.title ?? t('itineraryItem') }),
       )
     )
       return;
@@ -179,7 +211,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
       await loadTrip();
     } catch (requestError) {
       setActionError(
-        messageFor(requestError, 'We could not remove that itinerary item.'),
+        messageFor(requestError, t('removeItemError'), tripErrorMessages),
       );
     } finally {
       setBusy(false);
@@ -212,7 +244,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
       await loadTrip();
     } catch (requestError) {
       setActionError(
-        messageFor(requestError, 'We could not reorder this day.'),
+        messageFor(requestError, t('reorderError'), tripErrorMessages),
       );
     } finally {
       setBusy(false);
@@ -223,7 +255,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
     return (
       <main className="bg-slate-50">
         <Container className="py-12 text-sm text-slate-500">
-          Loading your planner...
+          {t('loadingPlanner')}
         </Container>
       </main>
     );
@@ -236,13 +268,13 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
             role="alert"
             className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900"
           >
-            {error ?? 'Trip not found.'}
+            {error ?? t('notFound')}
           </p>
           <Link
             href="/trips"
             className="mt-5 inline-flex text-sm font-semibold text-highland"
           >
-            Back to my trips
+            {t('backToTrips')}
           </Link>
         </Container>
       </main>
@@ -257,25 +289,26 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
           href="/trips"
           className="text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
         >
-          ← My trips
+          ← {t('title')}
         </Link>
         <header className="mt-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-highland">
-                {statusLabel(trip.status)}
+                {t(tripStatusKey(trip.status))}
               </p>
               <h1 className="mt-1 text-2xl font-bold text-slate-950 sm:text-3xl">
                 {trip.title}
               </h1>
               <p className="mt-2 text-sm font-medium text-slate-700">
-                {formatTripDateRange(trip.startDate, trip.endDate)}
+                {formatLocaleCalendarDate(trip.startDate, locale)} –{' '}
+                {formatLocaleCalendarDate(trip.endDate, locale)}
               </p>
               <p className="mt-1 text-sm text-slate-600">
-                {trip.originCity?.name ?? 'Origin to be decided'} →{' '}
+                {trip.originCity?.name ?? t('originPending')} →{' '}
                 {trip.primaryDestination?.name ??
                   trip.destinationCity?.name ??
-                  'Destination to be decided'}
+                  t('destinationPending')}
               </p>
             </div>
             {!readOnly ? (
@@ -286,7 +319,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
                 className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-amber-500 hover:text-amber-800 disabled:opacity-60"
               >
                 <Archive className="h-4 w-4" aria-hidden="true" />
-                Archive trip
+                {t('archive')}
               </button>
             ) : null}
           </div>
@@ -298,8 +331,16 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
           {trip.estimatedBookingCost ? (
             <p className="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
               {trip.estimatedBookingCost.amount === null
-                ? 'Booking total is not combined because currencies are mixed or unknown.'
-                : `Known booking total: ${trip.estimatedBookingCost.amount} ${trip.estimatedBookingCost.currency ?? ''}`}
+                ? t('bookingTotalMixed')
+                : t('knownBookingTotal', {
+                    amount: trip.estimatedBookingCost.currency
+                      ? formatLocaleMoney(
+                          String(trip.estimatedBookingCost.amount),
+                          trip.estimatedBookingCost.currency,
+                          locale,
+                        )
+                      : String(trip.estimatedBookingCost.amount),
+                  })}
             </p>
           ) : null}
         </header>
@@ -321,8 +362,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
         ) : null}
         {readOnly ? (
           <p className="mt-5 rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600">
-            This trip is archived. Its itinerary and booking context are
-            retained, but changes are disabled.
+            {t('archivedNotice')}
           </p>
         ) : null}
         <TripAiAssistant
@@ -330,7 +370,7 @@ export function TripPlannerClient({ tripId }: { tripId: string }) {
           disabled={readOnly}
           onApplied={loadTrip}
         />
-        <section className="mt-6 space-y-5" aria-label="Itinerary days">
+        <section className="mt-6 space-y-5" aria-label={t('itineraryDays')}>
           {trip.days.map((day) => (
             <DayPlanner
               key={day.id}
@@ -373,6 +413,10 @@ function DayPlanner({
     direction: -1 | 1,
   ) => Promise<void>;
 }) {
+  const t = useTranslations('trips');
+  const bookingT = useTranslations('bookings');
+  const paymentT = useTranslations('payment');
+  const locale = resolveLocale(useLocale());
   const [notes, setNotes] = useState(day.notes ?? '');
   const [adding, setAdding] = useState(false);
   useEffect(() => setNotes(day.notes ?? ''), [day.notes]);
@@ -381,10 +425,10 @@ function DayPlanner({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-highland">
-            Day {day.dayNumber}
+            {t('day', { count: day.dayNumber })}
           </p>
           <h2 className="mt-1 text-lg font-bold text-slate-950">
-            {formatTripDate(day.date)}
+            {formatLocaleCalendarDate(day.date, locale)}
           </h2>
         </div>
         {!readOnly ? (
@@ -394,7 +438,7 @@ function DayPlanner({
             className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Add item
+            {t('addItem')}
           </button>
         ) : null}
       </div>
@@ -407,14 +451,14 @@ function DayPlanner({
           }}
         >
           <label className="sr-only" htmlFor={`day-notes-${day.id}`}>
-            Day notes
+            {t('dayNotes')}
           </label>
           <input
             id={`day-notes-${day.id}`}
             value={notes}
             maxLength={1000}
             onChange={(event) => setNotes(event.target.value)}
-            placeholder="Add a note for this day"
+            placeholder={t('dayNotePlaceholder')}
             className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
           />
           <button
@@ -422,7 +466,7 @@ function DayPlanner({
             disabled={busy}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
           >
-            Save note
+            {t('saveNote')}
           </button>
         </form>
       ) : day.notes ? (
@@ -455,10 +499,10 @@ function DayPlanner({
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      {item.type.replace('_', ' ')}
+                      {t(itemTypeKey(item.type))}
                     </p>
                     <h3 className="text-sm font-semibold text-slate-950">
-                      {item.title ?? 'Itinerary item'}
+                      {item.title ?? t('itineraryItem')}
                     </h3>
                   </div>
                   {item.startTime ? (
@@ -479,11 +523,38 @@ function DayPlanner({
                       href={`/bookings/${item.booking.id}`}
                       className="font-semibold text-highland hover:underline"
                     >
-                      Booking {item.booking.reference}
+                      {t('bookingWithReference', {
+                        reference: item.booking.reference,
+                      })}
                     </Link>{' '}
                     · {item.booking.service.name} ·{' '}
-                    {item.booking.bookingStatus.replaceAll('_', ' ')} ·{' '}
-                    {item.booking.paymentStatus.replaceAll('_', ' ')}
+                    {bookingT(
+                      (
+                        {
+                          PENDING: 'pending',
+                          CONFIRMED: 'confirmed',
+                          REJECTED: 'rejected',
+                          CANCELLED_BY_TRAVELER: 'cancelledByTraveler',
+                          CANCELLED_BY_BUSINESS: 'cancelledByBusiness',
+                          COMPLETED: 'completed',
+                          NO_SHOW: 'noShow',
+                        } as const
+                      )[item.booking.bookingStatus],
+                    )}{' '}
+                    ·{' '}
+                    {paymentT(
+                      (
+                        {
+                          NOT_REQUIRED: 'notRequired',
+                          UNPAID: 'unpaid',
+                          PENDING: 'pending',
+                          PAID: 'paidStatus',
+                          PARTIALLY_REFUNDED: 'partiallyRefunded',
+                          REFUNDED: 'refundedStatus',
+                          FAILED: 'failed',
+                        } as const
+                      )[item.booking.paymentStatus],
+                    )}
                   </div>
                 ) : null}
               </div>
@@ -491,7 +562,9 @@ function DayPlanner({
                 <div className="flex shrink-0 flex-col gap-1">
                   <button
                     type="button"
-                    aria-label={`Move ${item.title ?? 'item'} up`}
+                    aria-label={t('moveUp', {
+                      name: item.title ?? t('itineraryItem'),
+                    })}
                     disabled={busy || index === 0}
                     onClick={() => void onMoveItem(day, item, -1)}
                     className="rounded p-1 text-slate-600 hover:bg-slate-100 disabled:opacity-30"
@@ -500,7 +573,9 @@ function DayPlanner({
                   </button>
                   <button
                     type="button"
-                    aria-label={`Move ${item.title ?? 'item'} down`}
+                    aria-label={t('moveDown', {
+                      name: item.title ?? t('itineraryItem'),
+                    })}
                     disabled={busy || index === day.items.length - 1}
                     onClick={() => void onMoveItem(day, item, 1)}
                     className="rounded p-1 text-slate-600 hover:bg-slate-100 disabled:opacity-30"
@@ -513,11 +588,13 @@ function DayPlanner({
                     disabled={busy}
                     className="rounded px-1 py-1 text-xs font-semibold text-highland hover:bg-emerald-50 disabled:opacity-40"
                   >
-                    Edit
+                    {t('edit')}
                   </button>
                   <button
                     type="button"
-                    aria-label={`Remove ${item.title ?? 'item'}`}
+                    aria-label={t('remove', {
+                      name: item.title ?? t('itineraryItem'),
+                    })}
                     onClick={() => void onRemoveItem(day, item)}
                     disabled={busy}
                     className="rounded p-1 text-rose-700 hover:bg-rose-50 disabled:opacity-40"
@@ -530,7 +607,7 @@ function DayPlanner({
           ))
         ) : (
           <li className="rounded-md border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">
-            Nothing planned for this day yet.
+            {t('nothingPlanned')}
           </li>
         )}
       </ol>
@@ -549,6 +626,7 @@ function AddItemForm({
   onCancel: () => void;
   onAdd: (input: ItemCreateInput) => Promise<void>;
 }) {
+  const t = useTranslations('trips');
   const [type, setType] = useState<TripItemType>('ATTRACTION');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -577,14 +655,14 @@ function AddItemForm({
         );
         if (current) setBookings(page.data);
       } catch {
-        if (current) setFormError('Your bookings could not be loaded.');
+        if (current) setFormError(t('bookingsLoadError'));
       }
     };
     void load();
     return () => {
       current = false;
     };
-  }, [type]);
+  }, [t, type]);
 
   const choices = useMemo(
     () =>
@@ -610,7 +688,7 @@ function AddItemForm({
       setResults(page.data);
     } catch {
       setResults([]);
-      setFormError('No matching public places could be loaded.');
+      setFormError(t('catalogLoadError'));
     } finally {
       setSearching(false);
     }
@@ -620,7 +698,7 @@ function AddItemForm({
     event.preventDefault();
     setFormError(null);
     if (startTime && endTime && startTime >= endTime) {
-      setFormError('End time must be later than start time.');
+      setFormError(t('endTimeInvalid'));
       return;
     }
     const input: ItemCreateInput = {
@@ -631,16 +709,14 @@ function AddItemForm({
     };
     if (type === 'CUSTOM') {
       if (!title.trim()) {
-        setFormError('A custom item needs a title.');
+        setFormError(t('customTitleRequired'));
         return;
       }
       input.title = title.trim();
     } else {
       if (!targetId) {
         setFormError(
-          type === 'BOOKING'
-            ? 'Choose one of your bookings.'
-            : 'Search and choose a real public item.',
+          type === 'BOOKING' ? t('chooseBooking') : t('choosePublicItem'),
         );
         return;
       }
@@ -659,7 +735,7 @@ function AddItemForm({
       className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 p-4"
     >
       <h3 className="text-sm font-bold text-slate-900">
-        Add to Day {day.dayNumber}
+        {t('addToDay', { count: day.dayNumber })}
       </h3>
       {formError ? (
         <p role="alert" className="mt-3 text-sm text-rose-800">
@@ -668,7 +744,7 @@ function AddItemForm({
       ) : null}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="text-sm font-semibold text-slate-700">
-          Item type
+          {t('itemType')}
           <select
             value={type}
             onChange={(event) => {
@@ -681,14 +757,14 @@ function AddItemForm({
           >
             {itemTypeOptions.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(itemTypeKey(option.value))}
               </option>
             ))}
           </select>
         </label>
         {type === 'CUSTOM' ? (
           <label className="text-sm font-semibold text-slate-700">
-            Title
+            {t('customTitle')}
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
@@ -698,7 +774,7 @@ function AddItemForm({
           </label>
         ) : (
           <label className="text-sm font-semibold text-slate-700">
-            {type === 'BOOKING' ? 'Your booking' : 'Search public places'}
+            {type === 'BOOKING' ? t('yourBooking') : t('searchPublic')}
             <div className="mt-1 flex gap-2">
               {type !== 'BOOKING' ? (
                 <>
@@ -706,7 +782,7 @@ function AddItemForm({
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     maxLength={200}
-                    placeholder="Search"
+                    placeholder={t('search')}
                     className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
                   />
                   <button
@@ -715,7 +791,7 @@ function AddItemForm({
                     disabled={searching || !query.trim()}
                     className="rounded-md border border-slate-300 px-3 text-sm font-semibold disabled:opacity-50"
                   >
-                    {searching ? '…' : 'Find'}
+                    {searching ? '…' : t('find')}
                   </button>
                 </>
               ) : null}
@@ -725,7 +801,7 @@ function AddItemForm({
               onChange={(event) => setTargetId(event.target.value)}
               className="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
             >
-              <option value="">Choose an item</option>
+              <option value="">{t('chooseItem')}</option>
               {choices.map((choice) => (
                 <option key={choice.id} value={choice.id}>
                   {choice.name}
@@ -735,8 +811,8 @@ function AddItemForm({
           </label>
         )}
         <label className="text-sm font-semibold text-slate-700">
-          Start time{' '}
-          <span className="font-normal text-slate-500">(optional)</span>
+          {t('startTime')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <input
             type="time"
             value={startTime}
@@ -745,8 +821,8 @@ function AddItemForm({
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          End time{' '}
-          <span className="font-normal text-slate-500">(optional)</span>
+          {t('endTime')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <input
             type="time"
             value={endTime}
@@ -755,7 +831,8 @@ function AddItemForm({
           />
         </label>
         <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-          Notes <span className="font-normal text-slate-500">(optional)</span>
+          {t('notes')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <textarea
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
@@ -774,7 +851,7 @@ function AddItemForm({
           {busy ? (
             <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : null}
-          Add item
+          {t('addItem')}
         </button>
         <button
           type="button"
@@ -782,19 +859,23 @@ function AddItemForm({
           disabled={busy}
           className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
         >
-          Cancel
+          {t('cancel')}
         </button>
       </div>
     </form>
   );
 }
 
-function messageFor(error: unknown, fallback: string): string {
+function messageFor(
+  error: unknown,
+  fallback: string,
+  messages: TripErrorMessages,
+): string {
   if (error instanceof BffRequestError && error.status === 401)
-    return 'Your session has ended. Please sign in again.';
+    return messages.sessionEnded;
   if (error instanceof BffRequestError && error.status === 403)
-    return 'You are not allowed to change this trip.';
+    return messages.changeDenied;
   if (error instanceof BffRequestError && error.status === 404)
-    return 'That trip or itinerary item is no longer available.';
+    return messages.itemUnavailable;
   return fallback;
 }

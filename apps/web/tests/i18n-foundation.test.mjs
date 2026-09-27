@@ -122,7 +122,8 @@ void test('shared-trip fragment handling remains client-only and locale routing 
 
   assert.match(client, /window\.location\.hash\.slice\(1\)/);
   assert.match(client, /window\.history\.replaceState/);
-  assert.doesNotMatch(client, /localStorage|sessionStorage|locale/);
+  assert.doesNotMatch(client, /localStorage|sessionStorage/);
+  assert.doesNotMatch(client, /URLSearchParams|window\.location\.search/);
   assert.match(nextConfig, /createNextIntlPlugin\('\.\/i18n\/request\.ts'\)/);
   assert.doesNotMatch(nextConfig, /middleware/);
 });

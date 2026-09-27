@@ -1,17 +1,40 @@
 'use client';
 
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { CalendarDays, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BffRequestError, bffJson, queryString } from '../../lib/private-api';
-import {
-  formatTripDateRange,
-  statusLabel,
-  tripStatusOptions,
-} from '../../lib/trips';
+import { tripStatusOptions } from '../../lib/trips';
 import type { TripListResponse, TripStatus } from '../../lib/types';
+import { resolveLocale } from '../../i18n/config';
+import { formatLocaleCalendarDate } from '../../i18n/format';
+
+function statusKey(status: TripStatus) {
+  return (
+    {
+      DRAFT: 'draft',
+      UPCOMING: 'upcoming',
+      IN_PROGRESS: 'inProgress',
+      COMPLETED: 'completed',
+      ARCHIVED: 'archived',
+    } as const
+  )[status];
+}
+
+function tripDateRange(
+  startDate: string,
+  endDate: string,
+  locale: 'en' | 'am',
+) {
+  const start = formatLocaleCalendarDate(startDate, locale);
+  const end = formatLocaleCalendarDate(endDate, locale);
+  return start === end ? start : `${start} – ${end}`;
+}
 
 export function TripsClient() {
+  const t = useTranslations('trips');
+  const locale = resolveLocale(useLocale());
   const [page, setPage] = useState<TripListResponse | null>(null);
   const [status, setStatus] = useState<TripStatus | ''>('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,8 +56,8 @@ export function TripsClient() {
         setPage(null);
         setError(
           requestError instanceof BffRequestError && requestError.status === 401
-            ? 'Your session has ended. Please sign in again.'
-            : 'We could not load your trips right now.',
+            ? t('sessionEnded')
+            : t('loadError'),
         );
       } finally {
         if (current) setLoading(false);
@@ -44,13 +67,13 @@ export function TripsClient() {
     return () => {
       current = false;
     };
-  }, [currentPage, status]);
+  }, [currentPage, status, t]);
 
   return (
-    <section aria-label="Trips">
+    <section aria-label={t('title')}>
       <div className="mb-6 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end sm:justify-between">
         <label className="text-sm font-semibold text-slate-700">
-          Trip status
+          {t('status')}
           <select
             value={status}
             onChange={(event) => {
@@ -59,10 +82,10 @@ export function TripsClient() {
             }}
             className="mt-1.5 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-highland focus:ring-2 focus:ring-highland/20 sm:w-52"
           >
-            <option value="">All trips</option>
+            <option value="">{t('allTrips')}</option>
             {tripStatusOptions.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(statusKey(option.value))}
               </option>
             ))}
           </select>
@@ -72,7 +95,7 @@ export function TripsClient() {
           className="inline-flex items-center justify-center gap-2 rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
-          Plan a trip
+          {t('planTrip')}
         </Link>
       </div>
 
@@ -86,7 +109,7 @@ export function TripsClient() {
       ) : null}
       {loading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-          Loading your trips...
+          {t('loadingTrips')}
         </div>
       ) : page?.data.length ? (
         <>
@@ -99,7 +122,7 @@ export function TripsClient() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-highland">
-                      {statusLabel(trip.status)}
+                      {t(statusKey(trip.status))}
                     </p>
                     <h2 className="mt-1 text-lg font-bold text-slate-950">
                       {trip.title}
@@ -111,21 +134,21 @@ export function TripsClient() {
                   />
                 </div>
                 <p className="mt-3 text-sm font-medium text-slate-700">
-                  {formatTripDateRange(trip.startDate, trip.endDate)}
+                  {tripDateRange(trip.startDate, trip.endDate, locale)}
                 </p>
                 <p className="mt-1 text-sm text-slate-600">
                   {trip.primaryDestination?.name ??
                     trip.destinationCity?.name ??
-                    'Destination to be decided'}
+                    t('destinationPending')}
                 </p>
                 <p className="mt-4 text-sm text-slate-500">
-                  {trip.dayCount} itinerary day{trip.dayCount === 1 ? '' : 's'}
+                  {t('dayCount', { count: trip.dayCount })}
                 </p>
                 <Link
                   href={`/trips/${trip.id}`}
                   className="mt-5 inline-flex text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
                 >
-                  Open planner
+                  {t('openPlanner')}
                 </Link>
               </article>
             ))}
@@ -133,7 +156,7 @@ export function TripsClient() {
           {page.meta.totalPages > 1 ? (
             <nav
               className="mt-6 flex items-center justify-center gap-2"
-              aria-label="Trip pages"
+              aria-label={t('title')}
             >
               <button
                 type="button"
@@ -141,10 +164,13 @@ export function TripsClient() {
                 onClick={() => setCurrentPage((value) => value - 1)}
                 className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
               >
-                Previous
+                {t('previous')}
               </button>
               <span className="text-sm text-slate-600">
-                Page {page.meta.page} of {Math.max(1, page.meta.totalPages)}
+                {t('pageOf', {
+                  page: page.meta.page,
+                  total: Math.max(1, page.meta.totalPages),
+                })}
               </span>
               <button
                 type="button"
@@ -152,7 +178,7 @@ export function TripsClient() {
                 onClick={() => setCurrentPage((value) => value + 1)}
                 className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
               >
-                Next
+                {t('next')}
               </button>
             </nav>
           ) : null}
@@ -164,17 +190,16 @@ export function TripsClient() {
             aria-hidden="true"
           />
           <h2 className="mt-4 text-lg font-bold text-slate-950">
-            No trips planned yet
+            {t('noTrips')}
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-            Create a private trip, then add real places and your own bookings
-            day by day.
+            {t('noTripsDescription')}
           </p>
           <Link
             href="/trips/new"
             className="mt-5 inline-flex rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
           >
-            Plan your first trip
+            {t('planFirstTrip')}
           </Link>
         </div>
       )}

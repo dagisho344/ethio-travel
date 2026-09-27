@@ -1,11 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { CalendarPlus, Loader2, X } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { BffRequestError, bffJson } from '../../lib/private-api';
 import type { Trip, TripItemType, TripListResponse } from '../../lib/types';
+import { resolveLocale } from '../../i18n/config';
+import { formatLocaleCalendarDate } from '../../i18n/format';
 
 export type TripCatalogTargetType = Exclude<TripItemType, 'BOOKING' | 'CUSTOM'>;
 
@@ -15,6 +18,12 @@ type AddToTripButtonProps = {
   targetType: TripCatalogTargetType;
   className?: string;
   label?: string;
+};
+
+type AddToTripErrorMessages = {
+  addDenied: string;
+  tripDayUnavailable: string;
+  tripChanged: string;
 };
 
 function safeReturnTo(pathname: string, query: string): string {
@@ -35,15 +44,19 @@ function itemPayload(targetType: TripCatalogTargetType, targetId: string) {
   return { type: targetType, serviceId: targetId };
 }
 
-function errorMessage(error: unknown, fallback: string): string {
+function errorMessage(
+  error: unknown,
+  fallback: string,
+  messages: AddToTripErrorMessages,
+): string {
   if (error instanceof BffRequestError && error.status === 403) {
-    return 'You are not allowed to add this item to that trip.';
+    return messages.addDenied;
   }
   if (error instanceof BffRequestError && error.status === 404) {
-    return 'That trip, day, or public item is no longer available.';
+    return messages.tripDayUnavailable;
   }
   if (error instanceof BffRequestError && error.status === 409) {
-    return 'This trip changed before the item could be added. Refresh and try again.';
+    return messages.tripChanged;
   }
   return fallback;
 }
@@ -57,8 +70,15 @@ export function AddToTripButton({
   targetName,
   targetType,
   className,
-  label = 'Add to trip',
+  label,
 }: AddToTripButtonProps) {
+  const t = useTranslations('trips');
+  const locale = resolveLocale(useLocale());
+  const errorMessages: AddToTripErrorMessages = {
+    addDenied: t('addDenied'),
+    tripDayUnavailable: t('tripDayUnavailable'),
+    tripChanged: t('tripChanged'),
+  };
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -130,7 +150,7 @@ export function AddToTripButton({
           return;
         }
         setTrips(null);
-        setTripsError(errorMessage(error, 'We could not load your trips.'));
+        setTripsError(errorMessage(error, t('loadError'), errorMessages));
       } finally {
         if (current) setTripsLoading(false);
       }
@@ -139,7 +159,7 @@ export function AddToTripButton({
     return () => {
       current = false;
     };
-  }, [open, returnTo, router, tripPage, tripReloadNonce]);
+  }, [open, returnTo, router, t, tripPage, tripReloadNonce]);
 
   async function selectTrip(tripId: string) {
     const requestId = tripRequestId.current + 1;
@@ -152,7 +172,7 @@ export function AddToTripButton({
       const trip = await bffJson<Trip>(`/api/trips/${tripId}`);
       if (requestId !== tripRequestId.current) return;
       if (trip.status === 'ARCHIVED') {
-        setActionError('Archived trips are read-only. Choose another trip.');
+        setActionError(t('archivedReadOnly'));
         return;
       }
       setSelectedTrip(trip);
@@ -164,7 +184,7 @@ export function AddToTripButton({
           setOpen(false);
           return;
         }
-        setActionError(errorMessage(error, 'We could not load that trip.'));
+        setActionError(errorMessage(error, t('loadTripError'), errorMessages));
       }
     } finally {
       if (requestId === tripRequestId.current) setTripLoading(false);
@@ -190,9 +210,7 @@ export function AddToTripButton({
         setOpen(false);
         return;
       }
-      setActionError(
-        errorMessage(error, 'We could not add this item to your trip.'),
-      );
+      setActionError(errorMessage(error, t('addItemError'), errorMessages));
     } finally {
       setAdding(false);
     }
@@ -215,7 +233,7 @@ export function AddToTripButton({
         }
       >
         <CalendarPlus className="h-4 w-4" aria-hidden="true" />
-        {label}
+        {label ?? t('addToTrip')}
       </button>
       {open ? (
         <div
@@ -235,23 +253,22 @@ export function AddToTripButton({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-highland">
-                  Trip Planner
+                  {t('eyebrow')}
                 </p>
                 <h2
                   id={titleId}
                   className="mt-1 text-xl font-bold text-slate-950"
                 >
-                  Add {targetName} to a trip
+                  {t('addToTripTitle', { name: targetName })}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Choose one of your active trips and the day where this public
-                  item belongs.
+                  {t('addToTripDescription')}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={close}
-                aria-label="Close add to trip dialog"
+                aria-label={t('closeAddDialog')}
                 className="rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
@@ -268,7 +285,7 @@ export function AddToTripButton({
                     className="h-4 w-4 animate-spin"
                     aria-hidden="true"
                   />
-                  Loading your trips...
+                  {t('loadingTrips')}
                 </p>
               ) : null}
               {tripsError ? (
@@ -282,35 +299,37 @@ export function AddToTripButton({
                     onClick={() => setTripReloadNonce((value) => value + 1)}
                     className="mt-2 font-semibold text-highland underline"
                   >
-                    Retry
+                    {t('retry')}
                   </button>
                 </div>
               ) : null}
               {!tripsLoading && !tripsError && activeTrips?.length === 0 ? (
                 <div className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-600">
-                  <p>You do not have an active trip yet.</p>
+                  <p>{t('noActiveTrips')}</p>
                   <Link
                     href="/trips/new"
                     className="mt-2 inline-flex font-semibold text-highland hover:underline"
                     onClick={close}
                   >
-                    Plan a trip first
+                    {t('planFirstTrip')}
                   </Link>
                 </div>
               ) : null}
               {activeTrips?.length ? (
                 <label className="block text-sm font-semibold text-slate-700">
-                  Active trip
+                  {t('activeTrip')}
                   <select
                     value={selectedTrip?.id ?? ''}
                     onChange={(event) => void selectTrip(event.target.value)}
                     disabled={tripLoading || adding}
                     className="mt-1.5 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-highland focus:ring-2 focus:ring-highland/20 disabled:cursor-not-allowed disabled:bg-slate-100"
                   >
-                    <option value="">Choose a trip</option>
+                    <option value="">{t('chooseTrip')}</option>
                     {activeTrips.map((trip) => (
                       <option key={trip.id} value={trip.id}>
-                        {trip.title} ({trip.startDate} to {trip.endDate})
+                        {trip.title} (
+                        {formatLocaleCalendarDate(trip.startDate, locale)} –{' '}
+                        {formatLocaleCalendarDate(trip.endDate, locale)})
                       </option>
                     ))}
                   </select>
@@ -325,12 +344,12 @@ export function AddToTripButton({
                     className="h-4 w-4 animate-spin"
                     aria-hidden="true"
                   />
-                  Loading trip days...
+                  {t('loadingTripDays')}
                 </p>
               ) : null}
               {selectedTrip ? (
                 <label className="block text-sm font-semibold text-slate-700">
-                  Trip day
+                  {t('tripDay')}
                   <select
                     value={selectedDayId}
                     onChange={(event) => setSelectedDayId(event.target.value)}
@@ -339,7 +358,8 @@ export function AddToTripButton({
                   >
                     {selectedTrip.days.map((day) => (
                       <option key={day.id} value={day.id}>
-                        Day {day.dayNumber} - {day.date}
+                        {t('day', { count: day.dayNumber })} -{' '}
+                        {formatLocaleCalendarDate(day.date, locale)}
                       </option>
                     ))}
                   </select>
@@ -357,10 +377,13 @@ export function AddToTripButton({
                     }}
                     className="rounded-md border border-slate-300 px-3 py-2 font-semibold disabled:opacity-40"
                   >
-                    Previous trips
+                    {t('previousTrips')}
                   </button>
                   <span>
-                    Page {trips.meta.page} of {trips.meta.totalPages}
+                    {t('pageOf', {
+                      page: trips.meta.page,
+                      total: trips.meta.totalPages,
+                    })}
                   </span>
                   <button
                     type="button"
@@ -372,7 +395,7 @@ export function AddToTripButton({
                     }}
                     className="rounded-md border border-slate-300 px-3 py-2 font-semibold disabled:opacity-40"
                   >
-                    More trips
+                    {t('moreTrips')}
                   </button>
                 </div>
               ) : null}
@@ -389,13 +412,13 @@ export function AddToTripButton({
                   className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-900"
                   role="status"
                 >
-                  <p className="font-semibold">Added to your trip.</p>
+                  <p className="font-semibold">{t('added')}</p>
                   <Link
                     href={`/trips/${addedTripId}`}
                     onClick={close}
                     className="mt-2 inline-flex font-semibold text-highland hover:underline"
                   >
-                    Open trip planner
+                    {t('openPlanner')}
                   </Link>
                 </div>
               ) : null}
@@ -408,7 +431,7 @@ export function AddToTripButton({
                 disabled={adding}
                 className="rounded-md border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:opacity-60"
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 type="button"
@@ -427,7 +450,7 @@ export function AddToTripButton({
                     aria-hidden="true"
                   />
                 ) : null}
-                Add to selected day
+                {t('addSelectedDay')}
               </button>
             </div>
           </section>
