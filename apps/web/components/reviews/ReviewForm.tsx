@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Star } from 'lucide-react';
 import type { MyReview, ReviewTargetType } from '../../lib/types';
 
@@ -50,17 +51,6 @@ function safeReturnTo(
   return value.startsWith('/') && !value.startsWith('//') ? value : '/explore';
 }
 
-function friendlyError(error: unknown) {
-  if (error instanceof ReviewRouteError) {
-    if (error.status === 409)
-      return 'You already reviewed this item. Update your existing review instead.';
-    if (error.status === 404)
-      return 'This item is not available for review right now.';
-    if (error.status >= 500) return 'We could not save your review right now.';
-  }
-  return 'Check your rating and try again.';
-}
-
 export function ReviewForm({
   targetType,
   targetId,
@@ -68,6 +58,7 @@ export function ReviewForm({
   existingReview,
   className = '',
 }: ReviewFormProps) {
+  const t = useTranslations('travelerReviews');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -78,6 +69,15 @@ export function ReviewForm({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  function friendlyError(error: unknown): string {
+    if (error instanceof ReviewRouteError) {
+      if (error.status === 409) return t('duplicateReview');
+      if (error.status === 404) return t('targetUnavailable');
+      if (error.status >= 500) return t('saveError');
+    }
+    return t('checkRating');
+  }
 
   const loginUrl = useMemo(() => {
     const params = new URLSearchParams({
@@ -91,7 +91,7 @@ export function ReviewForm({
     setError(null);
     setMessage(null);
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-      setError('Choose a rating from 1 to 5 stars.');
+      setError(t('chooseRating'));
       return;
     }
     const payload = {
@@ -114,7 +114,7 @@ export function ReviewForm({
       setRating(saved.rating);
       setTitle(saved.title ?? '');
       setBody(saved.body ?? '');
-      setMessage('Your review is pending moderation.');
+      setMessage(t('pendingModeration'));
       router.refresh();
     } catch (err) {
       if (err instanceof ReviewRouteError && err.status === 401) {
@@ -134,16 +134,21 @@ export function ReviewForm({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="text-base font-bold text-slate-950">
-            {review ? 'Update your review' : 'Write a Review'}
+            {review ? t('updateTitle') : t('writeTitle')}
           </h3>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            Reviews are checked before they become public. Editing sends your
-            review back to pending moderation.
+            {t('formDescription')}
           </p>
         </div>
         {review ? (
           <span className="inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
-            {review.status}
+            {review.status === 'PENDING'
+              ? t('pending')
+              : review.status === 'PUBLISHED'
+                ? t('published')
+                : review.status === 'HIDDEN'
+                  ? t('hidden')
+                  : t('rejected')}
           </span>
         ) : null}
       </div>
@@ -157,19 +162,19 @@ export function ReviewForm({
       >
         <fieldset disabled={pending}>
           <legend className="text-sm font-semibold text-slate-700">
-            Rating for {targetName}
+            {t('ratingFor', { name: targetName })}
           </legend>
           <div
             className="mt-2 flex gap-1"
             role="radiogroup"
-            aria-label="Rating"
+            aria-label={t('rating')}
           >
             {[1, 2, 3, 4, 5].map((value) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setRating(value)}
-                aria-label={`${value} star${value === 1 ? '' : 's'}`}
+                aria-label={t('stars', { count: value })}
                 aria-pressed={rating === value}
                 className="rounded-md p-1 text-amber-500 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
               >
@@ -183,31 +188,31 @@ export function ReviewForm({
         </fieldset>
 
         <label className="block text-sm font-semibold text-slate-700">
-          Title optional
+          {t('titleOptional')}
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             maxLength={120}
             className="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
-            placeholder="A short headline"
+            placeholder={t('titlePlaceholder')}
           />
         </label>
 
         <label className="block text-sm font-semibold text-slate-700">
-          Review optional
+          {t('reviewOptional')}
           <textarea
             value={body}
             onChange={(event) => setBody(event.target.value)}
             maxLength={5000}
             rows={4}
             className="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-highland focus:ring-2 focus:ring-highland/20"
-            placeholder="Share what other travelers should know"
+            placeholder={t('reviewPlaceholder')}
           />
         </label>
 
         {review?.moderationNote ? (
           <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Moderation note: {review.moderationNote}
+            {t('moderationNote', { note: review.moderationNote })}
           </p>
         ) : null}
         {error ? (
@@ -222,11 +227,7 @@ export function ReviewForm({
           disabled={pending}
           className="inline-flex rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {pending
-            ? 'Saving review...'
-            : review
-              ? 'Update review'
-              : 'Submit review'}
+          {pending ? t('saving') : review ? t('update') : t('submit')}
         </button>
       </form>
     </section>

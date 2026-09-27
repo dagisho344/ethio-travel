@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2, UserRound } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { BffRequestError, bffJson } from '../../lib/private-api';
@@ -26,13 +27,6 @@ const profileFieldLimits = {
   phone: 32,
 } as const;
 
-const roleLabels: Record<string, string> = {
-  ADMIN: 'Administrator',
-  BUSINESS_OWNER: 'Business owner',
-  BUSINESS_STAFF: 'Business staff',
-  TRAVELER: 'Traveler',
-};
-
 function toDraft(user: ProfileUser): ProfileDraft {
   return {
     firstName: user.firstName ?? '',
@@ -54,30 +48,8 @@ function initials(user: ProfileUser): string {
   return value ? value.toUpperCase().slice(0, 2) : 'ET';
 }
 
-function friendlyRole(role: string): string {
-  return (
-    roleLabels[role] ??
-    role
-      .toLowerCase()
-      .split('_')
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ')
-  );
-}
-
-function profileError(error: unknown, fallback: string): string {
-  if (error instanceof BffRequestError) {
-    if (error.status === 403) {
-      return 'This profile update was not allowed. Refresh and try again.';
-    }
-    if (error.status === 400) {
-      return error.message;
-    }
-  }
-  return fallback;
-}
-
 export function AccountProfileClient() {
+  const t = useTranslations('accountProfile');
   const router = useRouter();
   const errorId = useId();
   const successId = useId();
@@ -93,6 +65,24 @@ export function AccountProfileClient() {
   const [reloadNonce, setReloadNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  function friendlyRole(role: string): string {
+    const labels: Record<string, string> = {
+      ADMIN: t('roleAdmin'),
+      BUSINESS_OWNER: t('roleBusinessOwner'),
+      BUSINESS_STAFF: t('roleBusinessStaff'),
+      TRAVELER: t('roleTraveler'),
+    };
+    return labels[role] ?? role;
+  }
+
+  function profileError(error: unknown, fallback: string): string {
+    if (error instanceof BffRequestError) {
+      if (error.status === 403) return t('updateDenied');
+      if (error.status === 400) return error.message;
+    }
+    return fallback;
+  }
 
   useEffect(() => {
     const activeRequest = requestId.current + 1;
@@ -116,7 +106,7 @@ export function AccountProfileClient() {
           return;
         }
         setProfile(null);
-        setError(profileError(requestError, 'We could not load your profile.'));
+        setError(profileError(requestError, t('loadError')));
       } finally {
         if (activeRequest === requestId.current) setLoading(false);
       }
@@ -152,7 +142,14 @@ export function AccountProfileClient() {
     );
     if (invalidField) {
       setError(
-        `${invalidField[0] === 'phone' ? 'Phone' : `${invalidField[0]} name`} is too long.`,
+        t('fieldTooLong', {
+          field:
+            invalidField[0] === 'phone'
+              ? t('phone')
+              : invalidField[0] === 'firstName'
+                ? t('firstName')
+                : t('lastName'),
+        }),
       );
       return;
     }
@@ -167,7 +164,7 @@ export function AccountProfileClient() {
       });
       setProfile(user);
       setDraft(toDraft(user));
-      setSuccess('Your profile has been updated.');
+      setSuccess(t('updated'));
       router.refresh();
     } catch (requestError) {
       if (
@@ -177,12 +174,7 @@ export function AccountProfileClient() {
         router.replace('/login?returnTo=%2Faccount');
         return;
       }
-      setError(
-        profileError(
-          requestError,
-          'We could not update your profile. Try again.',
-        ),
-      );
+      setError(profileError(requestError, t('updateError')));
     } finally {
       setSaving(false);
     }
@@ -196,7 +188,7 @@ export function AccountProfileClient() {
           role="status"
         >
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          Loading your profile...
+          {t('loading')}
         </p>
       </div>
     );
@@ -205,16 +197,14 @@ export function AccountProfileClient() {
   if (!profile) {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
-        <h2 className="text-lg font-bold">Your profile is unavailable</h2>
-        <p className="mt-2 text-sm leading-6">
-          {error ?? 'We could not load your profile right now.'}
-        </p>
+        <h2 className="text-lg font-bold">{t('unavailableTitle')}</h2>
+        <p className="mt-2 text-sm leading-6">{error ?? t('loadError')}</p>
         <button
           type="button"
           onClick={() => setReloadNonce((value) => value + 1)}
           className="mt-4 rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-950 transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
         >
-          Retry
+          {t('retry')}
         </button>
       </div>
     );
@@ -232,19 +222,18 @@ export function AccountProfileClient() {
           .join(' ')}
       >
         <div>
-          <p className="text-sm font-semibold text-highland">Account details</p>
+          <p className="text-sm font-semibold text-highland">{t('eyebrow')}</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">
-            My Profile
+            {t('title')}
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            Keep your name and contact number current. Your email is managed by
-            your existing sign-in account.
+            {t('description')}
           </p>
         </div>
 
         <div className="mt-7 grid gap-5 sm:grid-cols-2">
           <label className="text-sm font-semibold text-slate-700">
-            First name
+            {t('firstName')}
             <input
               value={draft.firstName}
               onChange={(event) => updateDraft('firstName', event.target.value)}
@@ -256,7 +245,7 @@ export function AccountProfileClient() {
             />
           </label>
           <label className="text-sm font-semibold text-slate-700">
-            Last name
+            {t('lastName')}
             <input
               value={draft.lastName}
               onChange={(event) => updateDraft('lastName', event.target.value)}
@@ -268,7 +257,7 @@ export function AccountProfileClient() {
             />
           </label>
           <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
-            Email
+            {t('email')}
             <input
               value={profile.email}
               readOnly
@@ -277,11 +266,11 @@ export function AccountProfileClient() {
               className="mt-1.5 block w-full cursor-not-allowed rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600"
             />
             <span className="mt-1.5 block text-xs font-normal leading-5 text-slate-500">
-              Email changes are not available in this account area.
+              {t('emailReadOnly')}
             </span>
           </label>
           <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
-            Phone
+            {t('phone')}
             <input
               value={draft.phone}
               onChange={(event) => updateDraft('phone', event.target.value)}
@@ -324,7 +313,7 @@ export function AccountProfileClient() {
             {saving ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : null}
-            {saving ? 'Saving changes...' : 'Save changes'}
+            {saving ? t('saving') : t('save')}
           </button>
           {hasChanges ? (
             <button
@@ -337,7 +326,7 @@ export function AccountProfileClient() {
               }}
               className="min-h-11 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Discard changes
+              {t('discard')}
             </button>
           ) : null}
         </div>
@@ -360,7 +349,7 @@ export function AccountProfileClient() {
         </div>
         <div className="mt-5 border-t border-slate-100 pt-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Authorized roles
+            {t('roles')}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {profile.roles.map((role) => (
@@ -379,10 +368,7 @@ export function AccountProfileClient() {
               className="mt-0.5 h-4 w-4 shrink-0 text-highland"
               aria-hidden="true"
             />
-            <p>
-              Profile photos are not available yet. EthioTravel will add them
-              only through a verified upload flow.
-            </p>
+            <p>{t('photoDeferred')}</p>
           </div>
         </div>
       </aside>

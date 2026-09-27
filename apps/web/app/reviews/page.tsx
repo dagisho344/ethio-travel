@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { Container } from '../../components/ui/Container';
 import { SectionHeading } from '../../components/ui/States';
 import { currentTokens } from '../../lib/auth/session';
@@ -10,13 +11,15 @@ export default async function ReviewsPage() {
     redirect('/login?returnTo=/reviews');
   }
 
+  const t = await getTranslations('travelerReviews');
+
   return (
     <main className="bg-slate-50">
       <Container className="py-10 sm:py-12">
         <SectionHeading
-          eyebrow="Reviews"
-          title="My Reviews"
-          description="Track your submitted traveler reviews and moderation status."
+          eyebrow={t('eyebrow')}
+          title={t('title')}
+          description={t('description')}
         />
         <ReviewsClient />
       </Container>

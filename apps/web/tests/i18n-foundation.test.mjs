@@ -5,24 +5,51 @@ import test from 'node:test';
 
 const root = join(import.meta.dirname, '..');
 
-/** @param {string} path */
+/** @param {string} path @returns {string} */
 function read(path) {
   return readFileSync(join(root, path), 'utf8');
 }
 
-/** @param {string} path */
-function readJson(path) {
-  return JSON.parse(read(path));
+/** @typedef {Record<string, string>} StringRecord */
+/** @typedef {{navigation: StringRecord, common: StringRecord, [key: string]: unknown}} Catalog */
+
+/** @param {unknown} value @returns {value is Record<string, unknown>} */
+function isJsonObject(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** @param {Record<string, unknown>} value */
+/** @param {unknown} value @returns {value is StringRecord} */
+function isStringRecord(value) {
+  return (
+    isJsonObject(value) &&
+    Object.values(value).every((item) => typeof item === 'string')
+  );
+}
+
+/** @param {unknown} value @returns {value is Catalog} */
+function isCatalog(value) {
+  return (
+    isJsonObject(value) &&
+    isStringRecord(value.navigation) &&
+    isStringRecord(value.common)
+  );
+}
+
+/** @param {string} path */
+function readJson(path) {
+  const parsed = /** @type {unknown} */ (JSON.parse(read(path)));
+  if (!isCatalog(parsed))
+    throw new Error(`${path} has an invalid catalog shape`);
+  return parsed;
+}
+
+/** @param {Record<string, unknown>} value @returns {string[]} */
 function flattenKeys(value, prefix = '') {
-  return Object.entries(value)
-    .flatMap(([key, child]) => {
+  return Object.keys(value)
+    .flatMap((key) => {
+      const child = value[key];
       const path = prefix ? `${prefix}.${key}` : key;
-      return child && typeof child === 'object' && !Array.isArray(child)
-        ? flattenKeys(child, path)
-        : [path];
+      return isJsonObject(child) ? flattenKeys(child, path) : [path];
     })
     .sort();
 }

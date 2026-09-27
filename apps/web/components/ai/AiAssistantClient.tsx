@@ -1,6 +1,7 @@
 'use client';
 
 import { LoaderCircle, Plus, Send } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 import {
   createAiConversation,
@@ -10,17 +11,14 @@ import {
 } from '../../lib/ai';
 import { BffRequestError } from '../../lib/private-api';
 import type { AiConversation, AiRecommendation } from '../../lib/types';
+import { resolveLocale } from '../../i18n/config';
+import { formatLocaleDate } from '../../i18n/format';
 import { Container } from '../ui/Container';
 import { AiRecommendationCard } from './AiRecommendationCard';
 
-function displayTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
-}
-
 export function AiAssistantClient() {
+  const t = useTranslations('assistant');
+  const locale = resolveLocale(useLocale());
   const [conversations, setConversations] = useState<AiConversation[]>([]);
   const [active, setActive] = useState<AiConversation | null>(null);
   const [recommendations, setRecommendations] = useState<AiRecommendation[]>(
@@ -31,6 +29,22 @@ export function AiAssistantClient() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
+
+  function messageFor(cause: unknown): string {
+    if (cause instanceof BffRequestError) return cause.message;
+    return t('loadError');
+  }
+
+  const recommendationLabels = {
+    suggestion: (type: string) => t('suggestion', { type }),
+    suggestedDay: (day: number) => t('suggestedDay', { day }),
+    knownPrice: (price: string) => t('knownPrice', { price }),
+    priceUnknown: t('priceUnknown'),
+    availabilityNotGuaranteed: t('availabilityNotGuaranteed'),
+    viewListing: t('viewListing'),
+    accept: t('accept'),
+    ignore: t('ignore'),
+  };
 
   const loadConversations = useCallback(async () => {
     setLoading(true);
@@ -46,7 +60,7 @@ export function AiAssistantClient() {
     } finally {
       setLoading(false);
     }
-  }, [active]);
+  }, [active, t]);
 
   useEffect(() => {
     void loadConversations();
@@ -83,11 +97,11 @@ export function AiAssistantClient() {
   async function send() {
     const message = content.trim();
     if (!message) {
-      setError('Write a travel question before sending.');
+      setError(t('questionRequired'));
       return;
     }
     if (message.length > 2000) {
-      setError('Keep your question to 2,000 characters or fewer.');
+      setError(t('questionTooLong'));
       return;
     }
     let conversation = active;
@@ -123,21 +137,16 @@ export function AiAssistantClient() {
       <Container className="py-8 sm:py-10">
         <header className="mb-6 max-w-3xl">
           <p className="text-sm font-semibold uppercase tracking-wide text-highland">
-            AI Travel Assistant
+            {t('eyebrow')}
           </p>
           <h1 className="mt-1 text-3xl font-bold text-slate-950">
-            Plan with grounded EthioTravel recommendations
+            {t('title')}
           </h1>
-          <p className="mt-2 text-slate-600">
-            Advice is generated from eligible EthioTravel listings. It does not
-            reserve services, guarantee availability, or change your trip until
-            you explicitly accept a suggestion.
-          </p>
+          <p className="mt-2 text-slate-600">{t('description')}</p>
         </header>
         {unavailable ? (
           <p className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            AI recommendations are temporarily unavailable. You can continue
-            using the normal Trip Planner.
+            {t('unavailable')}
           </p>
         ) : null}
         {error ? (
@@ -156,19 +165,15 @@ export function AiAssistantClient() {
               onClick={() => void createConversation()}
               className="flex w-full items-center justify-center gap-2 rounded-md bg-highland px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
             >
-              <Plus className="h-4 w-4" aria-hidden="true" /> New conversation
+              <Plus className="h-4 w-4" aria-hidden="true" />{' '}
+              {t('newConversation')}
             </button>
-            <div
-              className="mt-3 space-y-1"
-              aria-label="Assistant conversations"
-            >
+            <div className="mt-3 space-y-1" aria-label={t('conversations')}>
               {loading ? (
-                <p className="p-3 text-sm text-slate-500">Loading?</p>
+                <p className="p-3 text-sm text-slate-500">{t('loading')}</p>
               ) : null}
               {!loading && !conversations.length ? (
-                <p className="p-3 text-sm text-slate-500">
-                  Start a conversation to get grounded travel ideas.
-                </p>
+                <p className="p-3 text-sm text-slate-500">{t('empty')}</p>
               ) : null}
               {conversations.map((conversation) => (
                 <button
@@ -178,10 +183,13 @@ export function AiAssistantClient() {
                   className={`w-full rounded-md px-3 py-2 text-left text-sm hover:bg-slate-50 ${active?.id === conversation.id ? 'bg-emerald-50 text-highland' : 'text-slate-700'}`}
                 >
                   <span className="block truncate font-semibold">
-                    {conversation.title ?? 'New travel question'}
+                    {conversation.title ?? t('newQuestion')}
                   </span>
                   <span className="mt-0.5 block text-xs text-slate-500">
-                    {displayTime(conversation.updatedAt)}
+                    {formatLocaleDate(conversation.updatedAt, locale, {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
                   </span>
                 </button>
               ))}
@@ -190,19 +198,16 @@ export function AiAssistantClient() {
           <section className="flex min-h-[34rem] flex-col rounded-lg border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 p-4">
               <h2 className="font-bold text-slate-950">
-                {active?.title ?? 'Ask about your trip'}
+                {active?.title ?? t('askAboutTrip')}
               </h2>
               <p className="mt-1 text-xs text-slate-500">
-                AI-generated advice; platform records and booking rules remain
-                authoritative.
+                {t('authoritative')}
               </p>
             </div>
             <div className="flex-1 space-y-4 p-4">
               {!active?.messages.length ? (
                 <div className="rounded-lg bg-slate-50 p-5 text-sm text-slate-600">
-                  Ask about real destinations, attractions, verified businesses,
-                  or services. You can also connect a conversation to a trip
-                  later from the Trip Planner.
+                  {t('emptyConversation')}
                 </div>
               ) : null}
               {active?.messages.map((message) => (
@@ -211,7 +216,7 @@ export function AiAssistantClient() {
                   className={`max-w-2xl rounded-lg p-4 text-sm leading-6 ${message.role === 'USER' ? 'ml-auto bg-slate-900 text-white' : 'bg-slate-100 text-slate-800'}`}
                 >
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide opacity-75">
-                    {message.role === 'USER' ? 'You' : 'EthioTravel AI'}
+                    {message.role === 'USER' ? t('you') : t('assistantName')}
                   </p>
                   <p className="whitespace-pre-wrap">{message.content}</p>
                 </article>
@@ -220,19 +225,20 @@ export function AiAssistantClient() {
                 <AiRecommendationCard
                   key={`${recommendation.entityType}-${recommendation.entityId}`}
                   recommendation={recommendation}
+                  labels={recommendationLabels}
                 />
               ))}
               {active?.suggestions.length ? (
                 <div className="rounded-lg border border-slate-200 p-4 text-sm text-slate-600">
-                  This conversation also has {active.suggestions.length} saved
-                  trip suggestion{active.suggestions.length === 1 ? '' : 's'}{' '}
-                  available from its associated trip.
+                  {t('savedSuggestions', {
+                    count: active.suggestions.length,
+                  })}
                 </div>
               ) : null}
             </div>
             <div className="border-t border-slate-100 p-4">
               <label htmlFor="assistant-message" className="sr-only">
-                Travel question
+                {t('questionLabel')}
               </label>
               <textarea
                 id="assistant-message"
@@ -246,13 +252,12 @@ export function AiAssistantClient() {
                     void send();
                   }
                 }}
-                placeholder="Ask where to stay, what to do, or how to improve a trip?"
+                placeholder={t('placeholder')}
                 className="min-h-24 w-full rounded-md border border-slate-300 p-3 text-sm text-slate-900 outline-none focus:border-highland focus:ring-2 focus:ring-highland/20 disabled:bg-slate-50"
               />
               <div className="mt-3 flex items-center justify-between gap-3">
                 <span className="text-xs text-slate-500">
-                  {content.length}/2000 ? Enter to send, Shift+Enter for a new
-                  line
+                  {t('composerHint', { count: content.length })}
                 </span>
                 <button
                   type="button"
@@ -268,7 +273,7 @@ export function AiAssistantClient() {
                   ) : (
                     <Send className="h-4 w-4" aria-hidden="true" />
                   )}
-                  Send
+                  {t('send')}
                 </button>
               </div>
             </div>
@@ -277,9 +282,4 @@ export function AiAssistantClient() {
       </Container>
     </main>
   );
-}
-
-function messageFor(cause: unknown): string {
-  if (cause instanceof BffRequestError) return cause.message;
-  return 'We could not reach the travel assistant right now.';
 }

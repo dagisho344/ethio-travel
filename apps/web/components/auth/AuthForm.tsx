@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import type { FormEvent } from 'react';
 import { useId, useState } from 'react';
 
@@ -28,7 +29,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseAuthRouteResponse(value: unknown): AuthRouteResponse {
   if (!isRecord(value) || typeof value.authenticated !== 'boolean') {
-    throw new AuthRouteError(502, 'The authentication response was invalid.');
+    throw new AuthRouteError(502, '');
   }
 
   return {
@@ -50,10 +51,7 @@ async function postAuthRoute(
     message?: string;
   } | null;
   if (!response.ok) {
-    throw new AuthRouteError(
-      response.status,
-      data?.message ?? 'Request failed.',
-    );
+    throw new AuthRouteError(response.status, data?.message ?? '');
   }
   return parseAuthRouteResponse(data);
 }
@@ -80,78 +78,12 @@ function textValue(form: FormData, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
-function authErrorMessage(error: unknown): string {
-  if (error instanceof AuthRouteError) {
-    if (error.status === 401 || error.status === 403) {
-      return 'The email or password you entered is incorrect.';
-    }
-    if (error.status === 400) {
-      return 'Please check your email and password and try again.';
-    }
-    return 'We could not sign you in right now. Please try again soon.';
-  }
-  return 'We could not reach EthioTravel right now. Please try again soon.';
-}
-
-function registerErrorMessage(error: unknown): string {
-  if (error instanceof AuthRouteError) {
-    if (error.status === 409) {
-      return 'An account with this email already exists. Sign in instead.';
-    }
-    if (error.status === 400) {
-      return 'Please check your details and try again.';
-    }
-    return 'We could not create your account right now. Please try again soon.';
-  }
-  return 'We could not reach EthioTravel right now. Please try again soon.';
-}
-
 function validEmail(email: string): boolean {
   return /^\S+@\S+\.\S+$/.test(email);
 }
 
-function validatePassword(password: string): string | null {
-  if (!password) return 'Enter a password.';
-  if (password.length < 8) return 'Password must be at least 8 characters.';
-  if (password.length > 128) return 'Password must be 128 characters or fewer.';
-  return null;
-}
-
-function validateLogin(email: string, password: string): string | null {
-  if (!email) return 'Enter your email address.';
-  if (!validEmail(email)) return 'Enter a valid email address.';
-  return validatePassword(password);
-}
-
-function validateRegister({
-  firstName,
-  lastName,
-  email,
-  password,
-  confirmPassword,
-}: {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-}): string | null {
-  if (!firstName) return 'Enter your first name.';
-  if (firstName.length > 100)
-    return 'First name must be 100 characters or fewer.';
-  if (!lastName) return 'Enter your last name.';
-  if (lastName.length > 100)
-    return 'Last name must be 100 characters or fewer.';
-  if (!email) return 'Enter your email address.';
-  if (!validEmail(email)) return 'Enter a valid email address.';
-  const passwordError = validatePassword(password);
-  if (passwordError) return passwordError;
-  if (!confirmPassword) return 'Confirm your password.';
-  if (confirmPassword !== password) return 'Passwords do not match.';
-  return null;
-}
-
 export function AuthForm({ mode }: { mode: Mode }) {
+  const t = useTranslations('auth');
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -164,6 +96,65 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const confirmPasswordId = useId();
   const errorId = useId();
   const successId = useId();
+
+  function validatePassword(password: string): string | null {
+    if (!password) return t('enterPassword');
+    if (password.length < 8) return t('passwordTooShort');
+    if (password.length > 128) return t('passwordTooLong');
+    return null;
+  }
+
+  function validateLogin(email: string, password: string): string | null {
+    if (!email) return t('enterEmail');
+    if (!validEmail(email)) return t('invalidEmail');
+    return validatePassword(password);
+  }
+
+  function validateRegister({
+    firstName,
+    lastName,
+    email,
+    password,
+    confirmPassword,
+  }: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+  }): string | null {
+    if (!firstName) return t('enterFirstName');
+    if (firstName.length > 100) return t('firstNameTooLong');
+    if (!lastName) return t('enterLastName');
+    if (lastName.length > 100) return t('lastNameTooLong');
+    if (!email) return t('enterEmail');
+    if (!validEmail(email)) return t('invalidEmail');
+    const passwordError = validatePassword(password);
+    if (passwordError) return passwordError;
+    if (!confirmPassword) return t('confirmPasswordRequired');
+    if (confirmPassword !== password) return t('passwordsDoNotMatch');
+    return null;
+  }
+
+  function authErrorMessage(error: unknown): string {
+    if (error instanceof AuthRouteError) {
+      if (error.status === 401 || error.status === 403) {
+        return t('invalidCredentials');
+      }
+      if (error.status === 400) return t('checkEmailPassword');
+      return t('loginUnavailable');
+    }
+    return t('networkUnavailable');
+  }
+
+  function registerErrorMessage(error: unknown): string {
+    if (error instanceof AuthRouteError) {
+      if (error.status === 409) return t('registerConflict');
+      if (error.status === 400) return t('checkDetails');
+      return t('registerUnavailable');
+    }
+    return t('networkUnavailable');
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -223,7 +214,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         router.refresh();
         return;
       }
-      setSuccess('Account created. You can sign in now.');
+      setSuccess(t('accountCreated'));
       event.currentTarget.reset();
       setEmail('');
     } catch (err) {
@@ -247,15 +238,13 @@ export function AuthForm({ mode }: { mode: Mode }) {
       className="mx-auto max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
     >
       <h1 className="text-2xl font-bold text-slate-950">
-        {mode === 'login' ? 'Sign In' : 'Create Account'}
+        {mode === 'login' ? t('loginTitle') : t('registerTitle')}
       </h1>
-      <p className="mt-2 text-sm text-slate-600">
-        Use your EthioTravel account to continue.
-      </p>
+      <p className="mt-2 text-sm text-slate-600">{t('description')}</p>
       {mode === 'register' ? (
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="text-sm font-medium text-slate-700">
-            First name
+            {t('firstName')}
             <input
               name="firstName"
               autoComplete="given-name"
@@ -266,7 +255,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             />
           </label>
           <label className="text-sm font-medium text-slate-700">
-            Last name
+            {t('lastName')}
             <input
               name="lastName"
               autoComplete="family-name"
@@ -283,7 +272,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           className="block text-sm font-medium text-slate-700"
           htmlFor={emailId}
         >
-          Email
+          {t('email')}
         </label>
         <input
           id={emailId}
@@ -303,11 +292,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
               className="text-sm font-medium text-slate-700"
               htmlFor={passwordId}
             >
-              Password
+              {t('password')}
             </label>
             {mode === 'login' ? (
               <span className="text-sm font-medium text-slate-500">
-                Forgot password?
+                {t('forgotPassword')}
               </span>
             ) : null}
           </div>
@@ -328,7 +317,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             <button
               type="button"
               onClick={() => setShowPassword((current) => !current)}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={showPassword ? t('hidePassword') : t('showPassword')}
               aria-pressed={showPassword}
               className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
             >
@@ -341,7 +330,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           </div>
           {mode === 'register' ? (
             <p className="mt-2 text-xs leading-5 text-slate-500">
-              Use 8 to 128 characters.
+              {t('passwordHint')}
             </p>
           ) : null}
         </div>
@@ -351,7 +340,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
               className="text-sm font-medium text-slate-700"
               htmlFor={confirmPasswordId}
             >
-              Confirm password
+              {t('confirmPassword')}
             </label>
             <div className="relative mt-1">
               <input
@@ -368,8 +357,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 onClick={() => setShowConfirmPassword((current) => !current)}
                 aria-label={
                   showConfirmPassword
-                    ? 'Hide confirmed password'
-                    : 'Show confirmed password'
+                    ? t('hideConfirmedPassword')
+                    : t('showConfirmedPassword')
                 }
                 aria-pressed={showConfirmPassword}
                 className="absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
@@ -409,30 +398,30 @@ export function AuthForm({ mode }: { mode: Mode }) {
       >
         {loading
           ? mode === 'login'
-            ? 'Signing in...'
-            : 'Creating account...'
+            ? t('signingIn')
+            : t('creatingAccount')
           : mode === 'login'
-            ? 'Sign In'
-            : 'Register'}
+            ? t('loginTitle')
+            : t('register')}
       </button>
       {mode === 'login' ? (
         <p className="mt-5 text-center text-sm text-slate-600">
-          Don&apos;t have an account?{' '}
+          {t('noAccount')}{' '}
           <Link
             href="/register"
             className="font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
           >
-            Register
+            {t('registerLink')}
           </Link>
         </p>
       ) : (
         <p className="mt-5 text-center text-sm text-slate-600">
-          Already have an account?{' '}
+          {t('alreadyHaveAccount')}{' '}
           <Link
             href="/login"
             className="font-semibold text-highland hover:text-highland/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-highland focus-visible:ring-offset-2"
           >
-            Sign in
+            {t('signInLink')}
           </Link>
         </p>
       )}

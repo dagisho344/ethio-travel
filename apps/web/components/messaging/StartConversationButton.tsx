@@ -3,6 +3,7 @@
 import { Loader2, MessageCircleMore } from 'lucide-react';
 import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { createConversation } from '../../lib/messaging';
 import { BffRequestError } from '../../lib/private-api';
 
@@ -10,7 +11,7 @@ export function StartConversationButton({
   businessId,
   bookingId,
   className,
-  label = 'Message business',
+  label,
   subject,
 }: {
   businessId: string;
@@ -19,6 +20,8 @@ export function StartConversationButton({
   label?: string;
   subject?: string;
 }) {
+  const t = useTranslations('publicActions');
+  const marketplaceT = useTranslations('marketplace');
   const router = useRouter();
   const pathname = usePathname();
   const [working, setWorking] = useState(false);
@@ -41,9 +44,9 @@ export function StartConversationButton({
         cause instanceof BffRequestError &&
         (cause.status === 403 || cause.status === 404)
       ) {
-        setError('This business is not available for messaging.');
+        setError(t('messageUnavailable'));
       } else {
-        setError('We could not start a conversation right now.');
+        setError(t('messageError'));
       }
     } finally {
       setWorking(false);
@@ -66,7 +69,9 @@ export function StartConversationButton({
         ) : (
           <MessageCircleMore className="h-4 w-4" aria-hidden="true" />
         )}
-        {label}
+        {working
+          ? t('startingConversation')
+          : (label ?? marketplaceT('messageBusiness'))}
       </button>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
     </div>

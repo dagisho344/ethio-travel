@@ -49,7 +49,8 @@ void test('review form validates rating and supports edit pending behavior', () 
   assert.match(source, /rating < 1 \|\| rating > 5/);
   assert.match(source, /method:\s*'PATCH'/);
   assert.match(source, /method:\s*'POST'/);
-  assert.match(source, /pending moderation/);
+  assert.match(source, /useTranslations\('travelerReviews'\)/);
+  assert.match(source, /t\('pendingModeration'\)/);
   assert.match(source, /moderationNote/);
 });
 

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, Heart, MapPin, Trash2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { formatPricing } from '../../lib/format';
 import { publicBusinessPath } from '../../lib/public-business-route';
 import { publicDestinationPath } from '../../lib/public-destination-route';
@@ -13,19 +14,6 @@ import type {
   FavoriteTargetType,
   PaginatedResponse,
 } from '../../lib/types';
-
-const targetOptions: Array<{ value: FavoriteTargetType | ''; label: string }> =
-  [
-    { value: '', label: 'All saved places' },
-    { value: 'DESTINATION', label: 'Destinations' },
-    { value: 'ATTRACTION', label: 'Attractions' },
-    { value: 'BUSINESS', label: 'Businesses' },
-    { value: 'SERVICE', label: 'Services' },
-  ];
-
-function targetLabel(type: FavoriteTargetType) {
-  return targetOptions.find((option) => option.value === type)?.label ?? type;
-}
 
 function targetPath(target: FavoriteTarget) {
   if (target.type === 'DESTINATION') {
@@ -70,10 +58,16 @@ function FavoriteCard({
   favorite,
   onRemove,
   removing,
+  targetLabels,
+  removeLabel,
+  viewDetails,
 }: {
   favorite: Favorite;
   onRemove: (favorite: Favorite) => void;
   removing: boolean;
+  targetLabels: Record<FavoriteTargetType, string>;
+  removeLabel: (name: string) => string;
+  viewDetails: string;
 }) {
   const target = favorite.target;
   const location = locationLine(target);
@@ -83,7 +77,7 @@ function FavoriteCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <span className="inline-flex rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
-            {targetLabel(target.type)}
+            {targetLabels[target.type]}
           </span>
           <h2 className="mt-3 text-lg font-bold text-slate-950">
             {target.name}
@@ -93,7 +87,7 @@ function FavoriteCard({
           type="button"
           onClick={() => void onRemove(favorite)}
           disabled={removing}
-          aria-label={`Remove ${target.name} from favorites`}
+          aria-label={removeLabel(target.name)}
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -123,7 +117,7 @@ function FavoriteCard({
         href={targetPath(target)}
         className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
       >
-        View details
+        {viewDetails}
         <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </Link>
     </article>
@@ -131,6 +125,8 @@ function FavoriteCard({
 }
 
 export function FavoritesClient() {
+  const t = useTranslations('favorites');
+  const commonT = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -142,6 +138,22 @@ export function FavoritesClient() {
     'targetType',
   ) as FavoriteTargetType | null;
   const currentPage = searchParams.get('page') ?? '1';
+  const targetOptions: Array<{
+    value: FavoriteTargetType | '';
+    label: string;
+  }> = [
+    { value: '', label: t('all') },
+    { value: 'DESTINATION', label: t('destination') },
+    { value: 'ATTRACTION', label: t('attraction') },
+    { value: 'BUSINESS', label: t('business') },
+    { value: 'SERVICE', label: t('service') },
+  ];
+  const targetLabels: Record<FavoriteTargetType, string> = {
+    DESTINATION: t('destination'),
+    ATTRACTION: t('attraction'),
+    BUSINESS: t('business'),
+    SERVICE: t('service'),
+  };
 
   const query = useMemo(() => {
     const params = new URLSearchParams({ page: currentPage, limit: '9' });
@@ -167,13 +179,13 @@ export function FavoritesClient() {
         setPage((await response.json()) as PaginatedResponse<Favorite>);
       } catch {
         setPage(null);
-        setError('We could not load your favorites right now.');
+        setError(t('loadError'));
       } finally {
         setLoading(false);
       }
     };
     void run();
-  }, [pathname, query, router]);
+  }, [pathname, query, router, t]);
 
   function update(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams);
@@ -214,7 +226,7 @@ export function FavoritesClient() {
       );
       router.refresh();
     } catch {
-      setError('We could not remove that favorite right now.');
+      setError(t('removeError'));
     } finally {
       setRemovingId(null);
     }
@@ -224,7 +236,7 @@ export function FavoritesClient() {
     <div>
       <div className="mb-6 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end sm:justify-between">
         <label className="text-sm font-semibold text-slate-700">
-          Filter saved items
+          {t('filter')}
           <select
             value={targetType ?? ''}
             onChange={(event) =>
@@ -249,16 +261,14 @@ export function FavoritesClient() {
 
       {loading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-          Loading favorites...
+          {t('loading')}
         </div>
       ) : page?.data.length ? (
         <>
           <div className="mb-4 flex items-center justify-between gap-4 text-sm text-slate-600">
+            <p>{t('savedCount', { count: page.meta.total })}</p>
             <p>
-              {page.meta.total} saved item{page.meta.total === 1 ? '' : 's'}
-            </p>
-            <p>
-              Page {page.meta.page} of {Math.max(page.meta.totalPages, 1)}
+              {page.meta.page} / {Math.max(page.meta.totalPages, 1)}
             </p>
           </div>
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -268,6 +278,9 @@ export function FavoritesClient() {
                 favorite={favorite}
                 onRemove={(favorite) => void removeFavorite(favorite)}
                 removing={removingId === favorite.id}
+                targetLabels={targetLabels}
+                removeLabel={(name) => t('remove', { name })}
+                viewDetails={commonT('viewDetails')}
               />
             ))}
           </div>
@@ -278,17 +291,16 @@ export function FavoritesClient() {
             <Heart className="h-6 w-6" aria-hidden="true" />
           </div>
           <h2 className="mt-4 text-base font-semibold text-slate-950">
-            No favorites yet
+            {t('emptyTitle')}
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-            Save destinations, attractions, businesses and services you want to
-            revisit.
+            {t('emptyDescription')}
           </p>
           <Link
             href="/search"
             className="mt-5 inline-flex rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
           >
-            Start exploring
+            {commonT('startExploring')}
           </Link>
         </div>
       )}
@@ -301,7 +313,7 @@ export function FavoritesClient() {
             onClick={() => update({ page: String(page.meta.page - 1) })}
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
           >
-            Previous
+            {commonT('previous')}
           </button>
           <button
             type="button"
@@ -309,7 +321,7 @@ export function FavoritesClient() {
             onClick={() => update({ page: String(page.meta.page + 1) })}
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
           >
-            Next
+            {commonT('next')}
           </button>
         </div>
       ) : null}

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   getNotifications,
   markAllNotificationsRead,
@@ -17,6 +18,8 @@ import type {
   PaginationMeta,
 } from '../../lib/types';
 import { useRealtime } from '../realtime/RealtimeProvider';
+import { resolveLocale } from '../../i18n/config';
+import { formatLocaleDate } from '../../i18n/format';
 
 const PAGE_SIZE = 20;
 const types: NotificationType[] = [
@@ -37,21 +40,10 @@ const types: NotificationType[] = [
   'REVIEW_HIDDEN',
 ];
 
-function displayTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
-}
-
-function typeLabel(type: NotificationType): string {
-  return type
-    .replaceAll('_', ' ')
-    .toLowerCase()
-    .replace(/^./, (value) => value.toUpperCase());
-}
-
 export function NotificationCenterClient() {
+  const t = useTranslations('notifications');
+  const commonT = useTranslations('common');
+  const locale = resolveLocale(useLocale());
   const router = useRouter();
   const pathname = usePathname();
   const { connectionEpoch, subscribeNotifications } = useRealtime();
@@ -62,6 +54,23 @@ export function NotificationCenterClient() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const typeLabels: Record<NotificationType, string> = {
+    BOOKING_CREATED: t('bookingCreated'),
+    BOOKING_CONFIRMED: t('bookingConfirmed'),
+    BOOKING_REJECTED: t('bookingRejected'),
+    BOOKING_CANCELLED: t('bookingCancelled'),
+    BOOKING_COMPLETED: t('bookingCompleted'),
+    BOOKING_NO_SHOW: t('bookingNoShow'),
+    PAYMENT_SUCCEEDED: t('paymentSucceeded'),
+    PAYMENT_FAILED: t('paymentFailed'),
+    PAYMENT_REFUNDED: t('paymentRefunded'),
+    MESSAGE_RECEIVED: t('messageReceived'),
+    BUSINESS_VERIFICATION_APPROVED: t('verificationApproved'),
+    BUSINESS_VERIFICATION_REJECTED: t('verificationRejected'),
+    REVIEW_PUBLISHED: t('reviewPublished'),
+    REVIEW_REJECTED: t('reviewRejected'),
+    REVIEW_HIDDEN: t('reviewHidden'),
+  };
 
   const load = useCallback(
     async (page = 1) => {
@@ -81,12 +90,12 @@ export function NotificationCenterClient() {
           router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
           return;
         }
-        setError('We could not load notifications right now.');
+        setError(t('unavailable'));
       } finally {
         setLoading(false);
       }
     },
-    [filter, pathname, router, type],
+    [filter, pathname, router, t, type],
   );
 
   useEffect(() => {
@@ -129,7 +138,7 @@ export function NotificationCenterClient() {
         );
       }
     } catch {
-      setError('We could not mark that notification as read.');
+      setError(t('markError'));
     }
   }
 
@@ -145,7 +154,7 @@ export function NotificationCenterClient() {
           ),
         );
     } catch {
-      setError('We could not mark all notifications as read.');
+      setError(t('markAllError'));
     } finally {
       setWorking(false);
     }
@@ -156,7 +165,7 @@ export function NotificationCenterClient() {
       <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-wrap gap-3">
           <label className="text-sm font-semibold text-slate-700">
-            Show
+            {t('show')}
             <select
               value={filter}
               onChange={(event) =>
@@ -164,12 +173,12 @@ export function NotificationCenterClient() {
               }
               className="ml-2 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
             >
-              <option value="all">All notifications</option>
-              <option value="unread">Unread only</option>
+              <option value="all">{t('all')}</option>
+              <option value="unread">{t('unread')}</option>
             </select>
           </label>
           <label className="text-sm font-semibold text-slate-700">
-            Type
+            {t('type')}
             <select
               value={type}
               onChange={(event) =>
@@ -177,10 +186,10 @@ export function NotificationCenterClient() {
               }
               className="ml-2 max-w-48 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
             >
-              <option value="">All types</option>
+              <option value="">{t('allTypes')}</option>
               {types.map((item) => (
                 <option key={item} value={item}>
-                  {typeLabel(item)}
+                  {typeLabels[item]}
                 </option>
               ))}
             </select>
@@ -192,7 +201,7 @@ export function NotificationCenterClient() {
           onClick={() => void markAllRead()}
           className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
         >
-          {working ? 'Marking read...' : 'Mark all as read'}
+          {working ? t('marking') : t('markAll')}
         </button>
       </div>
       {error ? (
@@ -203,12 +212,12 @@ export function NotificationCenterClient() {
       {loading ? (
         <p className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />{' '}
-          Loading notifications...
+          {t('loading')}
         </p>
       ) : null}
       {!loading && !items.length ? (
         <p className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-600">
-          No matching notifications.
+          {t('noMatching')}
         </p>
       ) : null}
       {!loading && items.length ? (
@@ -250,7 +259,11 @@ export function NotificationCenterClient() {
                       </>
                     )}
                     <p className="mt-3 text-xs text-slate-500">
-                      {typeLabel(item.type)} · {displayTime(item.createdAt)}
+                      {typeLabels[item.type]} ·{' '}
+                      {formatLocaleDate(item.createdAt, locale, {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}
                     </p>
                   </div>
                   {!item.readAt ? (
@@ -259,7 +272,7 @@ export function NotificationCenterClient() {
                       onClick={() => void markRead(item)}
                       className="shrink-0 text-sm font-semibold text-highland hover:text-highland/80"
                     >
-                      Mark read
+                      {t('markRead')}
                     </button>
                   ) : null}
                 </div>
@@ -276,10 +289,10 @@ export function NotificationCenterClient() {
             onClick={() => void load(meta.page - 1)}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50"
           >
-            Previous
+            {commonT('previous')}
           </button>
           <span className="text-sm text-slate-600">
-            Page {meta.page} of {meta.totalPages}
+            {meta.page} / {meta.totalPages}
           </span>
           <button
             type="button"
@@ -287,7 +300,7 @@ export function NotificationCenterClient() {
             onClick={() => void load(meta.page + 1)}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50"
           >
-            Next
+            {commonT('next')}
           </button>
         </div>
       ) : null}

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, Loader2, Send } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   getConversation,
   getMessages,
@@ -19,6 +20,8 @@ import type {
   PaginationMeta,
 } from '../../lib/types';
 import { useRealtime } from '../realtime/RealtimeProvider';
+import { resolveLocale } from '../../i18n/config';
+import { formatLocaleDate, formatLocaleNumber } from '../../i18n/format';
 
 const PAGE_SIZE = 30;
 
@@ -27,13 +30,6 @@ type BrowserSession = {
   user: { id: string } | null;
 };
 
-function displayTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
-}
-
 function uniqueSorted(messages: Message[]): Message[] {
   const byId = new Map(messages.map((message) => [message.id, message]));
   return [...byId.values()].sort((left, right) =>
@@ -41,14 +37,9 @@ function uniqueSorted(messages: Message[]): Message[] {
   );
 }
 
-function conversationContext(conversation: Conversation): string {
-  if (conversation.booking) {
-    return `Booking ${conversation.booking.reference} · ${conversation.booking.service.name}`;
-  }
-  return conversation.subject ?? 'Business inquiry';
-}
-
 export function ConversationDetailClient() {
+  const t = useTranslations('messaging');
+  const locale = resolveLocale(useLocale());
   const router = useRouter();
   const pathname = usePathname();
   const params = useParams<{ conversationId: string }>();
@@ -65,6 +56,23 @@ export function ConversationDetailClient() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function localizedDisplayTime(value: string): string {
+    return formatLocaleDate(value, locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  }
+
+  function localizedConversationContext(conversation: Conversation): string {
+    if (conversation.booking) {
+      return t('bookingContext', {
+        reference: conversation.booking.reference,
+        service: conversation.booking.service.name,
+      });
+    }
+    return conversation.subject ?? t('inquiry');
+  }
+
   const handleFailure = useCallback(
     (cause: unknown) => {
       if (cause instanceof BffRequestError && cause.status === 401) {
@@ -75,14 +83,12 @@ export function ConversationDetailClient() {
         cause instanceof BffRequestError &&
         (cause.status === 403 || cause.status === 404)
       ) {
-        setError(
-          'This conversation is unavailable or you no longer have access.',
-        );
+        setError(t('unavailable'));
         return true;
       }
       return false;
     },
-    [pathname, router],
+    [pathname, router, t],
   );
 
   const load = useCallback(async () => {
@@ -112,7 +118,7 @@ export function ConversationDetailClient() {
       await markConversationRead(conversationId);
     } catch (cause) {
       if (!handleFailure(cause)) {
-        setError('We could not load this conversation right now.');
+        setError(t('loadConversation'));
       }
     } finally {
       setLoading(false);
@@ -156,7 +162,7 @@ export function ConversationDetailClient() {
       setMessages((current) => uniqueSorted([...response.data, ...current]));
       setMeta(response.meta);
     } catch (cause) {
-      if (!handleFailure(cause)) setError('We could not load older messages.');
+      if (!handleFailure(cause)) setError(t('loadOlder'));
     } finally {
       setLoadingOlder(false);
     }
@@ -166,17 +172,19 @@ export function ConversationDetailClient() {
     event.preventDefault();
     const body = draft.trim();
     if (!body) {
-      setError('Write a message before sending.');
+      setError(t('writeBeforeSend'));
       return;
     }
     if (body.length > MESSAGE_MAX_LENGTH) {
       setError(
-        `Messages can be at most ${MESSAGE_MAX_LENGTH.toLocaleString()} characters.`,
+        t('maxLength', {
+          count: formatLocaleNumber(MESSAGE_MAX_LENGTH, locale),
+        }),
       );
       return;
     }
     if (!conversation || conversation.status !== 'ACTIVE') {
-      setError('This conversation is archived and cannot receive messages.');
+      setError(t('archivedNoSend'));
       return;
     }
     setSending(true);
@@ -190,11 +198,9 @@ export function ConversationDetailClient() {
         setConversation((current) =>
           current ? { ...current, status: 'ARCHIVED' } : current,
         );
-        setError('This conversation can no longer receive messages.');
+        setError(t('archivedNoLongerSend'));
       } else if (!handleFailure(cause)) {
-        setError(
-          'Your message was not sent. Please check your connection and try again.',
-        );
+        setError(t('sendError'));
       }
     } finally {
       setSending(false);
@@ -204,7 +210,7 @@ export function ConversationDetailClient() {
   if (loading) {
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-        Loading conversation...
+        {t('loadingConversation')}
       </div>
     );
   }
@@ -216,10 +222,10 @@ export function ConversationDetailClient() {
           href="/messages"
           className="inline-flex items-center gap-2 text-sm font-semibold text-highland"
         >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Messages
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {t('back')}
         </Link>
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-          {error ?? 'Conversation not found.'}
+          {error ?? t('notFound')}
         </p>
       </div>
     );
@@ -234,7 +240,8 @@ export function ConversationDetailClient() {
           href="/messages"
           className="inline-flex items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80"
         >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> All messages
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />{' '}
+          {t('allMessages')}
         </Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -242,12 +249,12 @@ export function ConversationDetailClient() {
               {conversation.business.name}
             </h1>
             <p className="mt-1 text-sm text-slate-600">
-              {conversationContext(conversation)}
+              {localizedConversationContext(conversation)}
             </p>
           </div>
           {archived ? (
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-              Archived
+              {t('archived')}
             </span>
           ) : null}
         </div>
@@ -258,7 +265,7 @@ export function ConversationDetailClient() {
         </p>
       ) : null}
       <section
-        aria-label="Messages"
+        aria-label={t('messagesRegion')}
         className="min-h-80 space-y-4 bg-slate-50 p-4 sm:p-6"
       >
         {meta && meta.page > 1 ? (
@@ -271,12 +278,12 @@ export function ConversationDetailClient() {
             {loadingOlder ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             ) : null}
-            Load older messages
+            {t('loadOlderMessages')}
           </button>
         ) : null}
         {!messages.length ? (
           <p className="py-12 text-center text-sm text-slate-500">
-            No messages yet. Start the conversation below.
+            {t('emptyConversation')}
           </p>
         ) : null}
         {messages.map((message) => {
@@ -313,7 +320,7 @@ export function ConversationDetailClient() {
                     : 'mt-1 text-xs text-slate-500'
                 }
               >
-                {displayTime(message.createdAt)}
+                {localizedDisplayTime(message.createdAt)}
               </p>
             </article>
           );
@@ -325,12 +332,12 @@ export function ConversationDetailClient() {
       >
         {archived ? (
           <p className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-600">
-            This archived conversation is read-only.
+            {t('readOnly')}
           </p>
         ) : (
           <div className="flex items-end gap-3">
             <label className="sr-only" htmlFor="message-body">
-              Message
+              {t('message')}
             </label>
             <textarea
               id="message-body"
@@ -339,7 +346,7 @@ export function ConversationDetailClient() {
               maxLength={MESSAGE_MAX_LENGTH}
               disabled={sending}
               rows={2}
-              placeholder="Write a message..."
+              placeholder={t('messagePlaceholder')}
               className="min-h-11 flex-1 resize-y rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-highland focus:ring-2 focus:ring-highland/20 disabled:bg-slate-100"
             />
             <button
@@ -352,14 +359,14 @@ export function ConversationDetailClient() {
               ) : (
                 <Send className="h-4 w-4" aria-hidden="true" />
               )}
-              Send
+              {t('send')}
             </button>
           </div>
         )}
         {!archived ? (
           <p className="mt-2 text-right text-xs text-slate-500">
-            {draft.trim().length.toLocaleString()} /{' '}
-            {MESSAGE_MAX_LENGTH.toLocaleString()}
+            {formatLocaleNumber(draft.trim().length, locale)} /{' '}
+            {formatLocaleNumber(MESSAGE_MAX_LENGTH, locale)}
           </p>
         ) : null}
       </form>

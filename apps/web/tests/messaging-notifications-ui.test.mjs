@@ -67,8 +67,9 @@ void test('inbox presents authoritative unread conversation data and states', ()
   assert.match(source, /getConversations/);
   assert.match(source, /item\.unreadCount/);
   assert.match(source, /item\.lastMessage\?\.body/);
-  assert.match(source, /No conversations yet/);
-  assert.match(source, /Load more/);
+  assert.match(source, /useTranslations\('messaging'\)/);
+  assert.match(source, /t\('emptyTitle'\)/);
+  assert.match(source, /t\('loadMore'\)/);
   assert.match(source, /subscribeMessages/);
 });
 
@@ -77,10 +78,10 @@ void test('conversation detail validates plain-text input and handles history/re
   assert.match(source, /MESSAGE_MAX_LENGTH/);
   assert.match(source, /draft\.trim\(\)/);
   assert.match(source, /markConversationRead/);
-  assert.match(source, /Load older messages/);
+  assert.match(source, /t\('loadOlderMessages'\)/);
   assert.match(source, /message\.sender\.id/);
   assert.match(source, /whitespace-pre-wrap/);
-  assert.match(source, /This archived conversation is read-only/);
+  assert.match(source, /t\('readOnly'\)/);
 });
 
 void test('realtime client uses only a short-lived socket ticket and cleans up', () => {

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Bell, Loader2 } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 import {
   getNotifications,
@@ -12,15 +13,12 @@ import {
 } from '../../lib/notifications';
 import type { Notification as InAppNotification } from '../../lib/types';
 import { useRealtime } from '../realtime/RealtimeProvider';
-
-function displayTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
-}
+import { resolveLocale } from '../../i18n/config';
+import { formatLocaleDate } from '../../i18n/format';
 
 export function NotificationBell() {
+  const t = useTranslations('notifications');
+  const locale = resolveLocale(useLocale());
   const { connectionEpoch, subscribeNotifications } = useRealtime();
   const [items, setItems] = useState<InAppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -39,11 +37,11 @@ export function NotificationBell() {
       setItems(notifications.data);
       setUnreadCount(unread.count);
     } catch {
-      setError('Notifications are unavailable right now.');
+      setError(t('unavailable'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -79,7 +77,7 @@ export function NotificationBell() {
       );
       setUnreadCount((count) => Math.max(0, count - 1));
     } catch {
-      setError('We could not mark that notification as read.');
+      setError(t('markError'));
     }
   }
 
@@ -94,7 +92,7 @@ export function NotificationBell() {
       );
       setUnreadCount(0);
     } catch {
-      setError('We could not mark all notifications as read.');
+      setError(t('markAllError'));
     } finally {
       setWorking(false);
     }
@@ -103,7 +101,7 @@ export function NotificationBell() {
   return (
     <details className="relative">
       <summary
-        aria-label="Open notifications"
+        aria-label={t('open')}
         className="relative flex cursor-pointer list-none items-center justify-center rounded-md p-2 text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 [&::-webkit-details-marker]:hidden"
       >
         <Bell className="h-5 w-5" aria-hidden="true" />
@@ -115,7 +113,7 @@ export function NotificationBell() {
       </summary>
       <div className="absolute right-0 z-[1200] mt-3 w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
         <div className="flex items-center justify-between gap-3 px-1 pb-3">
-          <p className="font-semibold text-slate-950">Notifications</p>
+          <p className="font-semibold text-slate-950">{t('heading')}</p>
           <div className="flex items-center gap-3 text-sm">
             {unreadCount ? (
               <button
@@ -124,18 +122,18 @@ export function NotificationBell() {
                 onClick={() => void markAllRead()}
                 className="font-semibold text-highland hover:text-highland/80 disabled:opacity-60"
               >
-                Mark all read
+                {t('markAll')}
               </button>
             ) : null}
             <Link href="/notifications" className="font-semibold text-highland">
-              View all
+              {t('viewAll')}
             </Link>
           </div>
         </div>
         {loading ? (
           <p className="flex items-center gap-2 px-1 py-5 text-sm text-slate-500">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Loading notifications...
+            {t('loading')}
           </p>
         ) : error ? (
           <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -178,7 +176,10 @@ export function NotificationBell() {
                         </>
                       )}
                       <p className="mt-2 text-xs text-slate-500">
-                        {displayTime(item.createdAt)}
+                        {formatLocaleDate(item.createdAt, locale, {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
                       </p>
                     </div>
                     {!item.readAt ? (
@@ -187,7 +188,7 @@ export function NotificationBell() {
                         onClick={() => void markRead(item)}
                         className="shrink-0 text-xs font-semibold text-highland hover:text-highland/80"
                       >
-                        Mark read
+                        {t('markRead')}
                       </button>
                     ) : null}
                   </div>
@@ -196,9 +197,7 @@ export function NotificationBell() {
             })}
           </ul>
         ) : (
-          <p className="px-1 py-5 text-sm text-slate-500">
-            No notifications yet.
-          </p>
+          <p className="px-1 py-5 text-sm text-slate-500">{t('empty')}</p>
         )}
       </div>
     </details>

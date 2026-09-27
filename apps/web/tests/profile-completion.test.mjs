@@ -49,11 +49,12 @@ void test('profile editing has accessible loading, retry, error, success, and du
   assert.match(client, /router\.replace\('\/login\?returnTo=%2Faccount'\)/);
   assert.match(client, /activeRequest !== requestId\.current/);
   assert.match(client, /disabled=\{saving \|\| !hasChanges\}/);
-  assert.match(client, /Saving changes\.\.\./);
-  assert.match(client, /Your profile has been updated\./);
-  assert.match(client, /Retry/);
+  assert.match(client, /useTranslations\('accountProfile'\)/);
+  assert.match(client, /t\('saving'\)/);
+  assert.match(client, /t\('updated'\)/);
+  assert.match(client, /t\('retry'\)/);
   assert.match(client, /readOnly/);
-  assert.match(client, /Authorized roles/);
-  assert.match(client, /Profile photos are not available yet/);
+  assert.match(client, /t\('roles'\)/);
+  assert.match(client, /t\('photoDeferred'\)/);
   assert.doesNotMatch(client, /localStorage|sessionStorage|avatarUrl/);
 });

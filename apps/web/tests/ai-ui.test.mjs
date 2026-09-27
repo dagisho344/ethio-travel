@@ -48,7 +48,8 @@ void test('assistant UI renders conversation history, validation, loading, and u
   assert.match(source, /content\.trim\(\)/);
   assert.match(source, /message\.length > 2000/);
   assert.match(source, /LoaderCircle/);
-  assert.match(source, /temporarily unavailable/);
+  assert.match(source, /useTranslations\('assistant'\)/);
+  assert.match(source, /t\('unavailable'\)/);
   assert.doesNotMatch(source, /dangerouslySetInnerHTML/);
 });
 
@@ -139,6 +140,16 @@ void test('assistant recommendations remain linked to the active real conversati
   assert.match(source, /setRecommendations\(response\.recommendations\)/);
   assert.match(source, /setActive\(response\.conversation\)/);
   assert.match(source, /item\.id !== response\.conversation\.id/);
+});
+
+void test('standalone assistant localizes fixed chrome without translating model content', () => {
+  const source = read('components/ai/AiAssistantClient.tsx');
+  assert.match(source, /useTranslations\('assistant'\)/);
+  assert.match(
+    source,
+    /<p className="whitespace-pre-wrap">\{message\.content\}<\/p>/,
+  );
+  assert.doesNotMatch(source, /dangerouslySetInnerHTML|innerHTML/);
 });
 
 void test('trip assistant provides generation and improvement actions without automatic mutation', () => {

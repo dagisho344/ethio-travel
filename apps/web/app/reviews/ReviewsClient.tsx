@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Edit3, MapPin, Star } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { publicBusinessPath } from '../../lib/public-business-route';
 import { publicDestinationPath } from '../../lib/public-destination-route';
 import type {
@@ -12,21 +13,6 @@ import type {
   ReviewStatus,
   ReviewTargetType,
 } from '../../lib/types';
-
-const statusOptions: Array<{ value: ReviewStatus | ''; label: string }> = [
-  { value: '', label: 'All statuses' },
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'PUBLISHED', label: 'Published' },
-  { value: 'HIDDEN', label: 'Hidden' },
-  { value: 'REJECTED', label: 'Rejected' },
-];
-const targetOptions: Array<{ value: ReviewTargetType | ''; label: string }> = [
-  { value: '', label: 'All reviewed items' },
-  { value: 'DESTINATION', label: 'Destinations' },
-  { value: 'ATTRACTION', label: 'Attractions' },
-  { value: 'BUSINESS', label: 'Businesses' },
-  { value: 'SERVICE', label: 'Services' },
-];
 
 function targetPath(review: MyReview) {
   const target = review.target;
@@ -48,12 +34,9 @@ function targetPath(review: MyReview) {
   return `/services/${encodeURIComponent(target.id)}`;
 }
 
-function Stars({ rating }: { rating: number }) {
+function Stars({ rating, label }: { rating: number; label: string }) {
   return (
-    <span
-      className="inline-flex text-amber-500"
-      aria-label={`${rating} out of 5 stars`}
-    >
+    <span className="inline-flex text-amber-500" aria-label={label}>
       {[1, 2, 3, 4, 5].map((value) => (
         <Star
           key={value}
@@ -65,6 +48,8 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export function ReviewsClient() {
+  const t = useTranslations('travelerReviews');
+  const commonT = useTranslations('common');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -74,6 +59,29 @@ export function ReviewsClient() {
   const status = searchParams.get('status') as ReviewStatus | null;
   const targetType = searchParams.get('targetType') as ReviewTargetType | null;
   const currentPage = searchParams.get('page') ?? '1';
+  const statusOptions: Array<{ value: ReviewStatus | ''; label: string }> = [
+    { value: '', label: t('allStatuses') },
+    { value: 'PENDING', label: t('pending') },
+    { value: 'PUBLISHED', label: t('published') },
+    { value: 'HIDDEN', label: t('hidden') },
+    { value: 'REJECTED', label: t('rejected') },
+  ];
+  const targetOptions: Array<{
+    value: ReviewTargetType | '';
+    label: string;
+  }> = [
+    { value: '', label: t('allItems') },
+    { value: 'DESTINATION', label: t('destination') },
+    { value: 'ATTRACTION', label: t('attraction') },
+    { value: 'BUSINESS', label: t('business') },
+    { value: 'SERVICE', label: t('service') },
+  ];
+  const statusLabels: Record<ReviewStatus, string> = {
+    PENDING: t('pending'),
+    PUBLISHED: t('published'),
+    HIDDEN: t('hidden'),
+    REJECTED: t('rejected'),
+  };
 
   const query = useMemo(() => {
     const params = new URLSearchParams({
@@ -102,13 +110,13 @@ export function ReviewsClient() {
         setPage((await response.json()) as PaginatedResponse<MyReview>);
       } catch {
         setPage(null);
-        setError('We could not load your reviews right now.');
+        setError(t('loadError'));
       } finally {
         setLoading(false);
       }
     };
     void run();
-  }, [query, router]);
+  }, [query, router, t]);
 
   function update(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams);
@@ -124,7 +132,7 @@ export function ReviewsClient() {
     <div>
       <div className="mb-6 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2">
         <label className="text-sm font-semibold text-slate-700">
-          Type
+          {t('type')}
           <select
             value={targetType ?? ''}
             onChange={(event) =>
@@ -140,7 +148,7 @@ export function ReviewsClient() {
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Status
+          {t('status')}
           <select
             value={status ?? ''}
             onChange={(event) =>
@@ -163,7 +171,7 @@ export function ReviewsClient() {
       ) : null}
       {loading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-          Loading reviews...
+          {t('loading')}
         </div>
       ) : null}
       {!loading && page?.data.length ? (
@@ -175,9 +183,12 @@ export function ReviewsClient() {
             >
               <div className="flex items-start justify-between gap-3">
                 <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
-                  {review.status}
+                  {statusLabels[review.status]}
                 </span>
-                <Stars rating={review.rating} />
+                <Stars
+                  rating={review.rating}
+                  label={t('starsOutOfFive', { rating: review.rating })}
+                />
               </div>
               <h2 className="mt-3 text-lg font-bold text-slate-950">
                 {review.target.name}
@@ -200,7 +211,7 @@ export function ReviewsClient() {
               ) : null}
               {review.moderationNote ? (
                 <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                  Moderation note: {review.moderationNote}
+                  {t('moderationNote', { note: review.moderationNote })}
                 </p>
               ) : null}
               <Link
@@ -208,7 +219,7 @@ export function ReviewsClient() {
                 className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
               >
                 <Edit3 className="h-4 w-4" />
-                Edit on target
+                {t('editOnTarget')}
               </Link>
             </article>
           ))}
@@ -218,17 +229,16 @@ export function ReviewsClient() {
         <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
           <Star className="mx-auto h-8 w-8 text-highland" />
           <h2 className="mt-4 text-base font-semibold text-slate-950">
-            No reviews yet
+            {t('emptyTitle')}
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-            Reviews you write for destinations, attractions, businesses and
-            services will appear here.
+            {t('emptyDescription')}
           </p>
           <Link
             href="/search"
             className="mt-5 inline-flex rounded-md bg-highland px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
           >
-            Start exploring
+            {commonT('startExploring')}
           </Link>
         </div>
       ) : null}
@@ -239,14 +249,14 @@ export function ReviewsClient() {
             onClick={() => update({ page: String(page.meta.page - 1) })}
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-40"
           >
-            Previous
+            {commonT('previous')}
           </button>
           <button
             disabled={page.meta.page >= page.meta.totalPages}
             onClick={() => update({ page: String(page.meta.page + 1) })}
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold disabled:opacity-40"
           >
-            Next
+            {commonT('next')}
           </button>
         </div>
       ) : null}

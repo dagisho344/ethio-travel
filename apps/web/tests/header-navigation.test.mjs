@@ -5,13 +5,37 @@ import test from 'node:test';
 
 const root = join(import.meta.dirname, '..');
 
-/** @param {string} path */
+/** @param {string} path @returns {string} */
 function read(path) {
   return readFileSync(join(root, path), 'utf8');
 }
 
+/** @typedef {Record<string, unknown>} JsonObject */
+
+/** @param {unknown} value @returns {value is JsonObject} */
+function isJsonObject(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** @param {JsonObject} value @param {string} key */
+function requiredObject(value, key) {
+  const child = value[key];
+  if (!isJsonObject(child)) throw new Error(`Expected object at ${key}`);
+  return child;
+}
+
+/** @param {JsonObject} value @param {string} key */
+function requiredString(value, key) {
+  const child = value[key];
+  if (typeof child !== 'string') throw new Error(`Expected string at ${key}`);
+  return child;
+}
+
+/** @param {string} path @returns {JsonObject} */
 function readJson(path) {
-  return JSON.parse(read(path));
+  const parsed = /** @type {unknown} */ (JSON.parse(read(path)));
+  if (!isJsonObject(parsed)) throw new Error(`${path} must contain an object`);
+  return parsed;
 }
 
 void test('header has the requested main and Others navigation order without Demo', () => {
@@ -60,8 +84,9 @@ void test('header has the requested main and Others navigation order without Dem
     previousIndex = index;
   }
 
-  assert.equal(english.navigation.explore, 'Explore');
-  assert.equal(english.navigation.map, 'Map');
+  const navigationCatalog = requiredObject(english, 'navigation');
+  assert.equal(requiredString(navigationCatalog, 'explore'), 'Explore');
+  assert.equal(requiredString(navigationCatalog, 'map'), 'Map');
   assert.match(layout, /href: '\/search', label: navigation\('explore'\)/);
   assert.match(
     layout,
@@ -130,7 +155,10 @@ void test('shared account navigation keeps account routes separate and supports 
   assert.match(navigation, /mobileAccountButtonRef\.current\?\.focus\(\)/);
   assert.match(navigation, /max-h-\[calc\(100dvh-5rem\)\].*overflow-y-auto/);
   assert.match(accountDropdown, /accountNavigationLinks/);
-  assert.equal(english.account.profile, 'My Profile');
+  assert.equal(
+    requiredString(requiredObject(english, 'account'), 'profile'),
+    'My Profile',
+  );
   assert.match(
     accountDropdown,
     /hasBusinessWorkspace\s*\? \[\{ href: '\/businesses\/manage', label: t\('businessDashboard'\) \}\]/,

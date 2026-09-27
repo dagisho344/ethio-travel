@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { Loader2, MessageCircleMore } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import { resolveLocale } from '../../i18n/config';
+import { formatLocaleDate, formatLocaleNumber } from '../../i18n/format';
 import { getConversations } from '../../lib/messaging';
 import { BffRequestError } from '../../lib/private-api';
 import type { ConversationListItem, PaginationMeta } from '../../lib/types';
@@ -11,21 +14,13 @@ import { useRealtime } from '../realtime/RealtimeProvider';
 
 const PAGE_SIZE = 20;
 
-function displayTime(value: string | null): string {
-  if (!value) return 'No messages yet';
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
-}
-
 function conversationContext(item: ConversationListItem): string {
-  if (item.booking)
-    return `Booking ${item.booking.reference} · ${item.booking.service.name}`;
   return item.subject ?? item.business.name;
 }
 
 export function MessagingInboxClient() {
+  const t = useTranslations('messaging');
+  const locale = resolveLocale(useLocale());
   const router = useRouter();
   const pathname = usePathname();
   const { connectionEpoch, subscribeMessages } = useRealtime();
@@ -34,6 +29,24 @@ export function MessagingInboxClient() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function localizedDisplayTime(value: string | null): string {
+    if (!value) return t('noMessages');
+    return formatLocaleDate(value, locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  }
+
+  function localizedConversationContext(item: ConversationListItem): string {
+    if (item.booking) {
+      return t('bookingContext', {
+        reference: item.booking.reference,
+        service: item.booking.service.name,
+      });
+    }
+    return conversationContext(item);
+  }
 
   const load = useCallback(
     async (page = 1, append = false) => {
@@ -56,13 +69,13 @@ export function MessagingInboxClient() {
           router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
           return;
         }
-        setError('We could not load your conversations right now.');
+        setError(t('loadError'));
       } finally {
         setLoading(false);
         setLoadingMore(false);
       }
     },
-    [pathname, router],
+    [pathname, router, t],
   );
 
   useEffect(() => {
@@ -86,7 +99,7 @@ export function MessagingInboxClient() {
   if (loading) {
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-        Loading conversations...
+        {t('loadingConversations')}
       </div>
     );
   }
@@ -102,7 +115,7 @@ export function MessagingInboxClient() {
           onClick={() => void load()}
           className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
         >
-          Try again
+          {t('retry')}
         </button>
       </div>
     );
@@ -116,11 +129,10 @@ export function MessagingInboxClient() {
           aria-hidden="true"
         />
         <h2 className="mt-4 text-lg font-bold text-slate-950">
-          No conversations yet
+          {t('emptyTitle')}
         </h2>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-          Contact a verified business or open a booking to start a secure
-          conversation.
+          {t('emptyDescription')}
         </p>
       </div>
     );
@@ -129,8 +141,7 @@ export function MessagingInboxClient() {
   return (
     <div className="space-y-3">
       <p className="text-sm text-slate-600">
-        {meta?.total ?? items.length} conversation
-        {(meta?.total ?? items.length) === 1 ? '' : 's'}
+        {t('count', { count: meta?.total ?? items.length })}
       </p>
       <ul className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         {items.map((item) => (
@@ -150,11 +161,11 @@ export function MessagingInboxClient() {
                         {item.business.name}
                       </h2>
                       <p className="mt-0.5 text-sm text-slate-500">
-                        {conversationContext(item)}
+                        {localizedConversationContext(item)}
                       </p>
                     </div>
                     <time className="shrink-0 text-xs text-slate-500">
-                      {displayTime(
+                      {localizedDisplayTime(
                         item.lastMessageAt ??
                           item.lastMessage?.createdAt ??
                           null,
@@ -163,11 +174,13 @@ export function MessagingInboxClient() {
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <p className="min-w-0 truncate text-sm text-slate-600">
-                      {item.lastMessage?.body ?? 'No messages yet'}
+                      {item.lastMessage?.body ?? t('noMessages')}
                     </p>
                     {item.unreadCount ? (
                       <span className="min-w-5 rounded-full bg-highland px-1.5 text-center text-xs font-bold leading-5 text-white">
-                        {item.unreadCount > 99 ? '99+' : item.unreadCount}
+                        {item.unreadCount > 99
+                          ? '99+'
+                          : formatLocaleNumber(item.unreadCount, locale)}
                       </span>
                     ) : null}
                   </div>
@@ -187,7 +200,7 @@ export function MessagingInboxClient() {
           {loadingMore ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : null}
-          Load more
+          {t('loadMore')}
         </button>
       ) : null}
     </div>
