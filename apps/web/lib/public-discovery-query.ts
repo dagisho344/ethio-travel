@@ -66,13 +66,22 @@ export function buildMapPlacesParams(
   bounds: { north: number; south: number; east: number; west: number },
   nearby?: CoordinateInput | null,
 ): URLSearchParams {
+  const result = buildMapIntentParams(source, nearby);
+  for (const [key, value] of Object.entries(bounds)) {
+    result.set(key, String(value));
+  }
+  return result;
+}
+
+/** Marker intent excludes list-only page/sort/view and ephemeral viewport bounds. */
+export function buildMapIntentParams(
+  source: URLSearchParams,
+  nearby?: CoordinateInput | null,
+): URLSearchParams {
   const result = new URLSearchParams();
   for (const key of mapParamKeys) {
     const value = source.get(key);
     if (value) result.set(key, value);
-  }
-  for (const [key, value] of Object.entries(bounds)) {
-    result.set(key, String(value));
   }
   if (nearby) {
     result.set('lat', String(nearby.lat));
@@ -86,4 +95,14 @@ export function buildMapPlacesParams(
 export function canonicalSearchHref(source: URLSearchParams): string {
   const query = allowedPublicSearchParams(source).toString();
   return query ? `/search?${query}` : '/search';
+}
+
+/** Intent also guards the interval before the next effect starts its request. */
+export function isCurrentDiscoveryResponse(
+  requestId: number,
+  currentRequestId: number,
+  requestIntent: string,
+  currentIntent: string,
+): boolean {
+  return requestId === currentRequestId && requestIntent === currentIntent;
 }

@@ -29,8 +29,10 @@ type Bounds = { north: number; south: number; east: number; west: number };
 
 function BoundsReporter({
   onBoundsChange,
+  requestKey,
 }: {
   onBoundsChange: (bounds: Bounds) => void;
+  requestKey: string;
 }) {
   const onBoundsChangeRef = useRef(onBoundsChange);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -65,7 +67,7 @@ function BoundsReporter({
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [map]);
+  }, [map, requestKey]);
 
   return null;
 }
@@ -158,12 +160,14 @@ export function MapView({
   selectedPlaceKey,
   onSelectPlace,
   nearbyPosition,
+  requestKey = '',
 }: {
   places: MapPlace[];
   onBoundsChange: (bounds: Bounds) => void;
   selectedPlaceKey?: string | null;
   onSelectPlace?: (place: MapPlace) => void;
   nearbyPosition?: { lat: number; lng: number } | null;
+  requestKey?: string;
 }) {
   const t = useTranslations('map');
   const selectedPlace =
@@ -188,7 +192,7 @@ export function MapView({
         }
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <BoundsReporter onBoundsChange={onBoundsChange} />
+      <BoundsReporter onBoundsChange={onBoundsChange} requestKey={requestKey} />
       <SelectionFocus place={selectedPlace} />
       {nearbyPosition ? (
         <CircleMarker

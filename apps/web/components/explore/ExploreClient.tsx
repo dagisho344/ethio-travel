@@ -8,6 +8,8 @@ import { getJson } from '../../lib/api';
 import {
   allowedPublicSearchParams,
   buildMapPlacesParams,
+  buildMapIntentParams,
+  isCurrentDiscoveryResponse,
   buildSearchRequestParams,
 } from '../../lib/public-discovery-query';
 import {
@@ -227,6 +229,14 @@ export function ExploreClient({
     () => buildSearchRequestParams(normalizedParams, nearby).toString(),
     [nearby, normalizedParams],
   );
+  const mapIntent = useMemo(
+    () => buildMapIntentParams(normalizedParams, nearby).toString(),
+    [nearby, normalizedParams],
+  );
+  const currentQuery = useRef(query);
+  const currentMapIntent = useRef(mapIntent);
+  currentQuery.current = query;
+  currentMapIntent.current = mapIntent;
   const activeFilters = hasActiveFilters(normalizedParams) || nearby !== null;
   const hasPriceContext = Boolean(
     normalizedParams.get('pricingModel') && normalizedParams.get('currency'),
@@ -288,21 +298,54 @@ export function ExploreClient({
     const requestId = searchRequestId.current + 1;
     searchRequestId.current = requestId;
     const run = async () => {
-      if (requestId === searchRequestId.current) setError(null);
+      if (
+        isCurrentDiscoveryResponse(
+          requestId,
+          searchRequestId.current,
+          query,
+          currentQuery.current,
+        )
+      )
+        setError(null);
       try {
         const data = await getJson<PaginatedResponse<SearchResult>>(
           `/search?${query}`,
         );
-        if (requestId === searchRequestId.current) setResults(data);
+        if (
+          isCurrentDiscoveryResponse(
+            requestId,
+            searchRequestId.current,
+            query,
+            currentQuery.current,
+          )
+        )
+          setResults(data);
       } catch (err) {
-        if (requestId === searchRequestId.current) {
+        if (
+          isCurrentDiscoveryResponse(
+            requestId,
+            searchRequestId.current,
+            query,
+            currentQuery.current,
+          )
+        ) {
           setResults(null);
           setError(err instanceof Error ? err.message : t('searchFailed'));
         }
       }
     };
     void run();
+    return () => {
+      searchRequestId.current += 1;
+    };
   }, [query]);
+
+  useEffect(
+    () => () => {
+      mapRequestId.current += 1;
+    },
+    [],
+  );
 
   const update = (updates: Record<string, string | null>) =>
     startTransition(() => {
@@ -485,6 +528,7 @@ export function ExploreClient({
     east: number;
     west: number;
   }) => {
+    if (mapIntent !== currentMapIntent.current) return;
     const requestId = mapRequestId.current + 1;
     mapRequestId.current = requestId;
     setMapLoading(true);
@@ -494,9 +538,24 @@ export function ExploreClient({
       const data = await getJson<{ data: MapPlace[] }>(
         `/map/places?${params.toString()}`,
       );
-      if (requestId === mapRequestId.current) setPlaces(data.data);
+      if (
+        isCurrentDiscoveryResponse(
+          requestId,
+          mapRequestId.current,
+          mapIntent,
+          currentMapIntent.current,
+        )
+      )
+        setPlaces(data.data);
     } catch (mapRequestError) {
-      if (requestId === mapRequestId.current) {
+      if (
+        isCurrentDiscoveryResponse(
+          requestId,
+          mapRequestId.current,
+          mapIntent,
+          currentMapIntent.current,
+        )
+      ) {
         setMapError(
           mapRequestError instanceof Error
             ? mapRequestError.message
@@ -504,7 +563,15 @@ export function ExploreClient({
         );
       }
     } finally {
-      if (requestId === mapRequestId.current) setMapLoading(false);
+      if (
+        isCurrentDiscoveryResponse(
+          requestId,
+          mapRequestId.current,
+          mapIntent,
+          currentMapIntent.current,
+        )
+      )
+        setMapLoading(false);
     }
   };
   const requestNearby = () => {
@@ -951,6 +1018,7 @@ export function ExploreClient({
                 </p>
               ) : null}
               <DynamicMap
+                requestKey={mapIntent}
                 places={places}
                 selectedPlaceKey={selectedPlaceKey}
                 nearbyPosition={nearby}

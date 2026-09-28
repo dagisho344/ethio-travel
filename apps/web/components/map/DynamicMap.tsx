@@ -29,6 +29,7 @@ export function DynamicMap(props: {
   selectedPlaceKey?: string | null;
   onSelectPlace?: (place: MapPlace) => void;
   nearbyPosition?: { lat: number; lng: number } | null;
+  requestKey?: string;
 }) {
   return <MapView {...props} />;
 }

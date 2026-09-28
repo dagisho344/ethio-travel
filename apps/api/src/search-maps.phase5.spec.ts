@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import {
   BusinessStatus,
   BusinessVerificationSummary,
+  Prisma,
   LocationStatus,
   PricingModel,
   PublicationStatus,
@@ -26,7 +27,7 @@ function prismaMock() {
       Promise.resolve([]),
     ),
   });
-  return {
+  const client = {
     attraction: delegate(),
     business: delegate(),
     destination: delegate(),
@@ -37,6 +38,54 @@ function prismaMock() {
       ),
     },
   };
+  const rankedQuery = jest.fn(queryRaw);
+  return {
+    ...client,
+    $queryRaw: rankedQuery,
+    $transaction: (
+      callback: (
+        tx: typeof client & { $queryRaw: typeof rankedQuery },
+      ) => Promise<unknown>,
+    ) => callback({ ...client, $queryRaw: rankedQuery }),
+  };
+  async function queryRaw(sql: Prisma.Sql) {
+    const delegates = [
+      client.destination,
+      client.attraction,
+      client.business,
+      client.service,
+    ];
+    const types = ['destination', 'attraction', 'business', 'service'];
+    const groups = await Promise.all(
+      delegates.map(async (delegate) => {
+        const implementation = delegate.findMany.getMockImplementation();
+        return implementation ? implementation() : [];
+      }),
+    );
+    const rows = groups.flatMap((records, index) =>
+      records.map((record) => {
+        if (
+          !record ||
+          typeof record !== 'object' ||
+          !('id' in record) ||
+          typeof record.id !== 'string'
+        )
+          throw new Error('Expected typed discovery fixture identity.');
+        return {
+          id: record.id,
+          type: types[index],
+          total: BigInt(groups.reduce((sum, group) => sum + group.length, 0)),
+        };
+      }),
+    );
+    const limit = sql.values.at(-2);
+    const offset = sql.values.at(-1);
+    if (typeof limit !== 'number' || typeof offset !== 'number')
+      throw new Error('Expected bound pagination values.');
+    return rows.slice(offset, offset + limit).length
+      ? rows.slice(offset, offset + limit)
+      : [{ id: null, type: null, total: BigInt(rows.length) }];
+  }
 }
 
 const region = {
@@ -145,7 +194,13 @@ describe('Phase 5 search', () => {
       sort: SearchSort.RELEVANCE,
     });
     expect(result.meta.total).toBe(3);
-    expect(prisma.attraction.findMany).toHaveBeenCalled();
+    const sql = prisma.$queryRaw.mock.calls[0]?.[0];
+    expect(sql?.values).toEqual(
+      expect.arrayContaining(Object.values(SearchEntityType)),
+    );
+    // Empty types still participate in qualification/counting; hydrate only
+    // entity types with selected page IDs.
+    expect(prisma.attraction.findMany).not.toHaveBeenCalled();
     expect(result.data.map((item) => item.type)).toEqual(
       expect.arrayContaining([
         SearchEntityType.DESTINATION,
@@ -157,6 +212,7 @@ describe('Phase 5 search', () => {
 
   it('honors type filtering and service price filters', async () => {
     const prisma = prismaMock();
+    prisma.service.findMany.mockResolvedValue([serviceRecord]);
     await new SearchService(prisma as unknown as PrismaService).search({
       page: 1,
       limit: 20,
@@ -172,9 +228,13 @@ describe('Phase 5 search', () => {
         where: expect.objectContaining({
           AND: expect.arrayContaining([
             expect.objectContaining({
-              pricingModel: PricingModel.FIXED,
-              currency: 'ETB',
-              price: { gte: 5, lte: 50 },
+              AND: expect.arrayContaining([
+                expect.objectContaining({
+                  pricingModel: PricingModel.FIXED,
+                  currency: 'ETB',
+                  price: { gte: 5, lte: 50 },
+                }),
+              ]),
             }),
           ]),
         }),
@@ -414,6 +474,7 @@ describe('Phase 15 discovery hardening', () => {
   });
   it('composes public eligibility with public location text matching and explicit selects', async () => {
     const prisma = prismaMock();
+    prisma.business.findMany.mockResolvedValue([business]);
     await new SearchService(prisma as unknown as PrismaService).search({
       page: 1,
       limit: 20,
@@ -424,12 +485,18 @@ describe('Phase 15 discovery hardening', () => {
     const searchCall = prisma.business.findMany.mock.calls.at(0);
     if (!searchCall?.[0]) throw new Error('Expected a business search query.');
     const call = searchCall[0] as {
-      where: { AND: Array<Record<string, unknown>> };
+      where: {
+        AND: [
+          { AND: Array<Record<string, unknown>> },
+          { id: { in: string[] } },
+        ];
+      };
       select: Record<string, unknown>;
       include?: unknown;
     };
-    expect(call.where.AND).toHaveLength(3);
-    expect(call.where.AND[1]).toEqual(
+    expect(call.where.AND[0].AND).toHaveLength(3);
+    expect(call.where.AND[1].id.in).toEqual([business.id]);
+    expect(call.where.AND[0].AND[1]).toEqual(
       expect.objectContaining({ OR: expect.any(Array) }),
     );
     expect(call.select).toEqual(

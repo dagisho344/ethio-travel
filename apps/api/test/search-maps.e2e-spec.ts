@@ -154,6 +154,17 @@ describe('Phase 5 search and map routes', () => {
     );
   });
 
+  it('keeps locale and translation matching out of this correctness checkpoint', async () => {
+    await request(httpServer)
+      .get('/api/v1/search?q=Lake&locale=am')
+      .expect(400);
+    await request(httpServer)
+      .get('/api/v1/map/places?north=10&south=0&east=40&west=30&locale=en')
+      .expect(400);
+    expect(search).not.toHaveBeenCalled();
+    expect(findPlaces).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid map bounds with 400', async () => {
     await request(httpServer)
       .get('/api/v1/map/places?north=91&south=0&east=40&west=30')

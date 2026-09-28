@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PricingModel, Prisma, ServiceLocationMode } from '@prisma/client';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import {
@@ -22,6 +26,7 @@ import {
   SearchQueryDto,
   SearchSort,
 } from './dto/search-query.dto';
+import { rankedSearchQuery, RankedSearchRow } from './ranked-search.query';
 
 interface SearchLocation {
   region?: { name: string; slug: string };
@@ -171,15 +176,12 @@ export class SearchService {
     const normalized = { ...query, q: query.q?.trim() };
     const types = this.resolveTypes(normalized);
     const isNearbySearch = hasNearbyCoordinates(normalized);
-    const take = isNearbySearch
-      ? MAX_DISCOVERY_RESULT_WINDOW + 1
-      : normalized.page * normalized.limit;
-    const [items, total] = await Promise.all([
-      this.collectResults(normalized, types, take),
-      isNearbySearch
-        ? Promise.resolve(0)
-        : this.countResults(normalized, types),
-    ]);
+    if (!isNearbySearch) return this.rankedPage(normalized, types);
+    const items = await this.collectResults(
+      normalized,
+      types,
+      MAX_DISCOVERY_RESULT_WINDOW + 1,
+    );
     if (isNearbySearch && items.length > MAX_DISCOVERY_RESULT_WINDOW) {
       throw new BadRequestException(
         `Nearby searches are limited to ${MAX_DISCOVERY_RESULT_WINDOW} candidates. Narrow the search or choose a smaller radius.`,
@@ -187,7 +189,7 @@ export class SearchService {
     }
     const nearbyItems = this.applyNearbyFilter(items, normalized);
     const sorted = this.sortResults(nearbyItems, normalized.sort);
-    const boundedTotal = isNearbySearch ? sorted.length : total;
+    const boundedTotal = sorted.length;
     const pageItems = sorted.slice(
       (normalized.page - 1) * normalized.limit,
       normalized.page * normalized.limit,
@@ -236,40 +238,88 @@ export class SearchService {
     return (await Promise.all(tasks)).flat();
   }
 
-  private async countResults(
+  private async rankedPage(
     query: SearchQueryDto,
     types: SearchEntityType[],
-  ): Promise<number> {
-    const tasks: Promise<number>[] = [];
-    if (types.includes(SearchEntityType.DESTINATION))
-      tasks.push(
-        this.prisma.destination.count({ where: this.destinationWhere(query) }),
-      );
-    if (types.includes(SearchEntityType.ATTRACTION))
-      tasks.push(
-        this.prisma.attraction.count({ where: this.attractionWhere(query) }),
-      );
-    if (types.includes(SearchEntityType.BUSINESS))
-      tasks.push(
-        this.prisma.business.count({ where: this.businessWhere(query) }),
-      );
-    if (types.includes(SearchEntityType.SERVICE))
-      tasks.push(
-        this.prisma.service.count({ where: this.serviceWhere(query) }),
-      );
-    return (await Promise.all(tasks)).reduce((sum, count) => sum + count, 0);
+  ): Promise<PaginatedResponse<Omit<SearchResult, 'createdAt' | 'relevance'>>> {
+    return this.prisma.$transaction(
+      async (client) => {
+        const ranked = await client.$queryRaw<RankedSearchRow[]>(
+          rankedSearchQuery(query, types, {
+            destination: this.destinationWhere(query),
+            attraction: this.attractionWhere(query),
+            business: this.businessWhere(query),
+            service: this.serviceWhere(query),
+          }),
+        );
+        const total = ranked[0]?.total ?? 0n;
+        if (total > BigInt(Number.MAX_SAFE_INTEGER))
+          throw new InternalServerErrorException(
+            'Discovery count is outside the supported range.',
+          );
+        const ids = (type: SearchEntityType) =>
+          ranked.flatMap((row) =>
+            row.type === type && row.id ? [row.id] : [],
+          );
+        const batches = await Promise.all([
+          this.findDestinations(
+            query,
+            query.limit,
+            client,
+            ids(SearchEntityType.DESTINATION),
+          ),
+          this.findAttractions(
+            query,
+            query.limit,
+            client,
+            ids(SearchEntityType.ATTRACTION),
+          ),
+          this.findBusinesses(
+            query,
+            query.limit,
+            client,
+            ids(SearchEntityType.BUSINESS),
+          ),
+          this.findServices(
+            query,
+            query.limit,
+            client,
+            ids(SearchEntityType.SERVICE),
+          ),
+        ]);
+        const hydrated = new Map(
+          batches.flat().map((item) => [`${item.type}:${item.id}`, item]),
+        );
+        const data = ranked.flatMap((row) => {
+          if (!row.id || !row.type) return [];
+          const item = hydrated.get(`${row.type}:${row.id}`);
+          if (!item)
+            throw new InternalServerErrorException(
+              'Ranked discovery record could not be hydrated.',
+            );
+          return [this.toResponseItem(item)];
+        });
+        return paginate(data, Number(total), query.page, query.limit);
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
 
   private findDestinations(
     query: SearchQueryDto,
     take: number,
+    client: Prisma.TransactionClient = this.prisma,
+    ids?: string[],
   ): Promise<SearchResult[]> {
-    return this.prisma.destination
+    if (ids && !ids.length) return Promise.resolve([]);
+    return client.destination
       .findMany({
-        where: this.destinationWhere(query),
+        where: ids
+          ? { AND: [this.destinationWhere(query), { id: { in: ids } }] }
+          : this.destinationWhere(query),
         select: destinationSelect,
         orderBy: this.orderBy(query.sort),
-        take,
+        take: ids ? ids.length : take,
       })
       .then((records) =>
         records.map((record) => this.mapDestination(record, query.q)),
@@ -279,13 +329,18 @@ export class SearchService {
   private findAttractions(
     query: SearchQueryDto,
     take: number,
+    client: Prisma.TransactionClient = this.prisma,
+    ids?: string[],
   ): Promise<SearchResult[]> {
-    return this.prisma.attraction
+    if (ids && !ids.length) return Promise.resolve([]);
+    return client.attraction
       .findMany({
-        where: this.attractionWhere(query),
+        where: ids
+          ? { AND: [this.attractionWhere(query), { id: { in: ids } }] }
+          : this.attractionWhere(query),
         select: attractionSelect,
         orderBy: this.orderBy(query.sort),
-        take,
+        take: ids ? ids.length : take,
       })
       .then((records) =>
         records.map((record) => this.mapAttraction(record, query.q)),
@@ -295,13 +350,18 @@ export class SearchService {
   private findBusinesses(
     query: SearchQueryDto,
     take: number,
+    client: Prisma.TransactionClient = this.prisma,
+    ids?: string[],
   ): Promise<SearchResult[]> {
-    return this.prisma.business
+    if (ids && !ids.length) return Promise.resolve([]);
+    return client.business
       .findMany({
-        where: this.businessWhere(query),
+        where: ids
+          ? { AND: [this.businessWhere(query), { id: { in: ids } }] }
+          : this.businessWhere(query),
         select: businessSelect,
         orderBy: this.orderBy(query.sort),
-        take,
+        take: ids ? ids.length : take,
       })
       .then((records) =>
         records.map((record) => this.mapBusiness(record, query.q)),
@@ -311,13 +371,18 @@ export class SearchService {
   private findServices(
     query: SearchQueryDto,
     take: number,
+    client: Prisma.TransactionClient = this.prisma,
+    ids?: string[],
   ): Promise<SearchResult[]> {
-    return this.prisma.service
+    if (ids && !ids.length) return Promise.resolve([]);
+    return client.service
       .findMany({
-        where: this.serviceWhere(query),
+        where: ids
+          ? { AND: [this.serviceWhere(query), { id: { in: ids } }] }
+          : this.serviceWhere(query),
         select: serviceSelect,
         orderBy: this.serviceOrderBy(query.sort),
-        take,
+        take: ids ? ids.length : take,
       })
       .then((records) =>
         records.map((record) => this.mapService(record, query.q)),

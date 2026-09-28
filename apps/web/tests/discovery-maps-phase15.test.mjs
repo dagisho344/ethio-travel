@@ -50,7 +50,10 @@ void test('discovery requests are allowlisted and Nearby coordinates stay epheme
   );
   assert.match(client, /buildSearchRequestParams\(normalizedParams, nearby\)/);
   assert.match(client, /const searchRequestId = useRef\(0\)/);
-  assert.match(client, /requestId === searchRequestId\.current/);
+  assert.match(
+    client,
+    /isCurrentDiscoveryResponse\([\s\S]*requestId,[\s\S]*searchRequestId\.current,[\s\S]*query,[\s\S]*currentQuery\.current/,
+  );
   assert.doesNotMatch(
     client,
     /localStorage|sessionStorage|accessToken|refreshToken/,
