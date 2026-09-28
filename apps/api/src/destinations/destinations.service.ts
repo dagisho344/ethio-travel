@@ -1,25 +1,78 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { LocationStatus, Prisma, PublicationStatus } from '@prisma/client';
+import {
+  EditorialLocale,
+  LocationStatus,
+  Prisma,
+  PublicationStatus,
+} from '@prisma/client';
 import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from '../audit/audit.constants';
 import { AuditContext, AuditService } from '../audit/audit.service';
-import {
-  paginate,
-  PaginatedResponse,
-  PaginationQueryDto,
-} from '../common/dto/pagination.dto';
+import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import { buildSlug } from '../common/utils/slug.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDestinationDto } from './dto/create-destination.dto';
 import { DestinationQueryDto } from './dto/destination-query.dto';
+import { PublicDestinationQueryDto } from './dto/public-destination-query.dto';
 import { UpdateDestinationDto } from './dto/update-destination.dto';
+import { UpsertDestinationTranslationDto } from './dto/upsert-destination-translation.dto';
 
 type DestinationRecord = Awaited<
   ReturnType<PrismaService['destination']['findFirstOrThrow']>
 >;
+
+const publishedAmharicTranslation = {
+  where: {
+    isPublished: true,
+    locale: EditorialLocale.am,
+  },
+  select: {
+    bestTimeToVisit: true,
+    displayName: true,
+    fullDescription: true,
+    gettingThere: true,
+    isPublished: true,
+    localTips: true,
+    safetyNotes: true,
+    shortDescription: true,
+  },
+  take: 1,
+} satisfies Prisma.DestinationTranslationFindManyArgs;
+
+const publicDestinationInclude = {
+  translations: publishedAmharicTranslation,
+} satisfies Prisma.DestinationInclude;
+
+type PublicDestinationQueryRecord = Prisma.DestinationGetPayload<{
+  include: typeof publicDestinationInclude;
+}>;
+
+type DestinationTranslationValues = Partial<
+  Pick<
+    Prisma.DestinationTranslationUncheckedCreateInput,
+    | 'bestTimeToVisit'
+    | 'displayName'
+    | 'fullDescription'
+    | 'gettingThere'
+    | 'localTips'
+    | 'safetyNotes'
+    | 'shortDescription'
+  >
+>;
+
+const translationFields = [
+  'displayName',
+  'shortDescription',
+  'fullDescription',
+  'bestTimeToVisit',
+  'gettingThere',
+  'localTips',
+  'safetyNotes',
+] as const;
 
 @Injectable()
 export class DestinationsService {
@@ -29,8 +82,9 @@ export class DestinationsService {
   ) {}
 
   async findPublic(
-    query: PaginationQueryDto & { cityId?: string },
+    query: PublicDestinationQueryDto & { cityId?: string },
   ): Promise<PaginatedResponse<DestinationRecord>> {
+    const locale = query.locale ?? EditorialLocale.en;
     const where: Prisma.DestinationWhereInput = {
       cityId: query.cityId,
       status: PublicationStatus.PUBLISHED,
@@ -43,19 +97,27 @@ export class DestinationsService {
     const [data, total] = await this.prisma.$transaction([
       this.prisma.destination.findMany({
         where,
+        include: publicDestinationInclude,
         orderBy: { name: 'asc' },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
       }),
       this.prisma.destination.count({ where }),
     ]);
-    return paginate(data, total, query.page, query.limit);
+    return paginate(
+      data.map((destination) =>
+        this.resolvePublicDestination(destination, locale),
+      ),
+      total,
+      query.page,
+      query.limit,
+    );
   }
 
   async findPublicByCitySlugs(
     regionSlug: string,
     citySlug: string,
-    query: PaginationQueryDto,
+    query: PublicDestinationQueryDto,
   ): Promise<PaginatedResponse<DestinationRecord>> {
     const city = await this.prisma.city.findFirst({
       where: {
@@ -72,6 +134,7 @@ export class DestinationsService {
     regionSlug: string,
     citySlug: string,
     destinationSlug: string,
+    locale: EditorialLocale = EditorialLocale.en,
   ): Promise<DestinationRecord> {
     const destination = await this.prisma.destination.findFirst({
       where: {
@@ -83,9 +146,10 @@ export class DestinationsService {
           region: { slug: regionSlug, status: LocationStatus.ACTIVE },
         },
       },
+      include: publicDestinationInclude,
     });
     if (!destination) throw new NotFoundException('Destination not found.');
-    return destination;
+    return this.resolvePublicDestination(destination, locale);
   }
 
   async findAdmin(
@@ -114,6 +178,120 @@ export class DestinationsService {
     });
     if (!destination) throw new NotFoundException('Destination not found.');
     return destination;
+  }
+
+  async findTranslation(id: string, locale: EditorialLocale) {
+    this.assertManagedTranslationLocale(locale);
+    await this.findAdminById(id);
+    const translation = await this.prisma.destinationTranslation.findUnique({
+      where: { destinationId_locale: { destinationId: id, locale } },
+    });
+    if (!translation) {
+      throw new NotFoundException('Destination translation not found.');
+    }
+    return translation;
+  }
+
+  async saveTranslation(
+    destinationId: string,
+    locale: EditorialLocale,
+    actorUserId: string,
+    dto: UpsertDestinationTranslationDto,
+    context: AuditContext,
+  ) {
+    this.assertManagedTranslationLocale(locale);
+    await this.findAdminById(destinationId);
+    const values = this.translationValues(dto);
+
+    return this.prisma.$transaction(async (tx) => {
+      const translation = await tx.destinationTranslation.upsert({
+        where: { destinationId_locale: { destinationId, locale } },
+        create: {
+          destinationId,
+          isPublished: false,
+          locale,
+          publishedAt: null,
+          ...values,
+        },
+        update: {
+          isPublished: false,
+          publishedAt: null,
+          ...values,
+        },
+      });
+      await this.audit?.record(tx, {
+        ...context,
+        action: AUDIT_ACTIONS.ADMIN_DESTINATION_TRANSLATION_SAVED,
+        actorUserId,
+        entityId: destinationId,
+        entityType: AUDIT_ENTITY_TYPES.DESTINATION,
+        metadata: { destinationId, locale },
+      });
+      return translation;
+    });
+  }
+
+  async publishTranslation(
+    destinationId: string,
+    locale: EditorialLocale,
+    actorUserId: string,
+    context: AuditContext,
+  ) {
+    this.assertManagedTranslationLocale(locale);
+    await this.findAdminById(destinationId);
+    return this.prisma.$transaction(async (tx) => {
+      const translation = await tx.destinationTranslation.findUnique({
+        where: { destinationId_locale: { destinationId, locale } },
+      });
+      if (!translation) {
+        throw new NotFoundException('Destination translation not found.');
+      }
+      this.assertTranslationComplete(translation);
+      const published = await tx.destinationTranslation.update({
+        where: { destinationId_locale: { destinationId, locale } },
+        data: { isPublished: true, publishedAt: new Date() },
+      });
+      await this.audit?.record(tx, {
+        ...context,
+        action: AUDIT_ACTIONS.ADMIN_DESTINATION_TRANSLATION_PUBLISHED,
+        actorUserId,
+        entityId: destinationId,
+        entityType: AUDIT_ENTITY_TYPES.DESTINATION,
+        metadata: { destinationId, locale },
+      });
+      return published;
+    });
+  }
+
+  async unpublishTranslation(
+    destinationId: string,
+    locale: EditorialLocale,
+    actorUserId: string,
+    context: AuditContext,
+  ) {
+    this.assertManagedTranslationLocale(locale);
+    await this.findAdminById(destinationId);
+    return this.prisma.$transaction(async (tx) => {
+      const translation = await tx.destinationTranslation.findUnique({
+        where: { destinationId_locale: { destinationId, locale } },
+      });
+      if (!translation) {
+        throw new NotFoundException('Destination translation not found.');
+      }
+      const unpublished = await tx.destinationTranslation.update({
+        where: { destinationId_locale: { destinationId, locale } },
+        data: { isPublished: false, publishedAt: null },
+      });
+      await this.audit?.record(tx, {
+        ...context,
+        action: AUDIT_ACTIONS.ADMIN_DESTINATION_TRANSLATION_UNPUBLISHED,
+        actorUserId,
+        entityId: destinationId,
+        entityType: AUDIT_ENTITY_TYPES.DESTINATION,
+        metadata: { destinationId, locale },
+      });
+      return unpublished;
+    });
   }
 
   async create(dto: CreateDestinationDto): Promise<DestinationRecord> {
@@ -311,6 +489,108 @@ export class DestinationsService {
       });
       return tx.destination.findUniqueOrThrow({ where: { id } });
     });
+  }
+
+  private resolvePublicDestination(
+    destination: PublicDestinationQueryRecord,
+    locale: EditorialLocale,
+  ): DestinationRecord {
+    const { translations, ...source } = destination;
+    const translation = translations[0];
+    if (
+      locale !== EditorialLocale.am ||
+      !translation ||
+      !translation.isPublished ||
+      !this.isTranslationComplete(translation)
+    ) {
+      return source;
+    }
+
+    return {
+      ...source,
+      name: this.nonEmptyText(translation.displayName) ?? source.name,
+      shortDescription: this.nonEmptyText(translation.shortDescription)!,
+      fullDescription: this.nonEmptyText(translation.fullDescription)!,
+      travelInfo: this.resolveTranslatedTravelInfo(
+        source.travelInfo,
+        translation,
+      ),
+    };
+  }
+
+  private resolveTranslatedTravelInfo(
+    source: Prisma.JsonValue | null,
+    translation: PublicDestinationQueryRecord['translations'][number],
+  ): Prisma.JsonValue | null {
+    const translatedTravelInfo: Record<string, string> = {};
+    for (const field of [
+      'bestTimeToVisit',
+      'gettingThere',
+      'localTips',
+      'safetyNotes',
+    ] as const) {
+      const value = this.nonEmptyText(translation[field]);
+      if (value) translatedTravelInfo[field] = value;
+    }
+    if (Object.keys(translatedTravelInfo).length === 0) return source;
+    if (
+      source === null ||
+      typeof source !== 'object' ||
+      Array.isArray(source)
+    ) {
+      return translatedTravelInfo;
+    }
+    return { ...source, ...translatedTravelInfo };
+  }
+
+  private translationValues(
+    dto: UpsertDestinationTranslationDto,
+  ): DestinationTranslationValues {
+    const values: DestinationTranslationValues = {};
+    for (const field of translationFields) {
+      const value = dto[field];
+      if (value !== undefined)
+        values[field] = this.normalizeOptionalText(value);
+    }
+    return values;
+  }
+
+  private assertManagedTranslationLocale(locale: EditorialLocale): void {
+    if (locale !== EditorialLocale.am) {
+      throw new BadRequestException(
+        'English destination content is managed on the canonical destination.',
+      );
+    }
+  }
+
+  private assertTranslationComplete(translation: {
+    fullDescription: string | null;
+    shortDescription: string | null;
+  }): void {
+    if (!this.isTranslationComplete(translation)) {
+      throw new BadRequestException(
+        'Published destination translations require a short and full description.',
+      );
+    }
+  }
+
+  private isTranslationComplete(translation: {
+    fullDescription: string | null;
+    shortDescription: string | null;
+  }): boolean {
+    return Boolean(
+      this.nonEmptyText(translation.shortDescription) &&
+      this.nonEmptyText(translation.fullDescription),
+    );
+  }
+
+  private normalizeOptionalText(value: string | null): string | null {
+    return this.nonEmptyText(value);
+  }
+
+  private nonEmptyText(value: string | null | undefined): string | null {
+    const normalized = value?.trim();
+    return normalized ? normalized : null;
   }
 
   private createData(

@@ -68,6 +68,51 @@ const destination = {
   updatedAt: new Date().toISOString(),
 };
 
+const destinationTranslation = {
+  bestTimeToVisit: null,
+  createdAt: new Date().toISOString(),
+  destinationId: destination.id,
+  displayName: null,
+  fullDescription: 'የመዳረሻው ሙሉ መግለጫ።',
+  gettingThere: null,
+  id: '77777777-7777-7777-7777-777777777777',
+  isPublished: false,
+  locale: 'am',
+  localTips: null,
+  publishedAt: null,
+  safetyNotes: null,
+  shortDescription: 'የመዳረሻው አጭር መግለጫ።',
+  updatedAt: new Date().toISOString(),
+};
+
+const findPublicDestinations = jest.fn(() =>
+  Promise.resolve({
+    data: [destination],
+    meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+  }),
+);
+const findPublicDestinationsByCity = jest.fn(() =>
+  Promise.resolve({
+    data: [destination],
+    meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+  }),
+);
+const findPublicDestinationBySlugs = jest.fn(() =>
+  Promise.resolve(destination),
+);
+const findDestinationTranslation = jest.fn(() =>
+  Promise.resolve(destinationTranslation),
+);
+const saveDestinationTranslation = jest.fn(() =>
+  Promise.resolve(destinationTranslation),
+);
+const publishDestinationTranslation = jest.fn(() =>
+  Promise.resolve({ ...destinationTranslation, isPublished: true }),
+);
+const unpublishDestinationTranslation = jest.fn(() =>
+  Promise.resolve(destinationTranslation),
+);
+
 const attraction = {
   archivedAt: null,
   category: AttractionCategory.OTHER,
@@ -167,17 +212,13 @@ describe('Phase 2 location routes', () => {
             meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
           }),
         findAdminById: () => Promise.resolve(destination),
-        findPublic: () =>
-          Promise.resolve({
-            data: [destination],
-            meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
-          }),
-        findPublicByCitySlugs: () =>
-          Promise.resolve({
-            data: [destination],
-            meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
-          }),
-        findPublicBySlugs: () => Promise.resolve(destination),
+        findPublic: findPublicDestinations,
+        findPublicByCitySlugs: findPublicDestinationsByCity,
+        findPublicBySlugs: findPublicDestinationBySlugs,
+        findTranslation: findDestinationTranslation,
+        publishTranslation: publishDestinationTranslation,
+        saveTranslation: saveDestinationTranslation,
+        unpublishTranslation: unpublishDestinationTranslation,
         update: () => Promise.resolve(destination),
       })
       .overrideProvider(AttractionsService)
@@ -226,6 +267,12 @@ describe('Phase 2 location routes', () => {
   beforeEach(() => {
     allowAuth = true;
     currentRoles = ['ADMIN'];
+    findDestinationTranslation.mockClear();
+    findPublicDestinationBySlugs.mockClear();
+    findPublicDestinations.mockClear();
+    publishDestinationTranslation.mockClear();
+    saveDestinationTranslation.mockClear();
+    unpublishDestinationTranslation.mockClear();
   });
 
   it('serves paginated public collection endpoints', async () => {
@@ -269,6 +316,17 @@ describe('Phase 2 location routes', () => {
       .expect(200);
     await request(httpServer)
       .get(
+        '/api/v1/regions/south-ethiopia-regional-state/cities/wolaita-sodo/destinations/sample-destination?locale=am',
+      )
+      .expect(200);
+    expect(findPublicDestinationBySlugs).toHaveBeenLastCalledWith(
+      'south-ethiopia-regional-state',
+      'wolaita-sodo',
+      'sample-destination',
+      'am',
+    );
+    await request(httpServer)
+      .get(
         '/api/v1/regions/south-ethiopia-regional-state/cities/wolaita-sodo/destinations/sample-destination/attractions/sample-attraction',
       )
       .expect(200);
@@ -288,6 +346,54 @@ describe('Phase 2 location routes', () => {
         '/api/v1/regions/south-ethiopia-regional-state/cities/wolaita-sodo/destinations/sample-destination/attractions',
       )
       .expect(200);
+  });
+
+  it('validates public destination locales and passes an allowed locale to the service', async () => {
+    await request(httpServer).get('/api/v1/destinations?locale=am').expect(200);
+    expect(findPublicDestinations).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: 'am' }),
+    );
+
+    await request(httpServer)
+      .get('/api/v1/destinations?locale=unsupported')
+      .expect(400);
+  });
+
+  it('keeps destination translation lifecycle routes ADMIN-only and strictly validates draft bodies', async () => {
+    const translationPath = `/api/v1/admin/destinations/${destination.id}/translations/am`;
+
+    await request(httpServer).get(translationPath).expect(200);
+    expect(findDestinationTranslation).toHaveBeenCalledWith(
+      destination.id,
+      'am',
+    );
+
+    await request(httpServer)
+      .put(translationPath)
+      .send({ fullDescription: 'Valid body', unexpected: 'blocked' })
+      .expect(400);
+
+    await request(httpServer)
+      .put(translationPath)
+      .send({ shortDescription: 'x'.repeat(301) })
+      .expect(400);
+
+    await request(httpServer)
+      .put(translationPath)
+      .send({
+        fullDescription: 'የመዳረሻው ሙሉ መግለጫ።',
+        shortDescription: 'የመዳረሻው አጭር መግለጫ።',
+      })
+      .expect(200);
+    expect(saveDestinationTranslation).toHaveBeenCalled();
+
+    await request(httpServer).post(`${translationPath}/publish`).expect(200);
+    await request(httpServer).post(`${translationPath}/unpublish`).expect(200);
+
+    for (const role of ['TRAVELER', 'BUSINESS_OWNER']) {
+      currentRoles = [role];
+      await request(httpServer).get(translationPath).expect(403);
+    }
   });
 
   it('requires authentication for admin write routes', async () => {

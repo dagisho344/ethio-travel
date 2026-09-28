@@ -172,6 +172,11 @@ enum PublicationStatus {
   ARCHIVED
 }
 
+enum EditorialLocale {
+  en
+  am
+}
+
 enum AttractionCategory {
   CULTURAL
   HISTORICAL
@@ -230,25 +235,26 @@ model City {
 }
 
 model Destination {
-  id                String             @id @default(uuid()) @db.Uuid
-  cityId            String             @map("city_id") @db.Uuid
-  name              String             @db.VarChar(180)
-  slug              String             @db.VarChar(200)
-  shortDescription  String             @map("short_description") @db.VarChar(300)
-  fullDescription   String             @map("full_description")
-  latitude          Decimal            @db.Decimal(9, 6)
-  longitude         Decimal            @db.Decimal(9, 6)
-  travelInfo        Json?              @map("travel_info")
-  status            PublicationStatus  @default(DRAFT)
-  publishedAt       DateTime?          @map("published_at")
-  archivedAt        DateTime?          @map("archived_at")
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
-  city              City               @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  id                String                   @id @default(uuid()) @db.Uuid
+  cityId            String                   @map("city_id") @db.Uuid
+  name              String                   @db.VarChar(180)
+  slug              String                   @db.VarChar(200)
+  shortDescription  String                   @map("short_description") @db.VarChar(300)
+  fullDescription   String                   @map("full_description")
+  latitude          Decimal                  @db.Decimal(9, 6)
+  longitude         Decimal                  @db.Decimal(9, 6)
+  travelInfo        Json?                    @map("travel_info")
+  status            PublicationStatus        @default(DRAFT)
+  publishedAt       DateTime?                @map("published_at")
+  archivedAt        DateTime?                @map("archived_at")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  city              City                     @relation(fields: [cityId], references: [id], onDelete: Restrict)
   attractions       Attraction[]
-  businesses        Business[]         @relation("BusinessDestination")
-  businessLocations BusinessLocation[] @relation("BusinessLocationDestination")
+  businesses        Business[]               @relation("BusinessDestination")
+  businessLocations BusinessLocation[]       @relation("BusinessLocationDestination")
   media             DestinationMedia[]
+  translations      DestinationTranslation[]
 
   favorites    Favorite[]
   reviews      Review[]
@@ -261,6 +267,29 @@ model Destination {
   @@index([name])
   @@index([latitude, longitude])
   @@map("destinations")
+}
+
+model DestinationTranslation {
+  id               String          @id @default(uuid()) @db.Uuid
+  destinationId    String          @map("destination_id") @db.Uuid
+  locale           EditorialLocale
+  displayName      String?         @map("display_name") @db.VarChar(180)
+  shortDescription String?         @map("short_description") @db.VarChar(300)
+  fullDescription  String?         @map("full_description")
+  bestTimeToVisit  String?         @map("best_time_to_visit") @db.VarChar(1000)
+  gettingThere     String?         @map("getting_there") @db.VarChar(1000)
+  localTips        String?         @map("local_tips") @db.VarChar(1000)
+  safetyNotes      String?         @map("safety_notes") @db.VarChar(1000)
+  isPublished      Boolean         @default(false) @map("is_published")
+  publishedAt      DateTime?       @map("published_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  destination Destination @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+
+  @@unique([destinationId, locale])
+  @@index([locale, isPublished])
+  @@map("destination_translations")
 }
 
 model Attraction {

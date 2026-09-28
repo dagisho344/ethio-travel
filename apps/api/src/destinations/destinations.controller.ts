@@ -4,9 +4,11 @@ import {
   Get,
   HttpCode,
   Param,
+  ParseEnumPipe,
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -17,17 +19,20 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { EditorialLocale } from '@prisma/client';
 import { Request } from 'express';
 import { AuthenticatedUser } from '../auth/authenticated-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { AdminOnly } from '../common/utils/admin-only.decorator';
 import { DestinationsService } from './destinations.service';
 import { CreateDestinationDto } from './dto/create-destination.dto';
 import { DestinationQueryDto } from './dto/destination-query.dto';
+import { DestinationLocaleQueryDto } from './dto/destination-locale-query.dto';
+import { PublicDestinationQueryDto } from './dto/public-destination-query.dto';
 import { UpdateDestinationDto } from './dto/update-destination.dto';
+import { UpsertDestinationTranslationDto } from './dto/upsert-destination-translation.dto';
 
 function auditContext(request: Request) {
   return {
@@ -47,7 +52,7 @@ export class DestinationsController {
     description:
       'Paginated published destinations with active city and region.',
   })
-  findAll(@Query() query: PaginationQueryDto) {
+  findAll(@Query() query: PublicDestinationQueryDto) {
     return this.destinationsService.findPublic(query);
   }
 
@@ -58,7 +63,7 @@ export class DestinationsController {
   findByCity(
     @Param('regionSlug') regionSlug: string,
     @Param('citySlug') citySlug: string,
-    @Query() query: PaginationQueryDto,
+    @Query() query: PublicDestinationQueryDto,
   ) {
     return this.destinationsService.findPublicByCitySlugs(
       regionSlug,
@@ -73,11 +78,13 @@ export class DestinationsController {
     @Param('regionSlug') regionSlug: string,
     @Param('citySlug') citySlug: string,
     @Param('destinationSlug') destinationSlug: string,
+    @Query() query: DestinationLocaleQueryDto,
   ) {
     return this.destinationsService.findPublicBySlugs(
       regionSlug,
       citySlug,
       destinationSlug,
+      query.locale,
     );
   }
 }
@@ -100,6 +107,77 @@ export class AdminDestinationsController {
   @ApiOkResponse({ description: 'Destination by id for administrators.' })
   findOne(@Param('id') id: string) {
     return this.destinationsService.findAdminById(id);
+  }
+
+  @Get(':id/translations/:locale')
+  @ApiOkResponse({ description: 'Destination editorial translation draft.' })
+  findTranslation(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('locale', new ParseEnumPipe(EditorialLocale))
+    locale: EditorialLocale,
+  ) {
+    return this.destinationsService.findTranslation(id, locale);
+  }
+
+  @Put(':id/translations/:locale')
+  @ApiOkResponse({
+    description: 'Saves a destination editorial translation draft.',
+  })
+  saveTranslation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('locale', new ParseEnumPipe(EditorialLocale))
+    locale: EditorialLocale,
+    @Body() dto: UpsertDestinationTranslationDto,
+    @Req() request: Request,
+  ) {
+    return this.destinationsService.saveTranslation(
+      id,
+      locale,
+      user.sub,
+      dto,
+      auditContext(request),
+    );
+  }
+
+  @Post(':id/translations/:locale/publish')
+  @HttpCode(200)
+  @ApiOkResponse({
+    description: 'Publishes a complete destination translation.',
+  })
+  publishTranslation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('locale', new ParseEnumPipe(EditorialLocale))
+    locale: EditorialLocale,
+    @Req() request: Request,
+  ) {
+    return this.destinationsService.publishTranslation(
+      id,
+      locale,
+      user.sub,
+      auditContext(request),
+    );
+  }
+
+  @Post(':id/translations/:locale/unpublish')
+  @HttpCode(200)
+  @ApiOkResponse({
+    description: 'Removes a destination translation from public resolution.',
+  })
+  unpublishTranslation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('locale', new ParseEnumPipe(EditorialLocale))
+    locale: EditorialLocale,
+    @Req() request: Request,
+  ) {
+    return this.destinationsService.unpublishTranslation(
+      id,
+      locale,
+      user.sub,
+      auditContext(request),
+    );
   }
 
   @Post()
