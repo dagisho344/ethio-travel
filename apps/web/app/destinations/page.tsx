@@ -7,10 +7,13 @@ import { AddToTripButton } from '../../components/trips/AddToTripButton';
 import { Container } from '../../components/ui/Container';
 import { SectionHeading } from '../../components/ui/States';
 import { safePage } from '../../lib/api';
+import { safeDestinationPage } from '../../lib/public-destinations';
 import {
   favoriteLookupKey,
   getInitialFavoriteLookup,
 } from '../../lib/favorites';
+import type { AppLocale } from '../../i18n/config';
+import { getRequestLocale } from '../../i18n/server';
 import type {
   Destination,
   LocationSummary,
@@ -59,20 +62,23 @@ async function findDestinations({
   region,
   cities,
   citySlug,
+  locale,
 }: {
   q?: string;
   page: string;
   region?: LocationSummary;
   cities: LocationSummary[];
   citySlug?: string;
+  locale: AppLocale;
 }): Promise<PaginatedResponse<Destination> | null> {
   const limit = 9;
   const currentPage = pageNumber(page);
 
   if (region && citySlug) {
     const city = cities.find((item) => item.slug === citySlug);
-    const response = await safePage<Destination>(
+    const response = await safeDestinationPage(
       `/regions/${region.slug}/cities/${citySlug}/destinations`,
+      locale,
       { q, page, limit },
     );
     return response
@@ -88,8 +94,9 @@ async function findDestinations({
   if (region) {
     const responses = await Promise.all(
       cities.map(async (city) => {
-        const response = await safePage<Destination>(
+        const response = await safeDestinationPage(
           `/regions/${region.slug}/cities/${city.slug}/destinations`,
+          locale,
           { q, page: 1, limit: 100 },
         );
         return (
@@ -112,7 +119,7 @@ async function findDestinations({
     };
   }
 
-  return safePage<Destination>('/destinations', { q, page, limit });
+  return safeDestinationPage('/destinations', locale, { q, page, limit });
 }
 
 function DestinationResultCard({
@@ -217,10 +224,11 @@ function ErrorDestinations({ message }: { message: string }) {
 }
 
 export default async function DestinationsPage({ searchParams }: PageProps) {
-  const [t, discoveryT, marketplaceT] = await Promise.all([
+  const [t, discoveryT, marketplaceT, locale] = await Promise.all([
     getTranslations('destinations'),
     getTranslations('discovery'),
     getTranslations('marketplace'),
+    getRequestLocale(),
   ]);
   const params = await searchParams;
   const q = pick(params.q)?.trim();
@@ -248,6 +256,7 @@ export default async function DestinationsPage({ searchParams }: PageProps) {
       region: selectedRegion,
       cities,
       citySlug: selectedCitySlug,
+      locale,
     }),
     getInitialFavoriteLookup('DESTINATION'),
   ]);

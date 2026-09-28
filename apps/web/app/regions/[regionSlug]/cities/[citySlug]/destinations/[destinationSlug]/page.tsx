@@ -1,31 +1,73 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { FavoriteButton } from '../../../../../../../components/favorites/FavoriteButton';
 import { AddToTripButton } from '../../../../../../../components/trips/AddToTripButton';
 import { Container } from '../../../../../../../components/ui/Container';
-import { getJson } from '../../../../../../../lib/api';
+import { getPublicDestination } from '../../../../../../../lib/public-destinations';
 import type { Destination } from '../../../../../../../lib/types';
+import { getRequestLocale } from '../../../../../../../i18n/server';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+type PublicDestinationRouteParams = {
+  regionSlug: string;
+  citySlug: string;
+  destinationSlug: string;
+};
+
+function publicDestinationApiPath({
+  regionSlug,
+  citySlug,
+  destinationSlug,
+}: PublicDestinationRouteParams): string {
+  return `/regions/${encodeURIComponent(regionSlug)}/cities/${encodeURIComponent(citySlug)}/destinations/${encodeURIComponent(destinationSlug)}`;
+}
+
+async function publicDestination(
+  route: PublicDestinationRouteParams,
+): Promise<Destination> {
+  return getPublicDestination(
+    publicDestinationApiPath(route),
+    await getRequestLocale(),
+  );
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<PublicDestinationRouteParams>;
+}): Promise<Metadata> {
+  const [destinationsT, route] = await Promise.all([
+    getTranslations('destinations'),
+    params,
+  ]);
+  try {
+    const destination = await publicDestination(route);
+    return {
+      title: `${destination.name} | EthioTravel`,
+      description: destination.shortDescription,
+    };
+  } catch {
+    return { title: `${destinationsT('title')} | EthioTravel` };
+  }
+}
 
 export default async function PublicDestinationPage({
   params,
 }: {
-  params: Promise<{
-    regionSlug: string;
-    citySlug: string;
-    destinationSlug: string;
-  }>;
+  params: Promise<PublicDestinationRouteParams>;
 }) {
   const [destinationsT, marketplaceT] = await Promise.all([
     getTranslations('destinations'),
     getTranslations('marketplace'),
   ]);
-  const { regionSlug, citySlug, destinationSlug } = await params;
+  const route = await params;
   let destination: Destination;
   try {
-    destination = await getJson<Destination>(
-      `/regions/${encodeURIComponent(regionSlug)}/cities/${encodeURIComponent(citySlug)}/destinations/${encodeURIComponent(destinationSlug)}`,
-    );
+    destination = await publicDestination(route);
   } catch {
     notFound();
   }

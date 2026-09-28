@@ -21,7 +21,9 @@ import {
 import { Container } from '../components/ui/Container';
 import { SectionHeading } from '../components/ui/States';
 import { safePage } from '../lib/api';
-import type { Business, Destination, Service } from '../lib/types';
+import { safeDestinationPage } from '../lib/public-destinations';
+import type { Business, Service } from '../lib/types';
+import { getRequestLocale } from '../i18n/server';
 
 function HomepageEmptyState({
   title,
@@ -118,7 +120,10 @@ function HeroVisual({
 }
 
 export default async function HomePage() {
-  const t = await getTranslations('home');
+  const [t, locale] = await Promise.all([
+    getTranslations('home'),
+    getRequestLocale(),
+  ]);
   const shortcuts = [
     { label: t('hotels'), href: '/hotels', icon: BedDouble },
     { label: t('restaurants'), href: '/restaurants', icon: Utensils },
@@ -131,7 +136,7 @@ export default async function HomePage() {
     { label: t('transport'), href: '/transport', icon: Bus },
   ];
   const [destinations, businesses, services] = await Promise.all([
-    safePage<Destination>('/destinations', { limit: 3 }),
+    safeDestinationPage('/destinations', locale, { limit: 3 }),
     safePage<Business>('/businesses', { limit: 3 }),
     safePage<Service>('/services', { limit: 3 }),
   ]);

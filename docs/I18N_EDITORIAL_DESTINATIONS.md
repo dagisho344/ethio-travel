@@ -4,10 +4,11 @@
 
 Phase 16D-F1 adds a data and API foundation for optional Amharic editorial
 content on platform-managed Destinations. Phase 16D-F2 adds the authenticated
-Admin editor and same-origin BFF integration. Public web rendering, metadata
-localization, Amharic search, and translations for Cities, Regions,
-Attractions, categories, businesses, services, or media captions remain out of
-scope.
+Admin editor and same-origin BFF integration. Phase 16D-F3 consumes the
+already resolved public representation on destination web surfaces and uses it
+for destination-detail metadata. Amharic search and translations for Cities,
+Regions, Attractions, categories, businesses, services, or media captions
+remain out of scope.
 
 Existing `Destination` fields remain the canonical English/source record.
 There are no generated or backfilled English translation rows.
@@ -128,10 +129,45 @@ arrow/Home/End tab selection, labelled tab panels, visible focus styling,
 Escape dismissal for lifecycle confirmation, responsive wrapping, and readable
 narrow-screen controls are included.
 
+## F3 public presentation and metadata
+
+The web app does not inspect `DestinationTranslation` rows or reproduce the
+F1 publication/completeness rules. Its server-only public-destination helper
+obtains the validated `en` or `am` value from the existing server-readable
+`et_locale` cookie and forwards that value only to the established public
+Destination endpoints. It is used by the homepage destination cards, the
+`/destinations` listing (including its region/city-scoped API calls), and the
+scoped public destination detail page.
+
+Consequently, the same F1-resolved `name`, `shortDescription`, and
+`fullDescription` render on cards and the detail page. For `am`, missing,
+draft, unpublished, or incomplete records arrive as the complete canonical
+English/source object; the web app never constructs a mixed record or displays
+translation lifecycle state to travelers. Existing IDs, slugs, city/region
+identity, coordinates, and shared travel data remain canonical. No destination
+travel-information UI was introduced because the existing public detail page
+does not yet render that section; when it does, it must consume the resolved
+`travelInfo` from F1 in the same way.
+
+The detail page is explicitly dynamic and uses the existing no-store API
+fetching so its cookie-dependent content and metadata cannot be cached for a
+different locale. `generateMetadata` derives its title and description from
+the same resolved public Destination response. The canonical browser route is
+unchanged (`/regions/[regionSlug]/cities/[citySlug]/destinations/[destinationSlug]`);
+F3 adds neither `/en`/`/am` routes nor hreflang alternatives.
+
+Search and map APIs, matching, ranking, filters, and marker behavior remain
+unchanged. Search's destination selector still uses its existing discovery
+contract, and map labels continue to use the existing map contract. Business,
+service, user-generated, and trip content remains untouched. `/shared-trip`
+continues to remove its fragment token locally and resolve it only through the
+existing same-origin POST route; F3 introduces no locale redirect or token
+forwarding.
+
 ## Deferred work
 
-- **F3:** public web destination presentation and localized metadata;
-- **F4:** Amharic search/indexing design and regression hardening;
+- **F4:** Amharic search/indexing design, localized map/discovery contracts if
+  separately approved, and regression hardening;
 - other platform/editorial, business-owned, and user-generated content remains
   in its original stored language.
 
@@ -149,5 +185,9 @@ forwarding, and continued shared-trip isolation.
 Manual browser checks remain: an Admin should create an incomplete draft,
 observe the English-fallback preview, save and publish a complete translation,
 unpublish it, verify the confirmation/Escape behavior, and inspect English and
-Amharic labels at desktop and narrow-mobile widths. F3 remains responsible for
-validating the actual public destination page and localized metadata.
+Amharic labels at desktop and narrow-mobile widths. For F3, check homepage
+cards, the destination listing, region/city-scoped listing, and destination
+detail in English; then repeat with a published Amharic translation, a missing
+translation, and an unpublished or incomplete translation. Confirm direct
+reloads and locale switching retain the canonical URL, inspect localized title
+and description metadata, and recheck Search, Map, and shared-trip behavior.
