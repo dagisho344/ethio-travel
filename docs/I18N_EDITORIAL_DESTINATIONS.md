@@ -3,10 +3,11 @@
 ## Scope
 
 Phase 16D-F1 adds a data and API foundation for optional Amharic editorial
-content on platform-managed Destinations. It does not add an Admin editor,
-public web rendering, metadata localization, Amharic search, or translations
-for Cities, Regions, Attractions, categories, businesses, services, or media
-captions.
+content on platform-managed Destinations. Phase 16D-F2 adds the authenticated
+Admin editor and same-origin BFF integration. Public web rendering, metadata
+localization, Amharic search, and translations for Cities, Regions,
+Attractions, categories, businesses, services, or media captions remain out of
+scope.
 
 Existing `Destination` fields remain the canonical English/source record.
 There are no generated or backfilled English translation rows.
@@ -83,9 +84,52 @@ F1 does not alter authentication, business authorization, media permissions,
 search semantics, Booking, Payment, Refund, availability, reviews, trip
 privacy, BFF same-origin protections, or `/shared-trip#token` handling.
 
+## F2 Admin editor and BFF
+
+The existing `AdminDestinationEditor` now retains the canonical English source
+form in an **English (source)** tab and adds an **Amharic** tab for the single
+managed `am` translation. The editor does not create or edit an English
+translation row, and the Amharic tab deliberately excludes slugs, parent
+publication state, city/region assignment, coordinates, IDs, and
+`estimatedStayDays`.
+
+The Admin web application uses fixed BFF endpoints rather than exposing API
+credentials to the browser:
+
+- `GET` and `PUT`
+  `/api/admin/destinations/:destinationId/translations/am`;
+- `POST`
+  `/api/admin/destinations/:destinationId/translations/am/publish`; and
+- `POST`
+  `/api/admin/destinations/:destinationId/translations/am/unpublish`.
+
+These routes validate a UUID, fix the locale to `am`, forward the existing
+HttpOnly authenticated session, use the shared same-origin check for every
+mutation, and use a strict seven-field body allowlist. The backend remains the
+authorization authority: only its existing Admin JWT/role guards may read or
+mutate a translation. Translation bodies are not logged by the BFF.
+
+`Save translation draft` sends only the F1 translation fields and never
+publishes. Because F1 intentionally treats a save as an unpublished draft,
+editing a previously published translation returns public Amharic resolution to
+the English source fallback until the administrator explicitly confirms
+**Publish translation** again. The UI makes that outcome explicit. Publishing
+checks trimmed short and full descriptions before confirmation; the API
+revalidates the same rule. Unpublishing is separately confirmed and immediately
+restores the English fallback.
+
+The Amharic tab reports **Not created**, **Draft / English fallback**, or
+**Published**. Its preview is entirely local to the authenticated Admin page:
+it renders the saved published Amharic overlay only when it satisfies the
+public completeness rule; otherwise it renders the canonical English source
+fields. Draft content is never queried from or exposed by a public route.
+Optional travel guidance follows the same per-field fallback as F1. Keyboard
+arrow/Home/End tab selection, labelled tab panels, visible focus styling,
+Escape dismissal for lifecycle confirmation, responsive wrapping, and readable
+narrow-screen controls are included.
+
 ## Deferred work
 
-- **F2:** authenticated Admin multilingual editor and Admin BFF/UI;
 - **F3:** public web destination presentation and localized metadata;
 - **F4:** Amharic search/indexing design and regression hardening;
 - other platform/editorial, business-owned, and user-generated content remains
@@ -93,10 +137,17 @@ privacy, BFF same-origin protections, or `/shared-trip#token` handling.
 
 ## Verification
 
-Focused service tests cover English/source behavior, Amharic publication
+F1 focused service tests cover English/source behavior, Amharic publication
 completeness, fallback, optional display-name behavior, normalized drafts,
 composite identity use, publication lifecycle, and safe audit metadata.
 Controller E2E coverage verifies locale validation, strict draft DTO bodies,
-and Admin-only translation lifecycle routes. Manual browser verification is
-deferred to F2/F3 because this phase intentionally adds no editor or public
-web interface.
+and Admin-only translation lifecycle routes. F2 web tests cover catalog parity,
+the English/source and Amharic tabs, lifecycle and fallback source usage,
+validation limits, fixed BFF routes, strict mutation bodies, same-origin
+forwarding, and continued shared-trip isolation.
+
+Manual browser checks remain: an Admin should create an incomplete draft,
+observe the English-fallback preview, save and publish a complete translation,
+unpublish it, verify the confirmation/Escape behavior, and inspect English and
+Amharic labels at desktop and narrow-mobile widths. F3 remains responsible for
+validating the actual public destination page and localized metadata.

@@ -79,6 +79,33 @@ export type AdminDestination = {
   updatedAt: string;
 };
 
+export type AdminDestinationTranslation = {
+  bestTimeToVisit: string | null;
+  createdAt: string;
+  destinationId: string;
+  displayName: string | null;
+  fullDescription: string | null;
+  gettingThere: string | null;
+  id: string;
+  isPublished: boolean;
+  localTips: string | null;
+  locale: 'am';
+  publishedAt: string | null;
+  safetyNotes: string | null;
+  shortDescription: string | null;
+  updatedAt: string;
+};
+
+export class AdminFetchError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'AdminFetchError';
+  }
+}
+
 export type AdminCity = {
   id: string;
   name: string;
@@ -264,7 +291,7 @@ export async function adminFetch<T>(
       typeof (payload as { message?: unknown }).message === 'string'
         ? (payload as { message: string }).message
         : 'We could not complete that administrator request.';
-    throw new Error(message);
+    throw new AdminFetchError(message, response.status);
   }
   return payload as T;
 }

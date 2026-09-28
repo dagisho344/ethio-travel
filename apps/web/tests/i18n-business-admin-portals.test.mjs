@@ -10,31 +10,70 @@ function read(path) {
   return readFileSync(join(root, path), 'utf8');
 }
 
-/** @param {unknown} value */
+/** @param {unknown} value @returns {value is Record<string, unknown>} */
+function isRecord(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** @param {string} path @returns {Record<string, unknown>} */
+function readCatalog(path) {
+  /** @type {unknown} */
+  const parsed = JSON.parse(read(path));
+  if (!isRecord(parsed)) throw new Error(`Invalid message catalog: ${path}`);
+  return parsed;
+}
+
+/** @param {Record<string, unknown>} catalog @param {string} name */
+function namespace(catalog, name) {
+  const value = catalog[name];
+  if (!isRecord(value)) throw new Error(`Missing namespace: ${name}`);
+  return value;
+}
+
+/** @param {Record<string, unknown>} catalog @param {string} key */
+function message(catalog, key) {
+  const value = catalog[key];
+  if (typeof value !== 'string') throw new Error(`Missing message: ${key}`);
+  return value;
+}
+
+/** @param {unknown} value @returns {string[]} */
 function leafKeys(value, prefix = '') {
   if (typeof value === 'string') return [prefix];
-  return Object.entries(value).flatMap(([key, child]) =>
-    leafKeys(child, prefix ? `${prefix}.${key}` : key),
-  );
+  if (!isRecord(value)) return [];
+  /** @type {string[]} */
+  const keys = [];
+  for (const [key, child] of Object.entries(value)) {
+    keys.push(...leafKeys(child, prefix ? `${prefix}.${key}` : key));
+  }
+  return keys;
 }
 
 void test('Business and Admin portal catalogs preserve English/Amharic key parity', () => {
-  const en = JSON.parse(read('messages/en.json'));
-  const am = JSON.parse(read('messages/am.json'));
+  const en = readCatalog('messages/en.json');
+  const am = readCatalog('messages/am.json');
 
-  for (const namespace of [
+  for (const namespaceName of [
     'businessPortal',
     'businessOnboarding',
     'adminPortal',
   ]) {
+    const englishNamespace = namespace(en, namespaceName);
+    const amharicNamespace = namespace(am, namespaceName);
     assert.deepEqual(
-      leafKeys(en[namespace]).sort(),
-      leafKeys(am[namespace]).sort(),
-      `${namespace} catalog keys must match`,
+      leafKeys(englishNamespace).sort(),
+      leafKeys(amharicNamespace).sort(),
+      `${namespaceName} catalog keys must match`,
     );
   }
-  assert.match(am.businessPortal.workspace, /[\u1200-\u137F]/);
-  assert.match(am.adminPortal.dashboard, /[\u1200-\u137F]/);
+  assert.match(
+    message(namespace(am, 'businessPortal'), 'workspace'),
+    /[\u1200-\u137F]/,
+  );
+  assert.match(
+    message(namespace(am, 'adminPortal'), 'dashboard'),
+    /[\u1200-\u137F]/,
+  );
 });
 
 void test('shared portal shells localize desktop/mobile navigation without changing routes or authorization', () => {
