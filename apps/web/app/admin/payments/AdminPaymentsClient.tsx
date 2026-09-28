@@ -3,15 +3,16 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { PaymentStatusBadge } from '../../../components/bookings/BookingStatusBadge';
-import { formatMoney } from '../../../lib/bookings';
 import {
-  formatPaymentDate,
   paymentProviderLabel,
   paymentProviderOptions,
   paymentStatusOptions,
 } from '../../../lib/payments';
+import { resolveLocale } from '../../../i18n/config';
+import { formatLocaleDate, formatLocaleMoney } from '../../../i18n/format';
 import type {
   PaymentListResponse,
   PaymentProvider,
@@ -19,6 +20,8 @@ import type {
 } from '../../../lib/types';
 
 export function AdminPaymentsClient() {
+  const t = useTranslations('adminPortal');
+  const locale = resolveLocale(useLocale());
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -77,20 +80,20 @@ export function AdminPaymentsClient() {
         }
         if (response.status === 403) {
           setPage(null);
-          setError('Only administrators can view payment management.');
+          setError(t('adminPaymentsDenied'));
           return;
         }
         if (!response.ok) throw new Error('Request failed');
         setPage((await response.json()) as PaymentListResponse);
       } catch {
         setPage(null);
-        setError('We could not load payments right now.');
+        setError(t('loadPaymentsError'));
       } finally {
         setLoading(false);
       }
     };
     void load();
-  }, [pathname, query, router]);
+  }, [pathname, query, router, t]);
 
   function update(updates: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams);
@@ -103,9 +106,20 @@ export function AdminPaymentsClient() {
 
   return (
     <div>
+      <header className="mb-6">
+        <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
+          {t('operations')}
+        </p>
+        <h1 className="mt-1 text-3xl font-bold text-slate-950">
+          {t('paymentInvestigation')}
+        </h1>
+        <p className="mt-2 text-slate-600">
+          {t('paymentInvestigationDescription')}
+        </p>
+      </header>
       <div className="mb-6 grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-4">
         <label className="text-sm font-semibold text-slate-700">
-          Payment status
+          {t('paymentStatus')}
           <select
             value={status ?? ''}
             onChange={(event) =>
@@ -121,7 +135,7 @@ export function AdminPaymentsClient() {
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Provider
+          {t('provider')}
           <select
             value={provider ?? ''}
             onChange={(event) =>
@@ -137,7 +151,7 @@ export function AdminPaymentsClient() {
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Booking reference
+          {t('bookingReference')}
           <input
             value={reference}
             onChange={(event) =>
@@ -151,7 +165,7 @@ export function AdminPaymentsClient() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Traveler
+          {t('traveler')}
           <input
             value={traveler}
             onChange={(event) =>
@@ -165,7 +179,7 @@ export function AdminPaymentsClient() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Business
+          {t('business')}
           <input
             value={business}
             onChange={(event) =>
@@ -179,7 +193,7 @@ export function AdminPaymentsClient() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Currency
+          {t('currency')}
           <input
             value={currency}
             maxLength={3}
@@ -194,7 +208,7 @@ export function AdminPaymentsClient() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Created from
+          {t('createdFrom')}
           <input
             type="date"
             value={from}
@@ -205,7 +219,7 @@ export function AdminPaymentsClient() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Created to
+          {t('createdTo')}
           <input
             type="date"
             value={to}
@@ -233,7 +247,7 @@ export function AdminPaymentsClient() {
           }
           className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
         >
-          Clear
+          {t('clearFilters')}
         </button>
       </div>
 
@@ -249,11 +263,12 @@ export function AdminPaymentsClient() {
       ) : page?.data.length ? (
         <>
           <div className="mb-4 flex items-center justify-between gap-4 text-sm text-slate-600">
+            <p>{t('paymentsFound', { count: page.meta.total })}</p>
             <p>
-              {page.meta.total} payment{page.meta.total === 1 ? '' : 's'}
-            </p>
-            <p>
-              Page {page.meta.page} of {Math.max(page.meta.totalPages, 1)}
+              {t('pageOf', {
+                page: page.meta.page,
+                total: Math.max(page.meta.totalPages, 1),
+              })}
             </p>
           </div>
           <div className="space-y-4">
@@ -279,29 +294,47 @@ export function AdminPaymentsClient() {
                 </div>
                 <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
                   <div>
-                    <dt className="font-semibold text-slate-700">Amount</dt>
+                    <dt className="font-semibold text-slate-700">
+                      {t('amount')}
+                    </dt>
                     <dd className="mt-1 text-slate-600">
-                      {formatMoney(payment.amount, payment.currency)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-semibold text-slate-700">Created</dt>
-                    <dd className="mt-1 text-slate-600">
-                      {formatPaymentDate(payment.createdAt)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-semibold text-slate-700">Paid</dt>
-                    <dd className="mt-1 text-slate-600">
-                      {formatPaymentDate(payment.paidAt)}
+                      {formatLocaleMoney(
+                        String(payment.amount),
+                        payment.currency,
+                        locale,
+                      )}
                     </dd>
                   </div>
                   <div>
                     <dt className="font-semibold text-slate-700">
-                      Provider reference
+                      {t('created')}
+                    </dt>
+                    <dd className="mt-1 text-slate-600">
+                      {formatLocaleDate(payment.createdAt, locale, {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-slate-700">
+                      {t('paidAt')}
+                    </dt>
+                    <dd className="mt-1 text-slate-600">
+                      {payment.paidAt
+                        ? formatLocaleDate(payment.paidAt, locale, {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })
+                        : t('notRecorded')}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-slate-700">
+                      {t('providerReference')}
                     </dt>
                     <dd className="mt-1 break-all text-slate-600">
-                      {payment.providerPaymentId ?? 'Pending'}
+                      {payment.providerPaymentId ?? t('pending')}
                     </dd>
                   </div>
                 </dl>
@@ -309,7 +342,7 @@ export function AdminPaymentsClient() {
                   href={`/admin/payments/${payment.id}`}
                   className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
                 >
-                  View payment{' '}
+                  {t('viewPayment')}{' '}
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
               </article>
@@ -322,10 +355,10 @@ export function AdminPaymentsClient() {
             <ShieldCheck className="h-6 w-6" aria-hidden="true" />
           </div>
           <h2 className="mt-4 text-base font-semibold text-slate-950">
-            No payments found
+            {t('noPayments')}
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-            Payment records matching the current filters will appear here.
+            {t('noPaymentsDescription')}
           </p>
         </div>
       )}
@@ -338,7 +371,7 @@ export function AdminPaymentsClient() {
             onClick={() => update({ page: String(page.meta.page - 1) })}
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
           >
-            Previous
+            {t('previous')}
           </button>
           <button
             type="button"
@@ -346,7 +379,7 @@ export function AdminPaymentsClient() {
             onClick={() => update({ page: String(page.meta.page + 1) })}
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
           >
-            Next
+            {t('next')}
           </button>
         </div>
       ) : null}

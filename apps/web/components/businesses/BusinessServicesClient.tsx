@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { getJson } from '../../lib/api';
 import {
   canEditBusiness,
@@ -58,6 +59,7 @@ const paidModels = new Set([
 ]);
 
 export function BusinessServicesClient({ businessId }: { businessId: string }) {
+  const t = useTranslations('businessPortal');
   const [services, setServices] = useState<ManagedService[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [canWrite, setCanWrite] = useState(false);
@@ -81,14 +83,14 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
       setCategories(categoryPage.data);
       setCanWrite(canEditBusiness(business));
     } catch (reason) {
-      setError(operationError(reason, 'Services could not be loaded.'));
+      setError(operationError(reason, t('loadServicesError')));
     } finally {
       setLoading(false);
     }
   }
   useEffect(() => {
     void load();
-  }, [businessId]);
+  }, [businessId, t]);
   function change(key: keyof Fields, value: string) {
     setFields((current) => ({ ...current, [key]: value }));
   }
@@ -106,21 +108,21 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
       fields.shortDescription.trim().length < 10 ||
       fields.description.trim().length < 10
     ) {
-      setError('Complete the required service fields.');
+      setError(t('serviceRequired'));
       return;
     }
     if (
       (price !== null && (!Number.isFinite(price) || price < 0)) ||
       (duration !== null && (!Number.isInteger(duration) || duration < 1))
     ) {
-      setError('Enter a valid non-negative price and a whole-number duration.');
+      setError(t('servicePriceInvalid'));
       return;
     }
     if (
       paidModels.has(fields.pricingModel) &&
       (price === null || !/^[A-Z]{3}$/.test(fields.currency.trim()))
     ) {
-      setError('Paid services need a price and a three-letter currency.');
+      setError(t('serviceCurrencyRequired'));
       return;
     }
     const input: ManagedServiceInput = {
@@ -140,7 +142,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
       setFields(blank());
       await load();
     } catch (reason) {
-      setError(operationError(reason, 'The service could not be saved.'));
+      setError(operationError(reason, t('saveServiceError')));
     } finally {
       setSaving(false);
     }
@@ -156,7 +158,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
       await serviceAction(businessId, service.id, name);
       await load();
     } catch (reason) {
-      setError(operationError(reason, 'The service lifecycle change failed.'));
+      setError(operationError(reason, t('serviceLifecycleError')));
     } finally {
       setSaving(false);
     }
@@ -166,16 +168,18 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-slate-950">Services</h1>
+            <h1 className="text-2xl font-bold text-slate-950">
+              {t('services')}
+            </h1>
             <p className="mt-1 text-sm text-slate-600">
-              Manage real services and their booking availability.
+              {t('servicesDescription')}
             </p>
           </div>
           <Link
             href={`/businesses/manage/${businessId}`}
             className="text-sm font-semibold text-highland"
           >
-            Back to workspace
+            {t('backToWorkspace')}
           </Link>
         </div>
         {error ? (
@@ -192,22 +196,23 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
             className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
           >
             <div>
-              <h2 className="text-lg font-bold text-slate-950">Add service</h2>
+              <h2 className="text-lg font-bold text-slate-950">
+                {t('addService')}
+              </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Create a shared Service first, then manage its category details
-                from its Service workspace.
+                {t('serviceCreateDescription')}
               </p>
             </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold text-slate-700">
-                Service category
+                {t('serviceCategory')}
                 <select
                   required
                   value={fields.categoryId}
                   onChange={(event) => change('categoryId', event.target.value)}
                   className="mt-1.5 w-full rounded-md border border-slate-300 p-2.5"
                 >
-                  <option value="">Select a category</option>
+                  <option value="">{t('selectCategory')}</option>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
@@ -216,7 +221,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                 </select>
               </label>
               <label className="text-sm font-semibold text-slate-700">
-                Service name
+                {t('serviceName')}
                 <input
                   required
                   maxLength={180}
@@ -226,7 +231,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                 />
               </label>
               <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-                Short description
+                {t('shortDescription')}
                 <input
                   required
                   minLength={10}
@@ -239,7 +244,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                 />
               </label>
               <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-                Description
+                {t('description')}
                 <textarea
                   required
                   minLength={10}
@@ -252,7 +257,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                 />
               </label>
               <label className="text-sm font-semibold text-slate-700">
-                Pricing model
+                {t('pricingModel')}
                 <select
                   value={fields.pricingModel}
                   onChange={(event) =>
@@ -277,7 +282,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                 </select>
               </label>
               <label className="text-sm font-semibold text-slate-700">
-                Price
+                {t('price')}
                 <input
                   inputMode="decimal"
                   value={fields.price}
@@ -286,7 +291,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                 />
               </label>
               <label className="text-sm font-semibold text-slate-700">
-                Currency
+                {t('currency')}
                 <input
                   maxLength={3}
                   value={fields.currency}
@@ -297,8 +302,8 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                 />
               </label>
               <label className="text-sm font-semibold text-slate-700">
-                Duration in minutes{' '}
-                <span className="font-normal">(optional)</span>
+                {t('durationMinutes')}{' '}
+                <span className="font-normal">({t('optional')})</span>
                 <input
                   inputMode="numeric"
                   value={fields.durationMinutes}
@@ -313,19 +318,18 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
               disabled={saving}
               className="mt-5 rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {saving ? 'Saving...' : 'Create service'}
+              {saving ? t('saving') : t('createService')}
             </button>
           </form>
         ) : (
           <p className="mt-6 rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600">
-            Staff can inspect services but cannot change service or availability
-            settings.
+            {t('staffServicesReadOnly')}
           </p>
         )}
         <section className="mt-6 space-y-4">
           {loading ? (
             <p className="rounded-md bg-white p-5 text-sm text-slate-500">
-              Loading services...
+              {t('loadingServices')}
             </p>
           ) : services.length ? (
             services.map((service) => {
@@ -367,7 +371,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                       href={`/businesses/manage/${businessId}/services/${service.id}`}
                       className="rounded-md bg-highland px-3 py-2 text-sm font-semibold text-white hover:bg-highland/90 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
                     >
-                      Manage Service
+                      {t('manageService')}
                     </Link>
                     {categoryEditor && categoryEditorPath ? (
                       <Link
@@ -381,7 +385,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                       href={`/businesses/manage/${businessId}/services/${service.id}/availability`}
                       className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
                     >
-                      Availability
+                      {t('availability')}
                     </Link>
                     {canWrite && service.status !== 'ARCHIVED' ? (
                       <>
@@ -391,7 +395,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                             onClick={() => void action(service, 'unpublish')}
                             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
                           >
-                            Deactivate
+                            {t('deactivate')}
                           </button>
                         ) : (
                           <button
@@ -399,7 +403,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                             onClick={() => void action(service, 'publish')}
                             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
                           >
-                            Publish
+                            {t('publish')}
                           </button>
                         )}
                         <button
@@ -407,7 +411,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
                           onClick={() => void action(service, 'archive')}
                           className="rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-red-800"
                         >
-                          Archive
+                          {t('archive')}
                         </button>
                       </>
                     ) : null}
@@ -417,7 +421,7 @@ export function BusinessServicesClient({ businessId }: { businessId: string }) {
             })
           ) : (
             <p className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
-              No services have been created yet.
+              {t('noServices')}
             </p>
           )}
         </section>

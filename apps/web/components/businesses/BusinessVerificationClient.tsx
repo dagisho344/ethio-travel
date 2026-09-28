@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { CheckCircle2, Circle, LoaderCircle, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   createVerificationDraft,
   getVerificationDraft,
@@ -26,19 +27,29 @@ const supportedDocumentTypes = new Set([
   'image/jpeg',
   'image/png',
 ]);
-const requirements: Array<[VerificationDocumentType, string, boolean]> = [
-  ['BUSINESS_LICENSE', 'Business License', true],
-  ['TAX_DOCUMENT', 'Tax Document', true],
-  ['OWNER_ID', 'Owner ID', true],
-  ['ADDRESS_PROOF', 'Address Proof', false],
-  ['OTHER', 'Other supporting document', false],
+const requirements: Array<
+  [VerificationDocumentType, RequirementLabelKey, boolean]
+> = [
+  ['BUSINESS_LICENSE', 'businessLicense', true],
+  ['TAX_DOCUMENT', 'taxDocument', true],
+  ['OWNER_ID', 'ownerId', true],
+  ['ADDRESS_PROOF', 'addressProof', false],
+  ['OTHER', 'otherSupportingDocument', false],
 ];
+
+type RequirementLabelKey =
+  | 'businessLicense'
+  | 'taxDocument'
+  | 'ownerId'
+  | 'addressProof'
+  | 'otherSupportingDocument';
 
 export function BusinessVerificationClient({
   businessId,
 }: {
   businessId: string;
 }) {
+  const t = useTranslations('businessPortal');
   const [draft, setDraft] = useState<BusinessVerification | null>(null);
   const [latest, setLatest] = useState<BusinessVerification | null>(null);
   const [canEdit, setCanEdit] = useState(false);
@@ -59,9 +70,7 @@ export function BusinessVerificationClient({
       setLatest(history.data[0] ?? null);
       setError(null);
     } catch (reason) {
-      setError(
-        requestErrorMessage(reason, 'We could not load verification details.'),
-      );
+      setError(requestErrorMessage(reason, t('loadVerificationError')));
     } finally {
       setLoading(false);
     }
@@ -77,12 +86,7 @@ export function BusinessVerificationClient({
       await createVerificationDraft(businessId);
       await reload();
     } catch (reason) {
-      setError(
-        requestErrorMessage(
-          reason,
-          'We could not create a verification draft.',
-        ),
-      );
+      setError(requestErrorMessage(reason, t('createVerificationError')));
     } finally {
       setCreating(false);
     }
@@ -95,12 +99,7 @@ export function BusinessVerificationClient({
       await submitVerification(businessId, draft.id);
       await reload();
     } catch (reason) {
-      setError(
-        requestErrorMessage(
-          reason,
-          'The verification request could not be submitted.',
-        ),
-      );
+      setError(requestErrorMessage(reason, t('submitVerificationError')));
     } finally {
       setSubmitting(false);
     }
@@ -109,7 +108,7 @@ export function BusinessVerificationClient({
   if (loading)
     return (
       <main className="mx-auto max-w-4xl p-6 text-sm text-slate-600">
-        Loading verification...
+        {t('loadingVerification')}
       </main>
     );
   const displayed = draft ?? latest;
@@ -123,11 +122,10 @@ export function BusinessVerificationClient({
       </Link>
       <header className="mt-4">
         <h1 className="text-2xl font-bold text-slate-950">
-          Business verification
+          {t('verification')}
         </h1>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          EthioTravel requires a Business License, Tax Document, and Owner ID
-          before review. This is platform policy, not legal advice.
+          {t('verificationDescription')}
         </p>
       </header>
       {error ? (
@@ -140,16 +138,14 @@ export function BusinessVerificationClient({
       ) : null}
       {!canEdit ? (
         <p className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-          Staff members can view verification status but cannot upload documents
-          or submit a verification request.
+          {t('staffVerificationReadOnly')}
         </p>
       ) : null}
       {!displayed ? (
         <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold">Ready to start?</h2>
+          <h2 className="text-lg font-bold">{t('verificationReady')}</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Create a private draft before uploading required evidence. It
-            remains private and does not make the business public.
+            {t('verificationDraftDescription')}
           </p>
           {canEdit ? (
             <button
@@ -161,7 +157,7 @@ export function BusinessVerificationClient({
               {creating ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" />
               ) : null}
-              {creating ? 'Creating draft...' : 'Start verification'}
+              {creating ? t('creatingDraft') : t('startVerification')}
             </button>
           ) : null}
         </section>
@@ -204,6 +200,7 @@ function VerificationPanel({
   onResubmit: () => Promise<void>;
   creating: boolean;
 }) {
+  const t = useTranslations('businessPortal');
   const isDraft =
     verification.status === 'DRAFT' && draft?.id === verification.id;
   return (
@@ -211,7 +208,7 @@ function VerificationPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-slate-950">
-            Verification status
+            {t('verificationStatus')}
           </h2>
           <p className="mt-1 text-sm text-slate-600">
             {verificationStatusLabel(verification.status)}
@@ -223,27 +220,27 @@ function VerificationPanel({
       </div>
       {verification.status === 'PENDING' ? (
         <p className="mt-4 rounded bg-amber-50 p-3 text-sm text-amber-900">
-          Verification under review. Your submitted evidence cannot be changed
-          while it is being reviewed.
+          {t('verificationPendingDescription')}
         </p>
       ) : null}
       {verification.status === 'APPROVED' ? (
         <p className="mt-4 rounded bg-emerald-50 p-3 text-sm text-emerald-900">
-          Verified. This completed verification remains part of business
-          history.
+          {t('verificationApprovedDescription')}
         </p>
       ) : null}
       {verification.status === 'REJECTED' ? (
         <div className="mt-4 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-          <strong>Verification rejected.</strong>
+          <strong>{t('verificationRejected')}</strong>
           {verification.rejectionReason ? (
             <p className="mt-2 whitespace-pre-wrap">
-              Reason: {verification.rejectionReason}
+              {t('reason')} {verification.rejectionReason}
             </p>
           ) : null}
           <p className="mt-2">
-            Submitted: {displayDate(verification.submittedAt)} · Reviewed:{' '}
-            {displayDate(verification.reviewedAt)}
+            {t('submitted')}{' '}
+            {displayDate(verification.submittedAt, t('notSubmitted'))} ·{' '}
+            {t('reviewed')}{' '}
+            {displayDate(verification.reviewedAt, t('notSubmitted'))}
           </p>
           {canEdit ? (
             <button
@@ -252,19 +249,19 @@ function VerificationPanel({
               onClick={() => void onResubmit()}
               className="mt-3 rounded-md bg-highland px-3 py-2 font-semibold text-white disabled:opacity-50"
             >
-              {creating ? 'Creating draft...' : 'Correct and resubmit'}
+              {creating ? t('creatingDraft') : t('correctResubmit')}
             </button>
           ) : null}
         </div>
       ) : null}
       <div className="mt-5 space-y-3">
-        {requirements.map(([type, label, required]) => (
+        {requirements.map(([type, labelKey, required]) => (
           <DocumentRow
             key={type}
             businessId={businessId}
             verification={verification}
             type={type}
-            label={label}
+            label={t(labelKey)}
             required={required}
             editable={isDraft && canEdit}
             onUploaded={onReload}
@@ -275,8 +272,8 @@ function VerificationPanel({
         <div className="mt-6 rounded-md bg-slate-50 p-4">
           <p className="text-sm text-slate-700">
             {verification.completeness.readyToSubmit
-              ? 'All required finalized documents are present.'
-              : 'Upload all required documents before submitting.'}
+              ? t('documentsReady')
+              : t('documentsIncomplete')}
           </p>
           <button
             type="button"
@@ -287,7 +284,7 @@ function VerificationPanel({
             {submitting ? (
               <LoaderCircle className="h-4 w-4 animate-spin" />
             ) : null}
-            {submitting ? 'Submitting...' : 'Submit for verification'}
+            {submitting ? t('submitting') : t('submitVerification')}
           </button>
         </div>
       ) : null}
@@ -312,6 +309,7 @@ function DocumentRow({
   editable: boolean;
   onUploaded: () => Promise<void>;
 }) {
+  const t = useTranslations('businessPortal');
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -325,7 +323,7 @@ function DocumentRow({
       !supportedDocumentTypes.has(file.type) ||
       file.size > maxDocumentBytes
     ) {
-      setError('Use a PDF, JPEG, or PNG no larger than 15 MB.');
+      setError(t('documentRequirements'));
       return;
     }
     setUploading(true);
@@ -335,9 +333,7 @@ function DocumentRow({
       if (fileRef.current) fileRef.current.value = '';
       await onUploaded();
     } catch (reason) {
-      setError(
-        requestErrorMessage(reason, 'The document could not be uploaded.'),
-      );
+      setError(requestErrorMessage(reason, t('documentUploadError')));
     } finally {
       setUploading(false);
     }
@@ -358,7 +354,7 @@ function DocumentRow({
                 <span className="ml-1 text-red-700">*</span>
               ) : (
                 <span className="ml-1 text-xs font-normal text-slate-500">
-                  optional
+                  {t('optional')}
                 </span>
               )}
             </h3>
@@ -368,7 +364,7 @@ function DocumentRow({
                 {Math.ceil(document.sizeBytes / 1024)} KB
               </p>
             ) : (
-              <p className="mt-1 text-sm text-slate-600">Missing</p>
+              <p className="mt-1 text-sm text-slate-600">{t('missing')}</p>
             )}
           </div>
         </div>
@@ -392,7 +388,7 @@ function DocumentRow({
               ) : (
                 <Upload className="h-4 w-4" />
               )}
-              {document ? 'Replace' : 'Upload'}
+              {document ? t('replace') : t('upload')}
             </button>
           </div>
         ) : null}
@@ -411,6 +407,6 @@ function verificationStatusLabel(status: string) {
     .toLowerCase()
     .replace(/^\\w/, (value) => value.toUpperCase());
 }
-function displayDate(value: string | null) {
-  return value ? new Date(value).toLocaleString() : 'Not submitted';
+function displayDate(value: string | null, emptyLabel: string) {
+  return value ? new Date(value).toLocaleString() : emptyLabel;
 }

@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   canEditBusiness,
   getManagedBusiness,
@@ -11,7 +12,11 @@ import {
   respondToReview,
 } from '../../lib/business-operations';
 import type { ManagedBusinessReview } from '../../lib/business-operations';
+import { resolveLocale } from '../../i18n/config';
+import { formatLocaleDate } from '../../i18n/format';
 export function BusinessReviewsClient({ businessId }: { businessId: string }) {
+  const t = useTranslations('businessPortal');
+  const locale = resolveLocale(useLocale());
   const [reviews, setReviews] = useState<ManagedBusinessReview[]>([]);
   const [canWrite, setCanWrite] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -29,14 +34,14 @@ export function BusinessReviewsClient({ businessId }: { businessId: string }) {
       setReviews(page.data);
       setCanWrite(canEditBusiness(business));
     } catch (reason) {
-      setError(operationError(reason, 'Reviews could not be loaded.'));
+      setError(operationError(reason, t('loadReviewsError')));
     } finally {
       setLoading(false);
     }
   }
   useEffect(() => {
     void load();
-  }, [businessId]);
+  }, [businessId, t]);
   async function save(review: ManagedBusinessReview) {
     const body = (
       drafts[review.id] ??
@@ -44,7 +49,7 @@ export function BusinessReviewsClient({ businessId }: { businessId: string }) {
       ''
     ).trim();
     if (!body) {
-      setError('Write a response before saving.');
+      setError(t('responseRequired'));
       return;
     }
     setSaving(review.id);
@@ -53,9 +58,7 @@ export function BusinessReviewsClient({ businessId }: { businessId: string }) {
       await respondToReview(businessId, review.id, body);
       await load();
     } catch (reason) {
-      setError(
-        operationError(reason, 'The business response could not be saved.'),
-      );
+      setError(operationError(reason, t('saveResponseError')));
     } finally {
       setSaving(null);
     }
@@ -67,13 +70,12 @@ export function BusinessReviewsClient({ businessId }: { businessId: string }) {
           href={`/businesses/manage/${businessId}`}
           className="text-sm font-semibold text-highland"
         >
-          Back to workspace
+          {t('backToWorkspace')}
         </Link>
-        <h1 className="mt-3 text-2xl font-bold text-slate-950">Reviews</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Published review responses are official business replies. Ratings,
-          traveler text, and moderation states cannot be changed here.
-        </p>
+        <h1 className="mt-3 text-2xl font-bold text-slate-950">
+          {t('reviews')}
+        </h1>
+        <p className="mt-1 text-sm text-slate-600">{t('reviewsDescription')}</p>
         {error ? (
           <p
             role="alert"
@@ -84,7 +86,7 @@ export function BusinessReviewsClient({ businessId }: { businessId: string }) {
         ) : null}
         {loading ? (
           <p className="mt-6 rounded-md bg-white p-5 text-sm text-slate-500">
-            Loading reviews...
+            {t('loadingReviews')}
           </p>
         ) : reviews.length ? (
           <div className="mt-6 space-y-4">
@@ -104,7 +106,7 @@ export function BusinessReviewsClient({ businessId }: { businessId: string }) {
                     </p>
                   </div>
                   <time className="text-sm text-slate-500">
-                    {new Date(review.createdAt).toLocaleDateString()}
+                    {formatLocaleDate(review.createdAt, locale)}
                   </time>
                 </div>
                 {review.title ? (
@@ -120,7 +122,7 @@ export function BusinessReviewsClient({ businessId }: { businessId: string }) {
                 {review.status === 'PUBLISHED' ? (
                   <div className="mt-5 border-t border-slate-100 pt-4">
                     <p className="text-sm font-semibold text-slate-800">
-                      Official business response
+                      {t('officialResponse')}
                     </p>
                     {canWrite ? (
                       <>
@@ -146,10 +148,10 @@ export function BusinessReviewsClient({ businessId }: { businessId: string }) {
                           className="mt-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
                         >
                           {saving === review.id
-                            ? 'Saving...'
+                            ? t('saving')
                             : review.businessResponse
-                              ? 'Update response'
-                              : 'Publish response'}
+                              ? t('updateResponse')
+                              : t('publishResponse')}
                         </button>
                       </>
                     ) : review.businessResponse ? (
@@ -158,15 +160,13 @@ export function BusinessReviewsClient({ businessId }: { businessId: string }) {
                       </p>
                     ) : (
                       <p className="mt-2 text-sm text-slate-500">
-                        Staff can view reviews but cannot publish official
-                        responses.
+                        {t('staffReviewsReadOnly')}
                       </p>
                     )}
                   </div>
                 ) : (
                   <p className="mt-4 text-sm text-slate-500">
-                    Only published reviews can receive a public business
-                    response.
+                    {t('publishedOnlyResponse')}
                   </p>
                 )}
               </article>
@@ -174,7 +174,7 @@ export function BusinessReviewsClient({ businessId }: { businessId: string }) {
           </div>
         ) : (
           <p className="mt-6 rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
-            No reviews for this business or its services yet.
+            {t('noReviews')}
           </p>
         )}
       </div>

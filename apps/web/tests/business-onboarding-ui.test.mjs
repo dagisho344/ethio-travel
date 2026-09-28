@@ -65,10 +65,8 @@ void test('workspace and My Businesses present server-authorized membership stat
   const list = read('components/businesses/MyBusinessesClient.tsx');
   assert.match(workspace, /getManagedBusiness/);
   assert.match(profile, /canEditBusiness/);
-  assert.match(
-    profile,
-    /Staff members can view this workspace but cannot change business details/,
-  );
+  assert.match(profile, /useTranslations\('businessPortal'\)/);
+  assert.match(profile, /t\('profileReadOnlyStaff'\)/);
   assert.match(shell, /NOT_SUBMITTED/);
   assert.match(list, /currentMember\.role/);
   assert.match(list, /nextBusinessAction/);

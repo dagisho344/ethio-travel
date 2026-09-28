@@ -2,13 +2,15 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   AdminDashboard,
   adminFetch,
   displayName,
-  formatDate,
   statusClass,
 } from '../../lib/admin';
+import { resolveLocale } from '../../i18n/config';
+import { formatLocaleDate } from '../../i18n/format';
 
 function Metric({
   label,
@@ -19,6 +21,7 @@ function Metric({
   label: string;
   value: number;
 }) {
+  const t = useTranslations('adminPortal');
   return (
     <Link
       href={href}
@@ -29,13 +32,15 @@ function Metric({
       </p>
       <p className="mt-2 text-3xl font-bold text-slate-950">{value}</p>
       <span className="mt-3 inline-block text-sm font-semibold text-emerald-800">
-        View details →
+        {t('viewDetails')} →
       </span>
     </Link>
   );
 }
 
 export function AdminDashboardClient() {
+  const t = useTranslations('adminPortal');
+  const locale = resolveLocale(useLocale());
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,10 +49,10 @@ export function AdminDashboardClient() {
       .then(setDashboard)
       .catch((cause: unknown) =>
         setError(
-          cause instanceof Error ? cause.message : 'Dashboard unavailable.',
+          cause instanceof Error ? cause.message : t('dashboardUnavailable'),
         ),
       );
-  }, []);
+  }, [t]);
 
   if (error)
     return (
@@ -56,81 +61,83 @@ export function AdminDashboardClient() {
       </p>
     );
   if (!dashboard)
-    return <p className="text-slate-600">Loading administrator dashboard…</p>;
+    return <p className="text-slate-600">{t('loadingDashboard')}</p>;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <header>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-          Administration
+          {t('administration')}
         </p>
         <h1 className="mt-1 text-3xl font-bold text-slate-950">
-          Operations overview
+          {t('operationsOverview')}
         </h1>
-        <p className="mt-2 text-slate-600">
-          Live, bounded summaries derived from EthioTravel records.
-        </p>
+        <p className="mt-2 text-slate-600">{t('dashboardDescription')}</p>
       </header>
       <section
-        aria-label="Key administrator metrics"
+        aria-label={t('keyMetrics')}
         className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
       >
         <Metric
-          label="Active users"
+          label={t('activeUsers')}
           value={dashboard.users.active}
           href="/admin/users?status=ACTIVE"
         />
         <Metric
-          label="Suspended users"
+          label={t('suspendedUsers')}
           value={dashboard.users.suspended}
           href="/admin/users?status=SUSPENDED"
         />
         <Metric
-          label="Active businesses"
+          label={t('activeBusinesses')}
           value={dashboard.businesses.active}
           href="/admin/businesses?status=ACTIVE"
         />
         <Metric
-          label="Pending verifications"
+          label={t('pendingVerifications')}
           value={dashboard.verifications.pending}
           href="/admin/verifications"
         />
       </section>
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-bold text-slate-950">Operations tools</h2>
+        <h2 className="text-lg font-bold text-slate-950">
+          {t('operationsTools')}
+        </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Investigate operational records and review aggregate platform health.
+          {t('operationsToolsDescription')}
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href="/admin/bookings"
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-500 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
           >
-            Investigate bookings
+            {t('investigateBookings')}
           </Link>
           <Link
             href="/admin/payments"
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-500 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
           >
-            Inspect payments
+            {t('inspectPayments')}
           </Link>
           <Link
             href="/admin/analytics"
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:border-emerald-500 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
           >
-            View analytics
+            {t('viewAnalytics')}
           </Link>
         </div>
       </section>
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-slate-950">Recent users</h2>
+            <h2 className="text-lg font-bold text-slate-950">
+              {t('recentUsers')}
+            </h2>
             <Link
               href="/admin/users"
               className="text-sm font-semibold text-emerald-800"
             >
-              All users →
+              {t('allUsers')} →
             </Link>
           </div>
           <ul className="mt-4 divide-y divide-slate-100">
@@ -153,20 +160,20 @@ export function AdminDashboardClient() {
               </li>
             ))}
             {!dashboard.recent.users.length ? (
-              <li className="py-3 text-sm text-slate-500">No users yet.</li>
+              <li className="py-3 text-sm text-slate-500">{t('noUsers')}</li>
             ) : null}
           </ul>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-bold text-slate-950">
-              Recent admin actions
+              {t('recentAdminActions')}
             </h2>
             <Link
               href="/admin/audit"
               className="text-sm font-semibold text-emerald-800"
             >
-              Audit log →
+              {t('auditLog')} →
             </Link>
           </div>
           <ul className="mt-4 divide-y divide-slate-100">
@@ -174,14 +181,14 @@ export function AdminDashboardClient() {
               <li key={entry.id} className="py-3">
                 <p className="font-semibold text-slate-900">{entry.action}</p>
                 <p className="mt-1 text-sm text-slate-600">
-                  {entry.actor ? displayName(entry.actor) : 'System'} ·{' '}
-                  {formatDate(entry.createdAt)}
+                  {entry.actor ? displayName(entry.actor) : t('systemActor')} ·{' '}
+                  {formatLocaleDate(entry.createdAt, locale)}
                 </p>
               </li>
             ))}
             {!dashboard.recent.adminActions.length ? (
               <li className="py-3 text-sm text-slate-500">
-                No administrative actions yet.
+                {t('noAdminActions')}
               </li>
             ) : null}
           </ul>

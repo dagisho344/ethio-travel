@@ -34,22 +34,24 @@ void test('business media and verification UI reflect server-authorized roles an
   );
 
   assert.match(media, /canEditBusiness/);
-  assert.match(media, /Staff members can view media but cannot change it/);
+  assert.match(media, /useTranslations\('businessPortal'\)/);
+  assert.match(media, /t\('staffMediaReadOnly'\)/);
   assert.match(media, /10 \* 1024 \* 1024/);
   assert.match(media, /image\/jpeg.*image\/png.*image\/webp/);
-  assert.match(media, /Move up/);
-  assert.match(media, /Move down/);
+  assert.match(media, /t\('moveUp'\)/);
+  assert.match(media, /t\('moveDown'\)/);
   assert.doesNotMatch(
     media,
     /localStorage|sessionStorage|accessToken|refreshToken/,
   );
 
   assert.match(verification, /canEditBusiness/);
-  assert.match(verification, /Staff members can view verification status/);
+  assert.match(verification, /useTranslations\('businessPortal'\)/);
+  assert.match(verification, /t\('staffVerificationReadOnly'\)/);
   assert.match(verification, /15 \* 1024 \* 1024/);
   assert.match(verification, /application\/pdf.*image\/jpeg.*image\/png/);
-  assert.match(verification, /Submit for verification/);
-  assert.match(verification, /Correct and resubmit/);
+  assert.match(verification, /t\('submitVerification'\)/);
+  assert.match(verification, /t\('correctResubmit'\)/);
   assert.doesNotMatch(
     verification,
     /localStorage|sessionStorage|accessToken|refreshToken/,

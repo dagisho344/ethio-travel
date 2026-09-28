@@ -38,21 +38,19 @@ void test('nested shell provides all real workspace routes, active links, mobile
   assert.match(layout, /currentTokens/);
   assert.match(layout, /BusinessWorkspaceShell/);
   for (const label of [
-    'Overview',
-    'Profile',
-    'Locations',
-    'Services',
-    'Availability',
-    'Bookings',
-    'Customers',
-    'Messages',
-    'Reviews',
-    'Payments',
-    'Media',
-    'Verification',
-    'Settings',
-    'All Businesses',
-    'Back to EthioTravel',
+    'overview',
+    'profile',
+    'locations',
+    'services',
+    'availability',
+    'bookings',
+    'customers',
+    'messages',
+    'reviews',
+    'payments',
+    'media',
+    'verification',
+    'settings',
   ]) {
     assert.match(shell, new RegExp(`label: '${label}'|${label}`));
   }
@@ -62,6 +60,9 @@ void test('nested shell provides all real workspace routes, active links, mobile
   assert.match(shell, /business-workspace-drawer/);
   assert.match(shell, /aria-modal="true"/);
   assert.match(shell, /event\.key !== 'Escape'/);
+  assert.match(shell, /useTranslations\('businessPortal'\)/);
+  assert.match(shell, /t\('allBusinesses'\)/);
+  assert.match(shell, /t\('backToEthioTravel'\)/);
 });
 
 void test('overview contains operational dashboard content while profile editing is isolated to the profile route', () => {
@@ -72,22 +73,20 @@ void test('overview contains operational dashboard content while profile editing
     'app/businesses/manage/[businessId]/profile/page.tsx',
   );
 
-  assert.doesNotMatch(overview, /BusinessProfileEditor|Edit profile/);
+  assert.doesNotMatch(overview, /BusinessProfileEditor/);
   assert.match(overview, /BusinessDashboardOverview/);
   assert.match(profile, /export function BusinessProfileEditor/);
-  assert.match(
-    profile,
-    /Staff members can view this workspace but cannot change business details/,
-  );
+  assert.match(profile, /useTranslations\('businessPortal'\)/);
+  assert.match(profile, /t\('profileReadOnlyStaff'\)/);
   assert.match(
     profile,
     /regionId: event\.target\.value,[\s\S]*cityId: '',[\s\S]*destinationId: ''/,
   );
   assert.match(profilePage, /BusinessProfileClient/);
-  assert.match(dashboard, /Needs your attention/);
-  assert.match(dashboard, /Business setup/);
+  assert.match(dashboard, /t\('needsAttention'\)/);
+  assert.match(dashboard, /t\('businessSetup'\)/);
   assert.match(dashboard, /role="progressbar"/);
-  assert.match(dashboard, /No captured revenue yet/);
+  assert.match(dashboard, /t\('noRevenue'\)/);
   assert.match(dashboard, /canManage/);
 });
 
@@ -96,10 +95,7 @@ void test('workspace status UX uses real setup, suspension, and verification sta
   const dashboard = read('components/businesses/BusinessDashboardOverview.tsx');
 
   assert.match(shell, /business\?\.status === 'SUSPENDED'/);
-  assert.match(
-    shell,
-    /hidden[\s\S]*from public discovery and cannot receive new bookings/,
-  );
+  assert.match(shell, /t\('suspendedNotice'\)/);
   for (const state of ['NOT_SUBMITTED', 'PENDING', 'VERIFIED', 'REJECTED']) {
     assert.match(shell, new RegExp(`'${state}'`));
   }
@@ -119,9 +115,9 @@ void test('business selector and availability index retain real data sources and
   );
 
   assert.match(selector, /getManagedBusinesses/);
-  assert.match(selector, /Add another business/);
-  assert.match(selector, /Open Dashboard/);
-  assert.match(selector, /No businesses yet/);
+  assert.match(selector, /t\('addBusiness'\)/);
+  assert.match(selector, /t\('openDashboard'\)/);
+  assert.match(selector, /t\('noBusinesses'\)/);
   assert.match(availability, /getManagedServices/);
   assert.match(availability, /services\/\$\{service\.id\}\/availability/);
   assert.match(availabilityPage, /BusinessAvailabilityIndexClient/);

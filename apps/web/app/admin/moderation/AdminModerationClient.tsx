@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   AdminPage,
   AdminReview,
@@ -11,6 +12,7 @@ import {
 } from '../../../lib/admin';
 
 export function AdminModerationClient() {
+  const t = useTranslations('adminPortal');
   const [summary, setSummary] = useState<ModerationSummary | null>(null);
   const [reviews, setReviews] = useState<AdminPage<AdminReview> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,24 +29,21 @@ export function AdminModerationClient() {
       })
       .catch((cause: unknown) =>
         setError(
-          cause instanceof Error
-            ? cause.message
-            : 'Moderation data is unavailable.',
+          cause instanceof Error ? cause.message : t('moderationUnavailable'),
         ),
       );
-  }, []);
+  }, [t]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-          Trust and safety
+          {t('trustSafety')}
         </p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-950">Moderation</h1>
-        <p className="mt-2 text-slate-600">
-          Review content and report queues use real lifecycle states and
-          auditable actions.
-        </p>
+        <h1 className="mt-1 text-3xl font-bold text-slate-950">
+          {t('moderation')}
+        </h1>
+        <p className="mt-2 text-slate-600">{t('moderationDescription')}</p>
       </header>
       {error ? (
         <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-800">
@@ -53,7 +52,7 @@ export function AdminModerationClient() {
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Open reports</p>
+          <p className="text-sm text-slate-500">{t('openReports')}</p>
           <p className="mt-2 text-2xl font-bold">
             {summary?.reports.open ?? '—'}
           </p>
@@ -61,11 +60,11 @@ export function AdminModerationClient() {
             href="/admin/reports?status=OPEN"
             className="mt-3 inline-block text-sm font-semibold text-emerald-800"
           >
-            View reports →
+            {t('viewReports')} →
           </Link>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Reports under review</p>
+          <p className="text-sm text-slate-500">{t('reportsUnderReview')}</p>
           <p className="mt-2 text-2xl font-bold">
             {summary?.reports.underReview ?? '—'}
           </p>
@@ -73,11 +72,11 @@ export function AdminModerationClient() {
             href="/admin/reports?status=UNDER_REVIEW"
             className="mt-3 inline-block text-sm font-semibold text-emerald-800"
           >
-            View reports →
+            {t('viewReports')} →
           </Link>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Pending reviews</p>
+          <p className="text-sm text-slate-500">{t('pendingReviews')}</p>
           <p className="mt-2 text-2xl font-bold">
             {summary?.reviews.pending ?? '—'}
           </p>
@@ -85,11 +84,11 @@ export function AdminModerationClient() {
             href="#review-queue"
             className="mt-3 inline-block text-sm font-semibold text-emerald-800"
           >
-            Review queue ↓
+            {t('reviewQueue')} ↓
           </a>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Hidden reviews</p>
+          <p className="text-sm text-slate-500">{t('hiddenReviews')}</p>
           <p className="mt-2 text-2xl font-bold">
             {summary?.reviews.hidden ?? '—'}
           </p>
@@ -97,7 +96,7 @@ export function AdminModerationClient() {
             href="/admin/audit"
             className="mt-3 inline-block text-sm font-semibold text-emerald-800"
           >
-            Audit history →
+            {t('auditHistory')} →
           </Link>
         </div>
       </div>
@@ -107,10 +106,10 @@ export function AdminModerationClient() {
       >
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-slate-950">
-            Pending review queue
+            {t('pendingReviewQueue')}
           </h2>
           <span className="text-sm text-slate-500">
-            {reviews?.meta.total ?? '—'} total
+            {t('total', { count: reviews?.meta.total ?? 0 })}
           </span>
         </div>
         <div className="mt-4 divide-y divide-slate-100">
@@ -125,7 +124,7 @@ export function AdminModerationClient() {
                 </p>
                 <p className="text-sm text-slate-600">
                   {review.author.displayName} —{' '}
-                  {review.title ?? review.body ?? 'No written text'}
+                  {review.title ?? review.body ?? t('noWrittenText')}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -138,7 +137,7 @@ export function AdminModerationClient() {
                   href={`/admin/moderation/reviews/${review.id}`}
                   className="text-sm font-semibold text-emerald-800"
                 >
-                  Review →
+                  {t('review')} →
                 </Link>
               </div>
             </div>
@@ -146,7 +145,7 @@ export function AdminModerationClient() {
         </div>
         {reviews && !reviews.data.length ? (
           <p className="py-6 text-center text-slate-500">
-            No reviews need moderation.
+            {t('noReviewsModeration')}
           </p>
         ) : null}
       </section>

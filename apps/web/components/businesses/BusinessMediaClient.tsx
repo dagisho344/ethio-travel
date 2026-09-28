@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { LoaderCircle, Pencil, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   archiveBusinessMedia,
   getBusinessMedia,
@@ -29,6 +30,7 @@ function grouped(items: ManagedBusinessMedia[], role: MediaRole) {
 }
 
 export function BusinessMediaClient({ businessId }: { businessId: string }) {
+  const t = useTranslations('businessPortal');
   const [items, setItems] = useState<ManagedBusinessMedia[]>([]);
   const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -46,9 +48,7 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
       setItems(media);
       setError(null);
     } catch (reason) {
-      setError(
-        requestErrorMessage(reason, 'We could not load business media.'),
-      );
+      setError(requestErrorMessage(reason, t('loadMediaError')));
     } finally {
       setLoading(false);
     }
@@ -74,16 +74,14 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
       );
       await reload();
     } catch (reason) {
-      setError(
-        requestErrorMessage(reason, 'We could not reorder the gallery.'),
-      );
+      setError(requestErrorMessage(reason, t('reorderGalleryError')));
     }
   };
 
   if (loading)
     return (
       <main className="mx-auto max-w-6xl p-6 text-sm text-slate-600">
-        Loading media...
+        {t('loadingMedia')}
       </main>
     );
   return (
@@ -92,20 +90,15 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
         href={`/businesses/manage/${businessId}`}
         className="text-sm font-semibold text-highland focus:outline-none focus:ring-2 focus:ring-highland"
       >
-        ← Business workspace
+        ← {t('workspace')}
       </Link>
       <header className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-950">Business media</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Add real logo, cover, and gallery images. Files are validated before
-            they become usable.
-          </p>
+          <h1 className="text-2xl font-bold text-slate-950">{t('media')}</h1>
+          <p className="mt-1 text-sm text-slate-600">{t('mediaDescription')}</p>
         </div>
         {!canEdit ? (
-          <p className="text-sm text-slate-600">
-            Staff members can view media but cannot change it.
-          </p>
+          <p className="text-sm text-slate-600">{t('staffMediaReadOnly')}</p>
         ) : null}
       </header>
       {error ? (
@@ -120,7 +113,6 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
         {(['LOGO', 'HERO'] as const).map((role) => (
           <MediaSection
             key={role}
-            title={role === 'HERO' ? 'Cover' : 'Logo'}
             role={role}
             items={grouped(items, role)}
             canEdit={canEdit}
@@ -136,12 +128,7 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
                 });
                 await reload();
               } catch (reason) {
-                setError(
-                  requestErrorMessage(
-                    reason,
-                    'We could not upload this image.',
-                  ),
-                );
+                setError(requestErrorMessage(reason, t('uploadMediaError')));
               } finally {
                 setUploading(null);
               }
@@ -151,12 +138,7 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
                 await archiveBusinessMedia(businessId, mediaId);
                 await reload();
               } catch (reason) {
-                setError(
-                  requestErrorMessage(
-                    reason,
-                    'We could not archive this image.',
-                  ),
-                );
+                setError(requestErrorMessage(reason, t('archiveMediaError')));
               }
             }}
             onSave={async (mediaId, altText, caption) => {
@@ -168,12 +150,7 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
                 setEditing(null);
                 await reload();
               } catch (reason) {
-                setError(
-                  requestErrorMessage(
-                    reason,
-                    'We could not update image details.',
-                  ),
-                );
+                setError(requestErrorMessage(reason, t('updateMediaError')));
               }
             }}
             onEdit={setEditing}
@@ -181,11 +158,8 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
         ))}
       </div>
       <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-bold text-slate-950">Gallery</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Gallery images can be arranged using the keyboard-friendly move
-          controls.
-        </p>
+        <h2 className="text-lg font-bold text-slate-950">{t('gallery')}</h2>
+        <p className="mt-1 text-sm text-slate-600">{t('galleryDescription')}</p>
         {canEdit ? (
           <UploadForm
             role="GALLERY"
@@ -200,12 +174,7 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
                 });
                 await reload();
               } catch (reason) {
-                setError(
-                  requestErrorMessage(
-                    reason,
-                    'We could not upload this image.',
-                  ),
-                );
+                setError(requestErrorMessage(reason, t('uploadMediaError')));
               } finally {
                 setUploading(null);
               }
@@ -229,12 +198,7 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
                   setEditing(null);
                   await reload();
                 } catch (reason) {
-                  setError(
-                    requestErrorMessage(
-                      reason,
-                      'We could not update image details.',
-                    ),
-                  );
+                  setError(requestErrorMessage(reason, t('updateMediaError')));
                 }
               }}
               onArchive={async () => {
@@ -242,12 +206,7 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
                   await archiveBusinessMedia(businessId, item.media.id);
                   await reload();
                 } catch (reason) {
-                  setError(
-                    requestErrorMessage(
-                      reason,
-                      'We could not archive this image.',
-                    ),
-                  );
+                  setError(requestErrorMessage(reason, t('archiveMediaError')));
                 }
               }}
               controls={
@@ -259,7 +218,7 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
                       onClick={() => void moveGallery(item.media.id, -1)}
                       className="rounded border px-2 py-1 text-xs disabled:opacity-40"
                     >
-                      Move up
+                      {t('moveUp')}
                     </button>
                     <button
                       type="button"
@@ -267,7 +226,7 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
                       onClick={() => void moveGallery(item.media.id, 1)}
                       className="rounded border px-2 py-1 text-xs disabled:opacity-40"
                     >
-                      Move down
+                      {t('moveDown')}
                     </button>
                   </div>
                 ) : null
@@ -275,7 +234,7 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
             />
           ))}
           {!grouped(items, 'GALLERY').length ? (
-            <p className="text-sm text-slate-600">No gallery images yet.</p>
+            <p className="text-sm text-slate-600">{t('noGalleryImages')}</p>
           ) : null}
         </div>
       </section>
@@ -284,7 +243,6 @@ export function BusinessMediaClient({ businessId }: { businessId: string }) {
 }
 
 function MediaSection({
-  title,
   role,
   items,
   canEdit,
@@ -295,7 +253,6 @@ function MediaSection({
   onSave,
   onEdit,
 }: {
-  title: string;
   role: MediaRole;
   items: ManagedBusinessMedia[];
   canEdit: boolean;
@@ -306,12 +263,13 @@ function MediaSection({
   onSave: (mediaId: string, altText: string, caption: string) => Promise<void>;
   onEdit: (id: string | null) => void;
 }) {
+  const t = useTranslations('businessPortal');
+  const title = role === 'HERO' ? t('cover') : t('logo');
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="text-lg font-bold text-slate-950">{title}</h2>
       <p className="mt-1 text-sm text-slate-600">
-        Uploading a new {title.toLowerCase()} archives the previous one without
-        erasing its history.
+        {t('replaceMediaDescription', { role: title })}
       </p>
       {canEdit ? (
         <UploadForm role={role} uploading={uploading} onUpload={onUpload} />
@@ -332,7 +290,7 @@ function MediaSection({
         ))}
         {!items.length ? (
           <p className="text-sm text-slate-600">
-            No {title.toLowerCase()} uploaded.
+            {t('noRoleMedia', { role: title })}
           </p>
         ) : null}
       </div>
@@ -349,6 +307,7 @@ function UploadForm({
   uploading: boolean;
   onUpload: (file: File, altText: string, caption: string) => Promise<void>;
 }) {
+  const t = useTranslations('businessPortal');
   const fileRef = useRef<HTMLInputElement>(null);
   const [altText, setAltText] = useState('');
   const [caption, setCaption] = useState('');
@@ -357,11 +316,11 @@ function UploadForm({
     event.preventDefault();
     const file = fileRef.current?.files?.[0];
     if (!file) {
-      setError('Choose an image first.');
+      setError(t('chooseImage'));
       return;
     }
     if (!supportedImageTypes.has(file.type) || file.size > maxImageBytes) {
-      setError('Use a JPEG, PNG, or WebP image no larger than 10 MB.');
+      setError(t('imageRequirements'));
       return;
     }
     setError(null);
@@ -377,10 +336,10 @@ function UploadForm({
     >
       <label className="block text-sm font-semibold text-slate-700">
         {role === 'HERO'
-          ? 'Replace cover'
+          ? t('replaceCover')
           : role === 'LOGO'
-            ? 'Replace logo'
-            : 'Add gallery image'}
+            ? t('replaceLogo')
+            : t('addGalleryImage')}
         <input
           ref={fileRef}
           type="file"
@@ -391,7 +350,7 @@ function UploadForm({
       </label>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="text-sm text-slate-700">
-          Alt text{' '}
+          {t('altText')}{' '}
           <input
             className={inputClass}
             value={altText}
@@ -401,7 +360,7 @@ function UploadForm({
           />
         </label>
         <label className="text-sm text-slate-700">
-          Caption{' '}
+          {t('caption')}{' '}
           <input
             className={inputClass}
             value={caption}
@@ -425,7 +384,7 @@ function UploadForm({
         ) : (
           <Upload className="h-4 w-4" />
         )}
-        {uploading ? 'Uploading...' : 'Upload image'}
+        {uploading ? t('uploading') : t('uploadImage')}
       </button>
     </form>
   );
@@ -448,6 +407,7 @@ function MediaCard({
   onArchive: () => Promise<void>;
   controls?: React.ReactNode;
 }) {
+  const t = useTranslations('businessPortal');
   const [altText, setAltText] = useState(item.altText ?? '');
   const [caption, setCaption] = useState(item.caption ?? '');
   const [saving, setSaving] = useState(false);
@@ -466,7 +426,7 @@ function MediaCard({
       {editing ? (
         <div className="mt-3 space-y-2">
           <label className="block text-xs">
-            Alt text{' '}
+            {t('altText')}{' '}
             <input
               className={inputClass}
               value={altText}
@@ -475,7 +435,7 @@ function MediaCard({
             />
           </label>
           <label className="block text-xs">
-            Caption{' '}
+            {t('caption')}{' '}
             <input
               className={inputClass}
               value={caption}
@@ -493,14 +453,14 @@ function MediaCard({
               }}
               className="rounded bg-highland px-2 py-1 text-xs font-semibold text-white"
             >
-              Save
+              {t('save')}
             </button>
             <button
               type="button"
               onClick={() => onEdit(null)}
               className="rounded border px-2 py-1 text-xs"
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </div>
@@ -514,7 +474,7 @@ function MediaCard({
             className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs"
           >
             <Pencil className="h-3.5 w-3.5" />
-            Edit
+            {t('edit')}
           </button>
         ) : null}
         {canEdit ? (
@@ -524,7 +484,7 @@ function MediaCard({
             className="inline-flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs text-red-700"
           >
             <X className="h-3.5 w-3.5" />
-            Archive
+            {t('archiveMedia')}
           </button>
         ) : null}
       </div>

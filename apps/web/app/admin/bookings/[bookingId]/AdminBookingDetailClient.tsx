@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import {
@@ -12,11 +13,11 @@ import { formatBookingDate, formatMoney } from '../../../../lib/bookings';
 import type { AdminBooking } from '../../../../lib/admin';
 import type { PaymentStatus } from '../../../../lib/types';
 
-function travelerName(booking: AdminBooking): string {
+function travelerName(booking: AdminBooking, fallback: string): string {
   const profile = booking.traveler.profile;
   return (
     [profile?.firstName, profile?.lastName].filter(Boolean).join(' ') ||
-    'Traveler'
+    fallback
   );
 }
 
@@ -36,6 +37,7 @@ function Section({
 }
 
 export function AdminBookingDetailClient() {
+  const t = useTranslations('adminPortal');
   const params = useParams<{ bookingId: string }>();
   const pathname = usePathname();
   const router = useRouter();
@@ -55,17 +57,17 @@ export function AdminBookingDetailClient() {
         return;
       }
       if (response.status === 403) {
-        setError('Only administrators can inspect this booking.');
+        setError(t('adminOnlyBooking'));
         return;
       }
       if (response.status === 404) {
-        setError('Booking not found.');
+        setError(t('bookingNotFound'));
         return;
       }
       if (!response.ok) throw new Error('Request failed');
       setBooking((await response.json()) as AdminBooking);
     } catch {
-      setError('We could not load this booking right now.');
+      setError(t('loadBookingError'));
     } finally {
       setLoading(false);
     }
@@ -81,9 +83,9 @@ export function AdminBookingDetailClient() {
         href="/admin/bookings"
         className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-800 hover:text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
       >
-        <ArrowLeft className="h-4 w-4" /> Bookings
+        <ArrowLeft className="h-4 w-4" /> {t('bookings')}
       </Link>
-      {loading ? <p className="text-slate-600">Loading booking…</p> : null}
+      {loading ? <p className="text-slate-600">{t('loadingBooking')}</p> : null}
       {error ? (
         <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-800">
           {error}
@@ -94,7 +96,7 @@ export function AdminBookingDetailClient() {
           <header className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-                Booking {booking.reference}
+                {t('bookingReference', { reference: booking.reference })}
               </p>
               <h1 className="mt-1 text-3xl font-bold text-slate-950">
                 {booking.service.name}
@@ -107,44 +109,56 @@ export function AdminBookingDetailClient() {
             </div>
           </header>
           <div className="grid gap-5 lg:grid-cols-2">
-            <Section title="Booking summary">
+            <Section title={t('bookingSummary')}>
               <dl className="grid gap-3 text-sm sm:grid-cols-2">
                 <div>
-                  <dt className="font-semibold text-slate-700">Reference</dt>
+                  <dt className="font-semibold text-slate-700">
+                    {t('reference')}
+                  </dt>
                   <dd>{booking.reference}</dd>
                 </div>
                 <div>
-                  <dt className="font-semibold text-slate-700">Traveler</dt>
-                  <dd>{travelerName(booking)}</dd>
+                  <dt className="font-semibold text-slate-700">
+                    {t('traveler')}
+                  </dt>
+                  <dd>{travelerName(booking, t('travelerFallback'))}</dd>
                 </div>
                 <div>
-                  <dt className="font-semibold text-slate-700">Quantity</dt>
+                  <dt className="font-semibold text-slate-700">
+                    {t('quantity')}
+                  </dt>
                   <dd>{booking.quantity}</dd>
                 </div>
                 <div>
-                  <dt className="font-semibold text-slate-700">Guests</dt>
+                  <dt className="font-semibold text-slate-700">
+                    {t('guests')}
+                  </dt>
                   <dd>{booking.guestCount ?? '—'}</dd>
                 </div>
               </dl>
             </Section>
-            <Section title="Schedule and pricing">
+            <Section title={t('schedulePricing')}>
               <dl className="grid gap-3 text-sm">
                 <div>
-                  <dt className="font-semibold text-slate-700">Starts</dt>
+                  <dt className="font-semibold text-slate-700">
+                    {t('starts')}
+                  </dt>
                   <dd>{formatBookingDate(booking.startAt)}</dd>
                 </div>
                 <div>
-                  <dt className="font-semibold text-slate-700">Ends</dt>
+                  <dt className="font-semibold text-slate-700">{t('ends')}</dt>
                   <dd>{formatBookingDate(booking.endAt)}</dd>
                 </div>
                 <div>
-                  <dt className="font-semibold text-slate-700">Subtotal</dt>
+                  <dt className="font-semibold text-slate-700">
+                    {t('subtotal')}
+                  </dt>
                   <dd>{formatMoney(booking.subtotal, booking.currency)}</dd>
                 </div>
               </dl>
             </Section>
           </div>
-          <Section title="Related payments">
+          <Section title={t('relatedPayments')}>
             {booking.payments.length ? (
               <ul className="divide-y divide-slate-100">
                 {booking.payments.map((payment) => (
@@ -157,7 +171,9 @@ export function AdminBookingDetailClient() {
                         href={'/admin/payments/' + payment.id}
                         className="font-semibold text-emerald-800 hover:text-emerald-700"
                       >
-                        Payment {payment.id.slice(0, 8)}
+                        {t('paymentReference', {
+                          reference: payment.id.slice(0, 8),
+                        })}
                       </Link>
                       <p className="mt-1 text-sm text-slate-600">
                         {formatMoney(payment.amount, payment.currency)}
@@ -170,12 +186,10 @@ export function AdminBookingDetailClient() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-slate-600">
-                No payment attempts are associated with this booking.
-              </p>
+              <p className="text-sm text-slate-600">{t('noPaymentAttempts')}</p>
             )}
           </Section>
-          <Section title="Booking lifecycle">
+          <Section title={t('bookingLifecycle')}>
             <ol className="space-y-3">
               {booking.history.map((item) => (
                 <li
@@ -186,14 +200,14 @@ export function AdminBookingDetailClient() {
                     {item.toStatus}
                   </p>
                   <p className="text-slate-600">
-                    {item.note ?? 'No note provided.'} ·{' '}
+                    {item.note ?? t('noNoteProvided')} ·{' '}
                     {formatBookingDate(item.createdAt)}
                   </p>
                 </li>
               ))}
             </ol>
           </Section>
-          <Section title="Relevant audit history">
+          <Section title={t('relevantAuditHistory')}>
             {booking.auditTrail.length ? (
               <ul className="space-y-3 text-sm">
                 {booking.auditTrail.map((entry) => (
@@ -202,14 +216,14 @@ export function AdminBookingDetailClient() {
                       {entry.action}
                     </p>
                     <p className="mt-1 text-slate-600">
-                      {entry.reason ?? 'No reason recorded.'}
+                      {entry.reason ?? t('noReasonRecorded')}
                     </p>
                   </li>
                 ))}
               </ul>
             ) : (
               <p className="text-sm text-slate-600">
-                No administrator audit actions relate to this booking.
+                {t('noBookingAuditActions')}
               </p>
             )}
           </Section>

@@ -8,12 +8,11 @@ import {
   useRouter,
   useSearchParams,
 } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { Briefcase, Loader2 } from 'lucide-react';
 import {
   bookingStatusOptions,
   businessActions,
-  formatBookingRange,
-  formatMoney,
 } from '../../../../lib/bookings';
 import type {
   Booking,
@@ -28,6 +27,8 @@ import {
   canEditBusiness,
   getManagedBusiness,
 } from '../../../../lib/business-management';
+import { resolveLocale } from '../../../../i18n/config';
+import { formatLocaleDate, formatLocaleMoney } from '../../../../i18n/format';
 
 type Action = 'confirm' | 'reject' | 'cancel' | 'complete' | 'no-show';
 
@@ -39,7 +40,25 @@ const actionLabels: Record<Action, string> = {
   'no-show': 'No-show',
 };
 
+const actionTranslationKey: Record<
+  Action,
+  | 'confirmBooking'
+  | 'rejectBooking'
+  | 'cancelBooking'
+  | 'completeBooking'
+  | 'noShow'
+> = {
+  confirm: 'confirmBooking',
+  reject: 'rejectBooking',
+  cancel: 'cancelBooking',
+  complete: 'completeBooking',
+  'no-show': 'noShow',
+};
+
 export function BusinessBookingsClient() {
+  const t = useTranslations('businessPortal');
+  const tBookings = useTranslations('bookings');
+  const locale = resolveLocale(useLocale());
   const router = useRouter();
   const pathname = usePathname();
   const params = useParams<{ businessId: string }>();
@@ -76,7 +95,7 @@ export function BusinessBookingsClient() {
         return;
       }
       if (response.status === 403) {
-        setError('You do not have access to these business bookings.');
+        setError(t('businessBookingsDenied'));
         setPage(null);
         return;
       }
@@ -84,7 +103,7 @@ export function BusinessBookingsClient() {
       setPage((await response.json()) as BusinessBookingListResponse);
     } catch {
       setPage(null);
-      setError('We could not load business bookings right now.');
+      setError(t('loadBusinessBookingsError'));
     } finally {
       setLoading(false);
     }
@@ -92,7 +111,7 @@ export function BusinessBookingsClient() {
 
   useEffect(() => {
     void load();
-  }, [params.businessId, query]);
+  }, [params.businessId, query, t]);
 
   function update(updates: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams);
@@ -122,12 +141,12 @@ export function BusinessBookingsClient() {
         return;
       }
       if (response.status === 409) {
-        setError('That booking changed state. Refreshing the list.');
+        setError(t('bookingChanged'));
         await load();
         return;
       }
       if (response.status === 403) {
-        setError('You do not have permission to change this booking.');
+        setError(t('bookingPermissionDenied'));
         return;
       }
       if (!response.ok) throw new Error('Request failed');
@@ -144,7 +163,7 @@ export function BusinessBookingsClient() {
       );
       router.refresh();
     } catch {
-      setError('We could not update this booking right now.');
+      setError(t('updateBookingError'));
     } finally {
       setWorkingId(null);
     }
@@ -154,7 +173,7 @@ export function BusinessBookingsClient() {
     <div>
       <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <label className="text-sm font-semibold text-slate-700">
-          Booking status
+          {tBookings('status')}
           <select
             value={status ?? ''}
             onChange={(event) =>
@@ -177,7 +196,7 @@ export function BusinessBookingsClient() {
       ) : null}
       {loading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-          Loading business bookings...
+          {t('loadingBusinessBookings')}
         </div>
       ) : page?.data.length ? (
         <div className="space-y-4">
@@ -195,16 +214,24 @@ export function BusinessBookingsClient() {
                     {booking.service.name}
                   </h2>
                   <p className="mt-1 text-sm text-slate-600">
-                    Traveler:{' '}
+                    {t('traveler')}:{' '}
                     {[
                       booking.traveler.profile?.firstName,
                       booking.traveler.profile?.lastName,
                     ]
                       .filter((name): name is string => Boolean(name?.trim()))
-                      .join(' ') || 'Traveler'}
+                      .join(' ') || t('traveler')}
                   </p>
                   <p className="mt-1 text-sm text-slate-600">
-                    {formatBookingRange(booking)}
+                    {formatLocaleDate(booking.startAt, locale, {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}{' '}
+                    –{' '}
+                    {formatLocaleDate(booking.endAt, locale, {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -214,17 +241,27 @@ export function BusinessBookingsClient() {
               </div>
               <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                 <div>
-                  <dt className="font-semibold text-slate-700">Quantity</dt>
+                  <dt className="font-semibold text-slate-700">
+                    {t('quantity')}
+                  </dt>
                   <dd className="mt-1 text-slate-600">{booking.quantity}</dd>
                 </div>
                 <div>
-                  <dt className="font-semibold text-slate-700">Total</dt>
+                  <dt className="font-semibold text-slate-700">{t('total')}</dt>
                   <dd className="mt-1 text-slate-600">
-                    {formatMoney(booking.subtotal, booking.currency)}
+                    {booking.currency
+                      ? formatLocaleMoney(
+                          String(booking.subtotal),
+                          booking.currency,
+                          locale,
+                        )
+                      : String(booking.subtotal)}
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-semibold text-slate-700">Mode</dt>
+                  <dt className="font-semibold text-slate-700">
+                    {t('bookingMode')}
+                  </dt>
                   <dd className="mt-1 text-slate-600">
                     {booking.bookingModeSnapshot.replace('_', ' ')}
                   </dd>
@@ -246,7 +283,7 @@ export function BusinessBookingsClient() {
                           aria-hidden="true"
                         />
                       ) : null}
-                      {actionLabels[name]}
+                      {t(actionTranslationKey[name])}
                     </button>
                   ))}
                 </div>
@@ -260,10 +297,10 @@ export function BusinessBookingsClient() {
             <Briefcase className="h-6 w-6" aria-hidden="true" />
           </div>
           <h2 className="mt-4 text-base font-semibold text-slate-950">
-            No business bookings yet
+            {t('noBusinessBookings')}
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-            Booking requests for this business will appear here.
+            {t('noBusinessBookingsDescription')}
           </p>
         </div>
       )}
@@ -275,7 +312,7 @@ export function BusinessBookingsClient() {
             onClick={() => update({ page: String(page.meta.page - 1) })}
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
           >
-            Previous
+            {t('previous')}
           </button>
           <button
             type="button"
@@ -283,7 +320,7 @@ export function BusinessBookingsClient() {
             onClick={() => update({ page: String(page.meta.page + 1) })}
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
           >
-            Next
+            {t('next')}
           </button>
         </div>
       ) : null}
@@ -292,13 +329,13 @@ export function BusinessBookingsClient() {
           href={`/businesses/manage/${params.businessId}/payments`}
           className="text-sm font-semibold text-highland hover:text-highland/80"
         >
-          View business payments
+          {t('viewBusinessPayments')}
         </Link>
         <Link
           href="/bookings"
           className="text-sm font-semibold text-highland hover:text-highland/80"
         >
-          View traveler bookings
+          {t('viewTravelerBookings')}
         </Link>
       </div>
     </div>

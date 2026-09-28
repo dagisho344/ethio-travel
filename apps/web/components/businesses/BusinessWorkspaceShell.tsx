@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   getManagedBusiness,
   getManagedBusinesses,
@@ -34,74 +35,89 @@ import type {
 type WorkspaceLink = {
   href: (businessId: string) => string;
   icon: typeof LayoutDashboard;
-  label: string;
+  label: BusinessPortalNavigationKey;
 };
+
+type BusinessPortalNavigationKey =
+  | 'overview'
+  | 'profile'
+  | 'locations'
+  | 'services'
+  | 'availability'
+  | 'bookings'
+  | 'customers'
+  | 'messages'
+  | 'reviews'
+  | 'payments'
+  | 'media'
+  | 'verification'
+  | 'settings';
 
 const workspaceLinks: WorkspaceLink[] = [
   {
     href: (businessId) => `/businesses/manage/${businessId}`,
     icon: LayoutDashboard,
-    label: 'Overview',
+    label: 'overview',
   },
   {
     href: (businessId) => `/businesses/manage/${businessId}/profile`,
     icon: Building2,
-    label: 'Profile',
+    label: 'profile',
   },
   {
     href: (businessId) => `/businesses/manage/${businessId}/locations`,
     icon: MapPin,
-    label: 'Locations',
+    label: 'locations',
   },
   {
     href: (businessId) => `/businesses/manage/${businessId}/services`,
     icon: Wrench,
-    label: 'Services',
+    label: 'services',
   },
   {
     href: (businessId) => `/businesses/manage/${businessId}/availability`,
     icon: CircleAlert,
-    label: 'Availability',
+    label: 'availability',
   },
   {
     href: (businessId) => `/businesses/manage/${businessId}/bookings`,
     icon: LayoutDashboard,
-    label: 'Bookings',
+    label: 'bookings',
   },
   {
     href: (businessId) => `/businesses/manage/${businessId}/customers`,
     icon: Users,
-    label: 'Customers',
+    label: 'customers',
   },
   {
     href: () => '/messages',
     icon: MessageCircle,
-    label: 'Messages',
+    label: 'messages',
   },
   {
     href: (businessId) => `/businesses/manage/${businessId}/reviews`,
     icon: Star,
-    label: 'Reviews',
+    label: 'reviews',
   },
   {
     href: (businessId) => `/businesses/manage/${businessId}/payments`,
     icon: CreditCard,
-    label: 'Payments',
+    label: 'payments',
   },
   {
     href: (businessId) => `/businesses/manage/${businessId}/media`,
     icon: Image,
-    label: 'Media',
+    label: 'media',
   },
   {
     href: (businessId) => `/businesses/manage/${businessId}/verification`,
     icon: ShieldCheck,
-    label: 'Verification',
+    label: 'verification',
   },
   {
     href: (businessId) => `/businesses/manage/${businessId}/settings`,
     icon: Settings,
-    label: 'Settings',
+    label: 'settings',
   },
 ];
 
@@ -120,12 +136,13 @@ function statusClass(status: string): string {
 
 function verificationDescription(
   state: ManagedBusiness['verificationSummary'],
+  t: ReturnType<typeof useTranslations<'businessPortal'>>,
 ): string {
-  if (state === 'NOT_SUBMITTED') return 'Complete verification';
-  if (state === 'PENDING') return 'Verification under review';
-  if (state === 'VERIFIED') return 'Verified';
-  if (state === 'REJECTED') return 'Action required';
-  return 'Verification status unavailable';
+  if (state === 'NOT_SUBMITTED') return t('verificationComplete');
+  if (state === 'PENDING') return t('verificationPending');
+  if (state === 'VERIFIED') return t('verificationVerified');
+  if (state === 'REJECTED') return t('verificationActionRequired');
+  return t('verificationUnavailable');
 }
 
 function WorkspaceNavigation({
@@ -136,8 +153,9 @@ function WorkspaceNavigation({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const t = useTranslations('businessPortal');
   return (
-    <nav aria-label="Business workspace navigation" className="space-y-1">
+    <nav aria-label={t('navigation')} className="space-y-1">
       {workspaceLinks.map((item) => {
         const href = item.href(businessId);
         const Icon = item.icon;
@@ -155,10 +173,10 @@ function WorkspaceNavigation({
             }`}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-            {item.label}
-            {item.label === 'Messages' ? (
+            {t(item.label)}
+            {item.label === 'messages' ? (
               <span className="ml-auto text-xs font-normal text-slate-400">
-                Global
+                {t('global')}
               </span>
             ) : null}
           </Link>
@@ -178,9 +196,10 @@ function BusinessSwitcher({
   onNavigate?: () => void;
 }) {
   const router = useRouter();
+  const t = useTranslations('businessPortal');
   return (
     <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-      Current business
+      {t('currentBusiness')}
       <select
         value={businessId}
         onChange={(event) => {
@@ -194,7 +213,7 @@ function BusinessSwitcher({
       >
         <option value={businessId}>
           {businesses?.data.find((item) => item.id === businessId)?.name ??
-            'Loading business…'}
+            t('loadingBusiness')}
         </option>
         {businesses?.data
           .filter((item) => item.id !== businessId)
@@ -217,6 +236,7 @@ function ShellAside({
   businesses: ManagedBusinessesResponse | null;
   onNavigate?: () => void;
 }) {
+  const t = useTranslations('businessPortal');
   return (
     <div className="flex h-full flex-col">
       <BusinessSwitcher
@@ -234,7 +254,7 @@ function ShellAside({
           className="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
         >
           <Building2 className="h-4 w-4" aria-hidden="true" />
-          All Businesses
+          {t('allBusinesses')}
         </Link>
         <Link
           href="/"
@@ -242,7 +262,7 @@ function ShellAside({
           className="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          Back to EthioTravel
+          {t('backToEthioTravel')}
         </Link>
       </div>
     </div>
@@ -256,6 +276,7 @@ export function BusinessWorkspaceShell({
   businessId: string;
   children: React.ReactNode;
 }) {
+  const t = useTranslations('businessPortal');
   const [business, setBusiness] = useState<ManagedBusiness | null>(null);
   const [businesses, setBusinesses] =
     useState<ManagedBusinessesResponse | null>(null);
@@ -278,12 +299,7 @@ export function BusinessWorkspaceShell({
       })
       .catch((reason: unknown) => {
         if (!active) return;
-        setError(
-          requestErrorMessage(
-            reason,
-            'We could not load this business workspace.',
-          ),
-        );
+        setError(requestErrorMessage(reason, t('loadWorkspaceError')));
       });
     return () => {
       active = false;
@@ -317,7 +333,7 @@ export function BusinessWorkspaceShell({
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-wide text-highland">
-                  Business workspace
+                  {t('workspace')}
                 </p>
                 {business ? (
                   <>
@@ -338,7 +354,7 @@ export function BusinessWorkspaceShell({
                       className="h-4 w-4 animate-spin"
                       aria-hidden="true"
                     />
-                    Loading business workspace…
+                    {t('loadingWorkspace')}
                   </p>
                 )}
               </div>
@@ -354,7 +370,7 @@ export function BusinessWorkspaceShell({
                       href={`/businesses/manage/${business.id}/verification`}
                       className="hidden rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 sm:inline"
                     >
-                      {verificationDescription(business.verificationSummary)}
+                      {verificationDescription(business.verificationSummary, t)}
                     </Link>
                   </>
                 ) : null}
@@ -362,7 +378,7 @@ export function BusinessWorkspaceShell({
                   ref={menuButtonRef}
                   type="button"
                   className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 lg:hidden"
-                  aria-label="Open business navigation"
+                  aria-label={t('openNavigation')}
                   aria-controls="business-workspace-drawer"
                   aria-expanded={drawerOpen}
                   onClick={() => setDrawerOpen(true)}
@@ -374,10 +390,7 @@ export function BusinessWorkspaceShell({
           </div>
           {business?.status === 'SUSPENDED' ? (
             <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950 sm:px-6 lg:px-8">
-              <strong>Your business listing is suspended.</strong> It is hidden
-              from public discovery and cannot receive new bookings. Historical
-              bookings, payments, messages, and business information remain
-              available.
+              {t('suspendedNotice')}
             </div>
           ) : null}
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">{children}</div>
@@ -388,7 +401,7 @@ export function BusinessWorkspaceShell({
         <div className="fixed inset-0 z-[1300] lg:hidden">
           <button
             type="button"
-            aria-label="Close business navigation"
+            aria-label={t('closeNavigation')}
             className="absolute inset-0 bg-slate-950/35"
             onClick={() => setDrawerOpen(false)}
           />
@@ -396,14 +409,14 @@ export function BusinessWorkspaceShell({
             id="business-workspace-drawer"
             role="dialog"
             aria-modal="true"
-            aria-label="Business workspace navigation"
+            aria-label={t('navigation')}
             className="absolute inset-y-0 left-0 flex w-[min(20rem,calc(100vw-2rem))] flex-col border-r border-slate-200 bg-white p-4 shadow-2xl"
           >
             <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-4">
-              <p className="font-bold text-slate-950">Business navigation</p>
+              <p className="font-bold text-slate-950">{t('navigationTitle')}</p>
               <button
                 type="button"
-                aria-label="Close business navigation"
+                aria-label={t('closeNavigation')}
                 onClick={() => setDrawerOpen(false)}
                 className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md text-slate-700 hover:bg-slate-50 hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
               >

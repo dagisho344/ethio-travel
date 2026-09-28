@@ -8,6 +8,7 @@ import {
   LoaderCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   createBusinessDraft,
   requestErrorMessage,
@@ -42,7 +43,6 @@ type DraftFields = {
 };
 
 const storageKey = 'ethiotravel:business-onboarding-draft:v1';
-const steps = ['Business Basics', 'Location', 'Contact Details', 'Review'];
 const emptyFields: DraftFields = {
   name: '',
   categoryId: '',
@@ -85,6 +85,13 @@ function inputClass(): string {
 }
 
 export function BusinessOnboardingWizard() {
+  const t = useTranslations('businessOnboarding');
+  const steps = [
+    t('basics'),
+    t('locationStep'),
+    t('contactDetails'),
+    t('review'),
+  ];
   const [step, setStep] = useState(1);
   const [fields, setFields] = useState<DraftFields>(emptyFields);
   const [regions, setRegions] = useState<RegionOption[]>([]);
@@ -159,10 +166,7 @@ export function BusinessOnboardingWizard() {
         setCities(cityPage.data);
         setCategories(categoryPage.data);
       } catch {
-        if (active)
-          setError(
-            'Business categories and locations could not be loaded. Please try again.',
-          );
+        if (active) setError(t('loadOptionsError'));
       } finally {
         if (active) setLoadingOptions(false);
       }
@@ -205,17 +209,14 @@ export function BusinessOnboardingWizard() {
 
   function validateStep(targetStep: number): string | null {
     if (targetStep === 1) {
-      if (fields.name.trim().length < 2)
-        return 'Enter a business name with at least two characters.';
-      if (!fields.categoryId) return 'Choose a business category.';
+      if (fields.name.trim().length < 2) return t('nameTooShort');
+      if (!fields.categoryId) return t('categoryRequired');
       if (fields.description.trim().length < 10)
-        return 'Enter a description with at least ten characters.';
+        return t('descriptionTooShort');
     }
     if (targetStep === 2) {
-      if (!fields.regionId || !fields.cityId)
-        return 'Choose a region and city.';
-      if (fields.addressLine1.trim().length < 2)
-        return 'Enter an address line.';
+      if (!fields.regionId || !fields.cityId) return t('regionCityRequired');
+      if (fields.addressLine1.trim().length < 2) return t('addressRequired');
       const latitude = Number(fields.latitude);
       const longitude = Number(fields.longitude);
       if (
@@ -224,26 +225,26 @@ export function BusinessOnboardingWizard() {
         latitude < -90 ||
         latitude > 90
       )
-        return 'Enter a latitude from -90 to 90.';
+        return t('latitudeInvalid');
       if (
         !fields.longitude.trim() ||
         !Number.isFinite(longitude) ||
         longitude < -180 ||
         longitude > 180
       )
-        return 'Enter a longitude from -180 to 180.';
+        return t('longitudeInvalid');
     }
     if (targetStep === 3) {
       if (
         fields.email.trim() &&
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim())
       )
-        return 'Enter a valid contact email.';
+        return t('emailInvalid');
       if (
         fields.website.trim() &&
         !/^https?:\/\/\S+$/i.test(fields.website.trim())
       )
-        return 'Enter a website beginning with http:// or https://.';
+        return t('websiteInvalid');
     }
     return null;
   }
@@ -294,12 +295,7 @@ export function BusinessOnboardingWizard() {
         // The persisted non-sensitive form draft can expire naturally if storage is unavailable.
       }
     } catch (requestError) {
-      setError(
-        requestErrorMessage(
-          requestError,
-          'We could not create this business draft. Review the details and try again.',
-        ),
-      );
+      setError(requestErrorMessage(requestError, t('createError')));
     } finally {
       setSubmitting(false);
     }
@@ -313,25 +309,25 @@ export function BusinessOnboardingWizard() {
       >
         <CheckCircle2 className="h-10 w-10 text-highland" aria-hidden="true" />
         <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-highland">
-          Business draft created
+          {t('draftCreated')}
         </p>
         <h2 className="mt-1 text-2xl font-bold text-slate-950">
           {createdBusiness.name}
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-          Your business is private with status{' '}
-          <strong>{createdBusiness.status}</strong> and verification state{' '}
-          <strong>
-            {createdBusiness.verificationSummary.replaceAll('_', ' ')}
-          </strong>
-          . It is not publicly discoverable until the existing verification
-          rules approve it.
+          {t('createdDescription', {
+            status: createdBusiness.status,
+            verification: createdBusiness.verificationSummary.replaceAll(
+              '_',
+              ' ',
+            ),
+          })}
         </p>
         <Link
           href={`/businesses/manage/${createdBusiness.id}`}
           className="mt-6 inline-flex rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
         >
-          Open business workspace
+          {t('openWorkspace')}
         </Link>
       </section>
     );
@@ -344,7 +340,7 @@ export function BusinessOnboardingWizard() {
     >
       <ol
         className="grid gap-2 border-b border-slate-200 pb-5 sm:grid-cols-4"
-        aria-label="Business onboarding progress"
+        aria-label={t('progress')}
       >
         {steps.map((label, index) => {
           const number = index + 1;
@@ -382,14 +378,14 @@ export function BusinessOnboardingWizard() {
               id="business-basics-heading"
               className="text-lg font-bold text-slate-950"
             >
-              Business Basics
+              {t('basics')}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              Use the real name and category customers will recognize.
+              {t('basicsDescription')}
             </p>
           </div>
           <label className="block text-sm font-semibold text-slate-700">
-            Business name
+            {t('businessName')}
             <input
               value={fields.name}
               onChange={(event) => updateField('name', event.target.value)}
@@ -399,7 +395,7 @@ export function BusinessOnboardingWizard() {
             />
           </label>
           <label className="block text-sm font-semibold text-slate-700">
-            Business category
+            {t('businessCategory')}
             <select
               value={fields.categoryId}
               onChange={(event) =>
@@ -409,7 +405,7 @@ export function BusinessOnboardingWizard() {
               required
               className={inputClass()}
             >
-              <option value="">Choose a category</option>
+              <option value="">{t('chooseCategory')}</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -418,7 +414,7 @@ export function BusinessOnboardingWizard() {
             </select>
           </label>
           <label className="block text-sm font-semibold text-slate-700">
-            Description
+            {t('descriptionLabel')}
             <textarea
               value={fields.description}
               onChange={(event) =>
@@ -444,16 +440,15 @@ export function BusinessOnboardingWizard() {
               id="business-location-heading"
               className="text-lg font-bold text-slate-950"
             >
-              Location
+              {t('locationStep')}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              Choose a real EthioTravel location and provide the business
-              address.
+              {t('locationDescription')}
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="text-sm font-semibold text-slate-700">
-              Region
+              {t('region')}
               <select
                 value={fields.regionId}
                 onChange={(event) =>
@@ -468,7 +463,7 @@ export function BusinessOnboardingWizard() {
                 required
                 className={inputClass()}
               >
-                <option value="">Choose a region</option>
+                <option value="">{t('chooseRegion')}</option>
                 {regions.map((region) => (
                   <option key={region.id} value={region.id}>
                     {region.name}
@@ -477,7 +472,7 @@ export function BusinessOnboardingWizard() {
               </select>
             </label>
             <label className="text-sm font-semibold text-slate-700">
-              City
+              {t('city')}
               <select
                 value={fields.cityId}
                 onChange={(event) =>
@@ -491,7 +486,7 @@ export function BusinessOnboardingWizard() {
                 required
                 className={inputClass()}
               >
-                <option value="">Choose a city</option>
+                <option value="">{t('chooseCity')}</option>
                 {availableCities.map((city) => (
                   <option key={city.id} value={city.id}>
                     {city.name}
@@ -500,8 +495,10 @@ export function BusinessOnboardingWizard() {
               </select>
             </label>
             <label className="text-sm font-semibold text-slate-700">
-              Destination{' '}
-              <span className="font-normal text-slate-500">(optional)</span>
+              {t('destination')}{' '}
+              <span className="font-normal text-slate-500">
+                ({t('optional')})
+              </span>
               <select
                 value={fields.destinationId}
                 onChange={(event) =>
@@ -510,7 +507,7 @@ export function BusinessOnboardingWizard() {
                 disabled={!fields.cityId || loadingDestinations}
                 className={inputClass()}
               >
-                <option value="">No destination selected</option>
+                <option value="">{t('noDestination')}</option>
                 {destinations.map((destination) => (
                   <option key={destination.id} value={destination.id}>
                     {destination.name}
@@ -519,8 +516,10 @@ export function BusinessOnboardingWizard() {
               </select>
             </label>
             <label className="text-sm font-semibold text-slate-700">
-              Neighborhood{' '}
-              <span className="font-normal text-slate-500">(optional)</span>
+              {t('neighborhood')}{' '}
+              <span className="font-normal text-slate-500">
+                ({t('optional')})
+              </span>
               <input
                 value={fields.neighborhood}
                 onChange={(event) =>
@@ -531,7 +530,7 @@ export function BusinessOnboardingWizard() {
               />
             </label>
             <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-              Address line 1
+              {t('addressLine1')}
               <input
                 value={fields.addressLine1}
                 onChange={(event) =>
@@ -543,8 +542,10 @@ export function BusinessOnboardingWizard() {
               />
             </label>
             <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-              Address line 2{' '}
-              <span className="font-normal text-slate-500">(optional)</span>
+              {t('addressLine2')}{' '}
+              <span className="font-normal text-slate-500">
+                ({t('optional')})
+              </span>
               <input
                 value={fields.addressLine2}
                 onChange={(event) =>
@@ -555,8 +556,10 @@ export function BusinessOnboardingWizard() {
               />
             </label>
             <label className="text-sm font-semibold text-slate-700">
-              Postal code{' '}
-              <span className="font-normal text-slate-500">(optional)</span>
+              {t('postalCode')}{' '}
+              <span className="font-normal text-slate-500">
+                ({t('optional')})
+              </span>
               <input
                 value={fields.postalCode}
                 onChange={(event) =>
@@ -568,7 +571,7 @@ export function BusinessOnboardingWizard() {
             </label>
             <span className="hidden sm:block" />
             <label className="text-sm font-semibold text-slate-700">
-              Latitude
+              {t('latitude')}
               <input
                 inputMode="decimal"
                 value={fields.latitude}
@@ -580,7 +583,7 @@ export function BusinessOnboardingWizard() {
               />
             </label>
             <label className="text-sm font-semibold text-slate-700">
-              Longitude
+              {t('longitude')}
               <input
                 inputMode="decimal"
                 value={fields.longitude}
@@ -605,17 +608,18 @@ export function BusinessOnboardingWizard() {
               id="business-contact-heading"
               className="text-lg font-bold text-slate-950"
             >
-              Contact Details
+              {t('contactDetails')}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              These optional details can help customers reach you after
-              approval.
+              {t('contactDescription')}
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2">
             <label className="text-sm font-semibold text-slate-700">
-              Phone{' '}
-              <span className="font-normal text-slate-500">(optional)</span>
+              {t('phone')}{' '}
+              <span className="font-normal text-slate-500">
+                ({t('optional')})
+              </span>
               <input
                 type="tel"
                 value={fields.phone}
@@ -625,8 +629,10 @@ export function BusinessOnboardingWizard() {
               />
             </label>
             <label className="text-sm font-semibold text-slate-700">
-              Email{' '}
-              <span className="font-normal text-slate-500">(optional)</span>
+              {t('email')}{' '}
+              <span className="font-normal text-slate-500">
+                ({t('optional')})
+              </span>
               <input
                 type="email"
                 value={fields.email}
@@ -636,8 +642,10 @@ export function BusinessOnboardingWizard() {
               />
             </label>
             <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-              Website{' '}
-              <span className="font-normal text-slate-500">(optional)</span>
+              {t('website')}{' '}
+              <span className="font-normal text-slate-500">
+                ({t('optional')})
+              </span>
               <input
                 type="url"
                 value={fields.website}
@@ -657,24 +665,26 @@ export function BusinessOnboardingWizard() {
             id="business-review-heading"
             className="text-lg font-bold text-slate-950"
           >
-            Review your business draft
+            {t('reviewTitle')}
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            Confirm these real details before creating a private draft.
+            {t('reviewDescription')}
           </p>
           <dl className="mt-5 divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm">
             <div className="grid gap-1 p-4 sm:grid-cols-3">
-              <dt className="font-semibold text-slate-700">Business</dt>
+              <dt className="font-semibold text-slate-700">{t('business')}</dt>
               <dd className="sm:col-span-2">{fields.name.trim()}</dd>
             </div>
             <div className="grid gap-1 p-4 sm:grid-cols-3">
-              <dt className="font-semibold text-slate-700">Category</dt>
+              <dt className="font-semibold text-slate-700">{t('category')}</dt>
               <dd className="sm:col-span-2">
-                {selectedCategory?.name ?? 'Not selected'}
+                {selectedCategory?.name ?? t('notSelected')}
               </dd>
             </div>
             <div className="grid gap-1 p-4 sm:grid-cols-3">
-              <dt className="font-semibold text-slate-700">Location</dt>
+              <dt className="font-semibold text-slate-700">
+                {t('locationStep')}
+              </dt>
               <dd className="sm:col-span-2">
                 {[
                   selectedRegion?.name,
@@ -688,17 +698,16 @@ export function BusinessOnboardingWizard() {
               </dd>
             </div>
             <div className="grid gap-1 p-4 sm:grid-cols-3">
-              <dt className="font-semibold text-slate-700">Contact</dt>
+              <dt className="font-semibold text-slate-700">{t('contact')}</dt>
               <dd className="sm:col-span-2">
                 {[fields.phone, fields.email, fields.website]
                   .filter(Boolean)
-                  .join(' · ') || 'No contact details added yet'}
+                  .join(' · ') || t('noContact')}
               </dd>
             </div>
           </dl>
           <p className="mt-5 rounded-md bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            Creating this draft makes you the active business owner. It does not
-            publish the business or submit verification.
+            {t('draftOwnership')}
           </p>
         </section>
       ) : null}
@@ -714,7 +723,7 @@ export function BusinessOnboardingWizard() {
           className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          Back
+          {t('back')}
         </button>
         {step < 4 ? (
           <button
@@ -723,7 +732,7 @@ export function BusinessOnboardingWizard() {
             disabled={loadingOptions}
             className="inline-flex items-center justify-center gap-2 rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Continue
+            {t('continue')}
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </button>
         ) : (
@@ -738,10 +747,10 @@ export function BusinessOnboardingWizard() {
                   className="h-4 w-4 animate-spin"
                   aria-hidden="true"
                 />
-                Creating draft...
+                {t('creating')}
               </>
             ) : (
-              'Create business draft'
+              t('createDraft')
             )}
           </button>
         )}

@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { BarChart3 } from 'lucide-react';
-import { formatMoney } from '../../../lib/bookings';
+import { useLocale, useTranslations } from 'next-intl';
 import { adminFetch, type AdminAnalytics } from '../../../lib/admin';
+import { resolveLocale } from '../../../i18n/config';
+import { formatLocaleMoney } from '../../../i18n/format';
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
@@ -17,6 +19,8 @@ function Metric({ label, value }: { label: string; value: number }) {
 }
 
 export function AdminAnalyticsClient() {
+  const t = useTranslations('adminPortal');
+  const locale = resolveLocale(useLocale());
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,10 +29,10 @@ export function AdminAnalyticsClient() {
       .then(setAnalytics)
       .catch((cause: unknown) =>
         setError(
-          cause instanceof Error ? cause.message : 'Analytics unavailable.',
+          cause instanceof Error ? cause.message : t('analyticsUnavailable'),
         ),
       );
-  }, []);
+  }, [t]);
 
   if (error) {
     return (
@@ -37,62 +41,67 @@ export function AdminAnalyticsClient() {
       </p>
     );
   }
-  if (!analytics) return <p className="text-slate-600">Loading analytics…</p>;
+  if (!analytics)
+    return <p className="text-slate-600">{t('loadingAnalytics')}</p>;
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
       <header>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-          Insights
+          {t('insights')}
         </p>
         <h1 className="mt-1 text-3xl font-bold text-slate-950">
-          Platform analytics
+          {t('platformAnalytics')}
         </h1>
-        <p className="mt-2 text-slate-600">
-          Bounded database aggregates. Revenue remains separated by currency.
-        </p>
+        <p className="mt-2 text-slate-600">{t('analyticsDescription')}</p>
       </header>
 
       <section
-        aria-label="Platform status"
+        aria-label={t('platformStatus')}
         className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
       >
-        <Metric label="Total users" value={analytics.users.total} />
-        <Metric label="Active businesses" value={analytics.businesses.active} />
-        <Metric label="Total bookings" value={analytics.bookings.total} />
-        <Metric label="Open reports" value={analytics.content.openReports} />
+        <Metric label={t('totalUsers')} value={analytics.users.total} />
+        <Metric
+          label={t('activeBusinesses')}
+          value={analytics.businesses.active}
+        />
+        <Metric label={t('totalBookings')} value={analytics.bookings.total} />
+        <Metric
+          label={t('openReports')}
+          value={analytics.content.openReports}
+        />
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-950">Bookings</h2>
+          <h2 className="text-lg font-bold text-slate-950">{t('bookings')}</h2>
           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-slate-500">Pending</dt>
+              <dt className="text-slate-500">{t('pending')}</dt>
               <dd className="font-semibold text-slate-900">
                 {analytics.bookings.pending}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Confirmed</dt>
+              <dt className="text-slate-500">{t('confirmed')}</dt>
               <dd className="font-semibold text-slate-900">
                 {analytics.bookings.confirmed}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Completed</dt>
+              <dt className="text-slate-500">{t('completed')}</dt>
               <dd className="font-semibold text-slate-900">
                 {analytics.bookings.completed}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Cancelled</dt>
+              <dt className="text-slate-500">{t('cancelled')}</dt>
               <dd className="font-semibold text-slate-900">
                 {analytics.bookings.cancelled}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Last 30 days</dt>
+              <dt className="text-slate-500">{t('last30Days')}</dt>
               <dd className="font-semibold text-slate-900">
                 {analytics.bookings.recentVolume}
               </dd>
@@ -100,34 +109,36 @@ export function AdminAnalyticsClient() {
           </dl>
         </section>
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-950">Payment status</h2>
+          <h2 className="text-lg font-bold text-slate-950">
+            {t('paymentStatus')}
+          </h2>
           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-slate-500">Pending</dt>
+              <dt className="text-slate-500">{t('pending')}</dt>
               <dd className="font-semibold text-slate-900">
                 {analytics.payments.byStatus.pending}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Paid</dt>
+              <dt className="text-slate-500">{t('paid')}</dt>
               <dd className="font-semibold text-slate-900">
                 {analytics.payments.byStatus.paid}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Partially refunded</dt>
+              <dt className="text-slate-500">{t('partiallyRefunded')}</dt>
               <dd className="font-semibold text-slate-900">
                 {analytics.payments.byStatus.partiallyRefunded}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Refunded</dt>
+              <dt className="text-slate-500">{t('refunded')}</dt>
               <dd className="font-semibold text-slate-900">
                 {analytics.payments.byStatus.refunded}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Failed</dt>
+              <dt className="text-slate-500">{t('failed')}</dt>
               <dd className="font-semibold text-slate-900">
                 {analytics.payments.byStatus.failed}
               </dd>
@@ -139,7 +150,9 @@ export function AdminAnalyticsClient() {
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-emerald-800" />
-          <h2 className="text-lg font-bold text-slate-950">Captured revenue</h2>
+          <h2 className="text-lg font-bold text-slate-950">
+            {t('capturedRevenue')}
+          </h2>
         </div>
         {analytics.payments.revenueByCurrency.length ? (
           <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -153,60 +166,72 @@ export function AdminAnalyticsClient() {
                 </p>
                 <dl className="mt-3 space-y-2 text-sm">
                   <div className="flex justify-between gap-3">
-                    <dt className="text-slate-600">Gross captured</dt>
-                    <dd>{formatMoney(revenue.gross, revenue.currency)}</dd>
+                    <dt className="text-slate-600">{t('grossCaptured')}</dt>
+                    <dd>
+                      {formatLocaleMoney(
+                        revenue.gross,
+                        revenue.currency,
+                        locale,
+                      )}
+                    </dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-slate-600">Refunded</dt>
-                    <dd>{formatMoney(revenue.refunded, revenue.currency)}</dd>
+                    <dt className="text-slate-600">{t('refunded')}</dt>
+                    <dd>
+                      {formatLocaleMoney(
+                        revenue.refunded,
+                        revenue.currency,
+                        locale,
+                      )}
+                    </dd>
                   </div>
                   <div className="flex justify-between gap-3 border-t border-slate-200 pt-2 font-semibold">
-                    <dt>Net</dt>
-                    <dd>{formatMoney(revenue.net, revenue.currency)}</dd>
+                    <dt>{t('net')}</dt>
+                    <dd>
+                      {formatLocaleMoney(revenue.net, revenue.currency, locale)}
+                    </dd>
                   </div>
                 </dl>
               </div>
             ))}
           </div>
         ) : (
-          <p className="mt-4 text-sm text-slate-600">
-            No captured payment revenue yet.
-          </p>
+          <p className="mt-4 text-sm text-slate-600">{t('noRevenue')}</p>
         )}
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-bold text-slate-950">
-            Users and businesses
+            {t('usersBusinesses')}
           </h2>
           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-slate-500">Recent registrations</dt>
+              <dt className="text-slate-500">{t('recentRegistrations')}</dt>
               <dd className="font-semibold">
                 {analytics.users.recentRegistrations}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Suspended users</dt>
+              <dt className="text-slate-500">{t('suspendedUsers')}</dt>
               <dd className="font-semibold">{analytics.users.suspended}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Draft businesses</dt>
+              <dt className="text-slate-500">{t('draftBusinesses')}</dt>
               <dd className="font-semibold">{analytics.businesses.draft}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Suspended businesses</dt>
+              <dt className="text-slate-500">{t('suspendedBusinesses')}</dt>
               <dd className="font-semibold">
                 {analytics.businesses.suspended}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Verified businesses</dt>
+              <dt className="text-slate-500">{t('verifiedBusinesses')}</dt>
               <dd className="font-semibold">{analytics.businesses.verified}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Pending verification</dt>
+              <dt className="text-slate-500">{t('pendingVerification')}</dt>
               <dd className="font-semibold">
                 {analytics.businesses.pendingVerification}
               </dd>
@@ -215,27 +240,27 @@ export function AdminAnalyticsClient() {
         </section>
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-bold text-slate-950">
-            Content and moderation
+            {t('contentModeration')}
           </h2>
           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
             <div>
-              <dt className="text-slate-500">Published destinations</dt>
+              <dt className="text-slate-500">{t('publishedDestinations')}</dt>
               <dd className="font-semibold">
                 {analytics.content.publishedDestinations}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Published reviews</dt>
+              <dt className="text-slate-500">{t('publishedReviews')}</dt>
               <dd className="font-semibold">
                 {analytics.content.publishedReviews}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Open reports</dt>
+              <dt className="text-slate-500">{t('openReports')}</dt>
               <dd className="font-semibold">{analytics.content.openReports}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Pending verifications</dt>
+              <dt className="text-slate-500">{t('pendingVerifications')}</dt>
               <dd className="font-semibold">
                 {analytics.content.pendingVerifications}
               </dd>

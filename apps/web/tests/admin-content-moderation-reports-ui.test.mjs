@@ -12,13 +12,14 @@ function read(path) {
 
 void test('Admin Portal navigation exposes implemented content, moderation, and operations routes', () => {
   const shell = read('components/admin/AdminWorkspaceShell.tsx');
-  for (const label of ['Destinations', 'Categories', 'Moderation', 'Reports']) {
+  for (const label of ['destinations', 'categories', 'moderation', 'reports']) {
     assert.match(shell, new RegExp(`label: '${label}'`));
   }
-  assert.match(shell, /label: 'Bookings'/);
-  assert.match(shell, /label: 'Payments'/);
-  assert.match(shell, /label: 'Analytics'/);
-  assert.match(shell, /label: 'Settings'/);
+  assert.match(shell, /label: 'bookings'/);
+  assert.match(shell, /label: 'payments'/);
+  assert.match(shell, /label: 'analytics'/);
+  assert.match(shell, /label: 'settings'/);
+  assert.match(shell, /useTranslations\('adminPortal'\)/);
   assert.match(shell, /aria-current=\{active \? 'page' : undefined\}/);
   assert.match(shell, /event\.key !== 'Escape'/);
 });
@@ -34,8 +35,8 @@ void test('destination CMS keeps editing separate from publication and supports 
   assert.match(list, /placeholder="Name or description"/);
   assert.match(list, /Apply filters/);
   assert.match(list, /Destination pagination/);
-  assert.match(editor, /Save draft/);
-  assert.match(editor, /Confirm publication\s+separately/);
+  assert.match(editor, /t\('saveDraft'\)/);
+  assert.match(editor, /t\('destinationPublicationHelp'\)/);
   assert.match(
     editor,
     /router\.replace\(`\/admin\/destinations\/\$\{result\.id\}`\)/,

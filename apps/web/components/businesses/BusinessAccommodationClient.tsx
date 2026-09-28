@@ -1,6 +1,7 @@
 'use client';
 
 import { ServiceWorkspaceHeader } from './ServiceWorkspaceHeader';
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import {
   canEditBusiness,
@@ -80,6 +81,7 @@ export function BusinessAccommodationClient({
   businessId: string;
   serviceId: string;
 }) {
+  const t = useTranslations('businessPortal');
   const [accommodation, setAccommodation] =
     useState<ManagedAccommodation | null>(null);
   const [canWrite, setCanWrite] = useState(false);
@@ -102,9 +104,7 @@ export function BusinessAccommodationClient({
       setDetail(detailValues(data));
       setCanWrite(canEditBusiness(business));
     } catch (reason) {
-      setError(
-        operationError(reason, 'Accommodation details could not be loaded.'),
-      );
+      setError(operationError(reason, t('loadAccommodationError')));
     } finally {
       setLoading(false);
     }
@@ -134,7 +134,7 @@ export function BusinessAccommodationClient({
       (detail.checkInTime !== '' && !timePattern.test(detail.checkInTime)) ||
       (detail.checkOutTime !== '' && !timePattern.test(detail.checkOutTime))
     ) {
-      setError('Use a 1–5 star class and 24-hour times in HH:mm format.');
+      setError(t('accommodationDetailInvalid'));
       return;
     }
     setSaving(true);
@@ -148,9 +148,7 @@ export function BusinessAccommodationClient({
       setAccommodation(updated);
       setDetail(detailValues(updated));
     } catch (reason) {
-      setError(
-        operationError(reason, 'Accommodation details could not be saved.'),
-      );
+      setError(operationError(reason, t('saveAccommodationError')));
     } finally {
       setSaving(false);
     }
@@ -170,9 +168,7 @@ export function BusinessAccommodationClient({
       !moneyPattern.test(price) ||
       !/^[A-Z]{3}$/.test(currency)
     ) {
-      setError(
-        'Enter a room name, positive capacity, non-negative quantity and price, and a three-letter currency.',
-      );
+      setError(t('roomTypeInvalid'));
       return null;
     }
     return {
@@ -207,7 +203,7 @@ export function BusinessAccommodationClient({
       setEditingRoom(null);
       await load();
     } catch (reason) {
-      setError(operationError(reason, 'The room type could not be saved.'));
+      setError(operationError(reason, t('saveRoomTypeError')));
     } finally {
       setSaving(false);
     }
@@ -226,9 +222,7 @@ export function BusinessAccommodationClient({
       );
       await load();
     } catch (reason) {
-      setError(
-        operationError(reason, 'The room type status could not be changed.'),
-      );
+      setError(operationError(reason, t('roomTypeLifecycleError')));
     } finally {
       setSaving(false);
     }
@@ -237,7 +231,7 @@ export function BusinessAccommodationClient({
   if (loading) {
     return (
       <p className="rounded-md bg-white p-5 text-sm text-slate-500">
-        Loading accommodation details...
+        {t('loadingAccommodation')}
       </p>
     );
   }
@@ -248,15 +242,15 @@ export function BusinessAccommodationClient({
         <ServiceWorkspaceHeader
           businessId={businessId}
           serviceId={serviceId}
-          serviceName={accommodation?.service.name ?? 'Accommodation Details'}
+          serviceName={accommodation?.service.name ?? t('accommodationDetails')}
           serviceStatus={accommodation?.service.status ?? 'DRAFT'}
           categoryName={
-            accommodation?.service.category.name ?? 'Accommodation Details'
+            accommodation?.service.category.name ?? t('accommodationDetails')
           }
           categoryFamily="ACCOMMODATION"
           canWrite={canWrite}
           currentSection="category"
-          description="Configure guest-facing accommodation information and room types. Room inventory remains separate from booking availability."
+          description={t('accommodationWorkspaceDescription')}
         />
         {error ? (
           <p
@@ -270,14 +264,15 @@ export function BusinessAccommodationClient({
           <>
             <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-bold text-slate-950">
-                Property details
+                {t('propertyDetails')}
               </h2>
               <form
                 onSubmit={(event) => void saveDetail(event)}
                 className="mt-4 grid gap-4 sm:grid-cols-3"
               >
                 <label className="text-sm font-semibold text-slate-700">
-                  Star class <span className="font-normal">(optional)</span>
+                  {t('starClass')}{' '}
+                  <span className="font-normal">({t('optional')})</span>
                   <input
                     disabled={!canWrite || saving}
                     inputMode="numeric"
@@ -289,7 +284,8 @@ export function BusinessAccommodationClient({
                   />
                 </label>
                 <label className="text-sm font-semibold text-slate-700">
-                  Check-in time <span className="font-normal">(HH:mm)</span>
+                  {t('checkInTime')}{' '}
+                  <span className="font-normal">(HH:mm)</span>
                   <input
                     disabled={!canWrite || saving}
                     placeholder="14:00"
@@ -301,7 +297,8 @@ export function BusinessAccommodationClient({
                   />
                 </label>
                 <label className="text-sm font-semibold text-slate-700">
-                  Check-out time <span className="font-normal">(HH:mm)</span>
+                  {t('checkOutTime')}{' '}
+                  <span className="font-normal">(HH:mm)</span>
                   <input
                     disabled={!canWrite || saving}
                     placeholder="11:00"
@@ -318,7 +315,7 @@ export function BusinessAccommodationClient({
                       disabled={saving}
                       className="rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                     >
-                      {saving ? 'Saving...' : 'Save property details'}
+                      {saving ? t('saving') : t('savePropertyDetails')}
                     </button>
                   </div>
                 ) : null}
@@ -328,7 +325,7 @@ export function BusinessAccommodationClient({
               <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-bold text-slate-950">
-                    {editingRoom ? 'Edit room type' : 'Add room type'}
+                    {editingRoom ? t('editRoomType') : t('addRoomType')}
                   </h2>
                   {editingRoom ? (
                     <button
@@ -339,13 +336,13 @@ export function BusinessAccommodationClient({
                       }}
                       className="text-sm font-semibold text-slate-600"
                     >
-                      Cancel edit
+                      {t('cancelEdit')}
                     </button>
                   ) : null}
                 </div>
                 {!accommodation.detail ? (
                   <p className="mt-3 text-sm text-slate-600">
-                    Save property details first to add room types.
+                    {t('savePropertyBeforeRooms')}
                   </p>
                 ) : (
                   <form
@@ -353,7 +350,7 @@ export function BusinessAccommodationClient({
                     className="mt-4 grid gap-4 sm:grid-cols-2"
                   >
                     <label className="text-sm font-semibold text-slate-700">
-                      Room name
+                      {t('roomName')}
                       <input
                         required
                         disabled={saving}
@@ -366,7 +363,7 @@ export function BusinessAccommodationClient({
                       />
                     </label>
                     <label className="text-sm font-semibold text-slate-700">
-                      Capacity
+                      {t('capacity')}
                       <input
                         required
                         disabled={saving}
@@ -379,7 +376,7 @@ export function BusinessAccommodationClient({
                       />
                     </label>
                     <label className="text-sm font-semibold text-slate-700">
-                      Base price
+                      {t('basePrice')}
                       <input
                         required
                         disabled={saving}
@@ -392,7 +389,7 @@ export function BusinessAccommodationClient({
                       />
                     </label>
                     <label className="text-sm font-semibold text-slate-700">
-                      Currency
+                      {t('currency')}
                       <input
                         required
                         disabled={saving}
@@ -408,7 +405,7 @@ export function BusinessAccommodationClient({
                       />
                     </label>
                     <label className="text-sm font-semibold text-slate-700">
-                      Quantity
+                      {t('quantity')}
                       <input
                         required
                         disabled={saving}
@@ -421,8 +418,8 @@ export function BusinessAccommodationClient({
                       />
                     </label>
                     <label className="text-sm font-semibold text-slate-700">
-                      Description{' '}
-                      <span className="font-normal">(optional)</span>
+                      {t('description')}{' '}
+                      <span className="font-normal">({t('optional')})</span>
                       <input
                         disabled={saving}
                         maxLength={1000}
@@ -439,10 +436,10 @@ export function BusinessAccommodationClient({
                         className="rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                       >
                         {saving
-                          ? 'Saving...'
+                          ? t('saving')
                           : editingRoom
-                            ? 'Save room type'
-                            : 'Add room type'}
+                            ? t('saveRoomType')
+                            : t('addRoomType')}
                       </button>
                     </div>
                   </form>
@@ -450,7 +447,9 @@ export function BusinessAccommodationClient({
               </section>
             ) : null}
             <section className="mt-6">
-              <h2 className="text-lg font-bold text-slate-950">Room types</h2>
+              <h2 className="text-lg font-bold text-slate-950">
+                {t('roomTypes')}
+              </h2>
               <div className="mt-3 space-y-3">
                 {accommodation.roomTypes.length ? (
                   accommodation.roomTypes.map((roomType) => (
@@ -467,7 +466,7 @@ export function BusinessAccommodationClient({
                             <span
                               className={`rounded-full px-2 py-1 text-xs font-semibold ${roomType.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}
                             >
-                              {roomType.isActive ? 'Active' : 'Inactive'}
+                              {roomType.isActive ? t('active') : t('inactive')}
                             </span>
                           </div>
                           {roomType.description ? (
@@ -476,9 +475,12 @@ export function BusinessAccommodationClient({
                             </p>
                           ) : null}
                           <p className="mt-3 text-sm text-slate-700">
-                            Capacity: {roomType.capacity} · Quantity:{' '}
-                            {roomType.quantity} · {roomType.currency}{' '}
-                            {roomType.basePrice}
+                            {t('roomTypeSummary', {
+                              capacity: roomType.capacity,
+                              quantity: roomType.quantity,
+                              currency: roomType.currency,
+                              price: roomType.basePrice,
+                            })}
                           </p>
                         </div>
                         {canWrite ? (
@@ -492,7 +494,7 @@ export function BusinessAccommodationClient({
                               }}
                               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
                             >
-                              Edit
+                              {t('edit')}
                             </button>
                             <button
                               type="button"
@@ -500,7 +502,9 @@ export function BusinessAccommodationClient({
                               onClick={() => void toggleRoom(roomType)}
                               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
                             >
-                              {roomType.isActive ? 'Deactivate' : 'Activate'}
+                              {roomType.isActive
+                                ? t('deactivate')
+                                : t('activate')}
                             </button>
                           </div>
                         ) : null}
@@ -509,7 +513,7 @@ export function BusinessAccommodationClient({
                   ))
                 ) : (
                   <p className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
-                    No room types have been added yet.
+                    {t('noRoomTypes')}
                   </p>
                 )}
               </div>

@@ -8,15 +8,16 @@ import {
   useRouter,
   useSearchParams,
 } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowRight, CreditCard } from 'lucide-react';
 import { PaymentStatusBadge } from '../../../../components/bookings/BookingStatusBadge';
-import { formatMoney } from '../../../../lib/bookings';
 import {
-  formatPaymentDate,
   paymentProviderLabel,
   paymentProviderOptions,
   paymentStatusOptions,
 } from '../../../../lib/payments';
+import { resolveLocale } from '../../../../i18n/config';
+import { formatLocaleDate, formatLocaleMoney } from '../../../../i18n/format';
 import type {
   PaymentListResponse,
   PaymentProvider,
@@ -24,6 +25,9 @@ import type {
 } from '../../../../lib/types';
 
 export function BusinessPaymentsClient() {
+  const t = useTranslations('businessPortal');
+  const tPayment = useTranslations('payment');
+  const locale = resolveLocale(useLocale());
   const router = useRouter();
   const pathname = usePathname();
   const params = useParams<{ businessId: string }>();
@@ -59,20 +63,20 @@ export function BusinessPaymentsClient() {
         }
         if (response.status === 403) {
           setPage(null);
-          setError('You do not have access to these business payments.');
+          setError(t('businessPaymentsDenied'));
           return;
         }
         if (!response.ok) throw new Error('Request failed');
         setPage((await response.json()) as PaymentListResponse);
       } catch {
         setPage(null);
-        setError('We could not load business payments right now.');
+        setError(t('loadBusinessPaymentsError'));
       } finally {
         setLoading(false);
       }
     };
     void load();
-  }, [params.businessId, pathname, query, router]);
+  }, [params.businessId, pathname, query, router, t]);
 
   function update(updates: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams);
@@ -87,7 +91,7 @@ export function BusinessPaymentsClient() {
     <div>
       <div className="mb-6 grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3">
         <label className="text-sm font-semibold text-slate-700">
-          Payment status
+          {tPayment('paymentStatus')}
           <select
             value={status ?? ''}
             onChange={(event) =>
@@ -103,7 +107,7 @@ export function BusinessPaymentsClient() {
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Provider
+          {tPayment('provider')}
           <select
             value={provider ?? ''}
             onChange={(event) =>
@@ -123,7 +127,7 @@ export function BusinessPaymentsClient() {
             href={`/businesses/manage/${params.businessId}/bookings`}
             className="inline-flex rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-highland hover:text-highland focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
           >
-            View bookings
+            {t('viewBookings')}
           </Link>
         </div>
       </div>
@@ -135,16 +139,17 @@ export function BusinessPaymentsClient() {
       ) : null}
       {loading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-          Loading business payments...
+          {t('loadingBusinessPayments')}
         </div>
       ) : page?.data.length ? (
         <>
           <div className="mb-4 flex items-center justify-between gap-4 text-sm text-slate-600">
+            <p>{t('paymentCount', { count: page.meta.total })}</p>
             <p>
-              {page.meta.total} payment{page.meta.total === 1 ? '' : 's'}
-            </p>
-            <p>
-              Page {page.meta.page} of {Math.max(page.meta.totalPages, 1)}
+              {t('pageOf', {
+                page: page.meta.page,
+                total: Math.max(page.meta.totalPages, 1),
+              })}
             </p>
           </div>
           <div className="space-y-4">
@@ -162,40 +167,58 @@ export function BusinessPaymentsClient() {
                       {payment.booking.service.name}
                     </h2>
                     <p className="mt-1 text-sm text-slate-600">
-                      Traveler:{' '}
+                      {t('traveler')}:{' '}
                       {[
                         payment.traveler.profile?.firstName,
                         payment.traveler.profile?.lastName,
                       ]
                         .filter((name): name is string => Boolean(name?.trim()))
-                        .join(' ') || 'Traveler'}
+                        .join(' ') || t('traveler')}
                     </p>
                     <p className="mt-1 text-sm text-slate-600">
-                      {paymentProviderLabel(payment.provider)} �{' '}
-                      {formatPaymentDate(payment.createdAt)}
+                      {paymentProviderLabel(payment.provider)} ·{' '}
+                      {formatLocaleDate(payment.createdAt, locale, {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}
                     </p>
                   </div>
                   <PaymentStatusBadge status={payment.status} />
                 </div>
                 <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                   <div>
-                    <dt className="font-semibold text-slate-700">Amount</dt>
+                    <dt className="font-semibold text-slate-700">
+                      {tPayment('amount')}
+                    </dt>
                     <dd className="mt-1 text-slate-600">
-                      {formatMoney(payment.amount, payment.currency)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-semibold text-slate-700">Paid</dt>
-                    <dd className="mt-1 text-slate-600">
-                      {formatPaymentDate(payment.paidAt)}
+                      {payment.currency
+                        ? formatLocaleMoney(
+                            String(payment.amount),
+                            payment.currency,
+                            locale,
+                          )
+                        : String(payment.amount)}
                     </dd>
                   </div>
                   <div>
                     <dt className="font-semibold text-slate-700">
-                      Provider reference
+                      {tPayment('paid')}
+                    </dt>
+                    <dd className="mt-1 text-slate-600">
+                      {payment.paidAt
+                        ? formatLocaleDate(payment.paidAt, locale, {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })
+                        : tPayment('notRecorded')}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-slate-700">
+                      {t('providerReference')}
                     </dt>
                     <dd className="mt-1 break-all text-slate-600">
-                      {payment.providerPaymentId ?? 'Pending'}
+                      {payment.providerPaymentId ?? tPayment('pending')}
                     </dd>
                   </div>
                 </dl>
@@ -203,7 +226,7 @@ export function BusinessPaymentsClient() {
                   href={`/businesses/${params.businessId}/payments/${payment.id}`}
                   className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
                 >
-                  View payment{' '}
+                  {t('viewPayment')}{' '}
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
               </article>
@@ -216,10 +239,10 @@ export function BusinessPaymentsClient() {
             <CreditCard className="h-6 w-6" aria-hidden="true" />
           </div>
           <h2 className="mt-4 text-base font-semibold text-slate-950">
-            No payments yet
+            {t('noBusinessPayments')}
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-            Booking payments for this business will appear here.
+            {t('noBusinessPaymentsDescription')}
           </p>
         </div>
       )}
@@ -232,7 +255,7 @@ export function BusinessPaymentsClient() {
             onClick={() => update({ page: String(page.meta.page - 1) })}
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
           >
-            Previous
+            {t('previous')}
           </button>
           <button
             type="button"
@@ -240,7 +263,7 @@ export function BusinessPaymentsClient() {
             onClick={() => update({ page: String(page.meta.page + 1) })}
             className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-40"
           >
-            Next
+            {t('next')}
           </button>
         </div>
       ) : null}

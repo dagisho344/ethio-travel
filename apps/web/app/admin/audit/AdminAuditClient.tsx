@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   AdminPage,
   AuditEntry,
@@ -11,6 +12,7 @@ import {
 } from '../../../lib/admin';
 
 export function AdminAuditClient() {
+  const t = useTranslations('adminPortal');
   const [page, setPage] = useState<AdminPage<AuditEntry> | null>(null);
   const [action, setAction] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -37,19 +39,17 @@ export function AdminAuditClient() {
     <div className="mx-auto max-w-6xl space-y-6">
       <header>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-          Administration
+          {t('administration')}
         </p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-950">Audit log</h1>
-        <p className="mt-2 text-slate-600">
-          Append-only, safe administrative activity history.
-        </p>
+        <h1 className="mt-1 text-3xl font-bold text-slate-950">{t('audit')}</h1>
+        <p className="mt-2 text-slate-600">{t('auditDescription')}</p>
       </header>
       <form
         onSubmit={submit}
         className="flex gap-3 rounded-xl border border-slate-200 bg-white p-4"
       >
         <label className="sr-only" htmlFor="audit-action">
-          Audit action
+          {t('auditAction')}
         </label>
         <select
           id="audit-action"
@@ -57,23 +57,27 @@ export function AdminAuditClient() {
           onChange={(event) => setAction(event.target.value)}
           className="min-h-10 flex-1 rounded-md border border-slate-300 px-3 text-sm focus:border-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-200"
         >
-          <option value="">All actions</option>
-          <option value="ADMIN_USER_SUSPENDED">User suspended</option>
-          <option value="ADMIN_USER_RESTORED">User restored</option>
-          <option value="ADMIN_BUSINESS_SUSPENDED">Business suspended</option>
-          <option value="ADMIN_BUSINESS_RESTORED">Business restored</option>
+          <option value="">{t('allActions')}</option>
+          <option value="ADMIN_USER_SUSPENDED">{t('userSuspended')}</option>
+          <option value="ADMIN_USER_RESTORED">{t('userRestored')}</option>
+          <option value="ADMIN_BUSINESS_SUSPENDED">
+            {t('businessSuspended')}
+          </option>
+          <option value="ADMIN_BUSINESS_RESTORED">
+            {t('businessRestored')}
+          </option>
           <option value="ADMIN_VERIFICATION_APPROVED">
-            Verification approved
+            {t('verificationApproved')}
           </option>
           <option value="ADMIN_VERIFICATION_REJECTED">
-            Verification rejected
+            {t('verificationRejected')}
           </option>
         </select>
         <button
           type="submit"
           className="min-h-10 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
         >
-          Filter
+          {t('filter')}
         </button>
       </form>
       {error ? (
@@ -85,12 +89,12 @@ export function AdminAuditClient() {
         <table className="min-w-full text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3">Time</th>
-              <th className="px-4 py-3">Actor</th>
-              <th className="px-4 py-3">Action</th>
-              <th className="px-4 py-3">Entity</th>
-              <th className="px-4 py-3">Outcome</th>
-              <th className="px-4 py-3">Reason</th>
+              <th className="px-4 py-3">{t('time')}</th>
+              <th className="px-4 py-3">{t('actor')}</th>
+              <th className="px-4 py-3">{t('action')}</th>
+              <th className="px-4 py-3">{t('entity')}</th>
+              <th className="px-4 py-3">{t('outcome')}</th>
+              <th className="px-4 py-3">{t('reason')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -100,7 +104,7 @@ export function AdminAuditClient() {
                   {formatDate(entry.createdAt)}
                 </td>
                 <td className="px-4 py-3 text-slate-700">
-                  {entry.actor ? displayName(entry.actor) : 'System'}
+                  {entry.actor ? displayName(entry.actor) : t('system')}
                 </td>
                 <td className="px-4 py-3 font-semibold text-slate-900">
                   {entry.action}
@@ -127,7 +131,7 @@ export function AdminAuditClient() {
                   colSpan={6}
                   className="px-4 py-8 text-center text-slate-500"
                 >
-                  No audit records match this filter.
+                  {t('noAuditRecords')}
                 </td>
               </tr>
             ) : null}
@@ -137,7 +141,7 @@ export function AdminAuditClient() {
                   colSpan={6}
                   className="px-4 py-8 text-center text-slate-500"
                 >
-                  Loading audit records…
+                  {t('loadingAuditRecords')}
                 </td>
               </tr>
             ) : null}

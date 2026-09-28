@@ -17,7 +17,7 @@ void test('tour workspace uses TOUR family visibility and preserves staff read-o
   assert.doesNotMatch(services, /category\.code === 'TOUR'/);
   assert.match(tour, /canEditBusiness/);
   assert.match(tour, /ServiceWorkspaceHeader/);
-  assert.match(tour, /Edit itinerary item/);
+  assert.match(tour, /t\('editItineraryItem'\)/);
   assert.doesNotMatch(tour, /DELETE|localStorage|sessionStorage|accessToken/i);
   assert.match(page, /currentTokens/);
   assert.match(page, /redirect\('\/login\?returnTo=\/businesses\/manage'\)/);

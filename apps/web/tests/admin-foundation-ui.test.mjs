@@ -46,11 +46,11 @@ void test('admin route chrome is distinct while public chrome remains available 
 void test('admin shell has only completed Phase 13A routes, active navigation, and a mobile drawer', () => {
   const shell = read('components/admin/AdminWorkspaceShell.tsx');
   for (const label of [
-    'Dashboard',
-    'Users',
-    'Businesses',
-    'Verifications',
-    'Audit',
+    'dashboard',
+    'users',
+    'businesses',
+    'verifications',
+    'audit',
   ]) {
     assert.match(shell, new RegExp(`label: '${label}'`));
   }
@@ -58,6 +58,7 @@ void test('admin shell has only completed Phase 13A routes, active navigation, a
   assert.match(shell, /admin-workspace-drawer/);
   assert.match(shell, /aria-modal="true"/);
   assert.match(shell, /event\.key !== 'Escape'/);
+  assert.match(shell, /useTranslations\('adminPortal'\)/);
 });
 
 void test('admin BFF routes remain same-origin, allowlisted, and token-free', () => {
@@ -94,7 +95,8 @@ void test('administrator pages use real BFF data and require a reason for lifecy
   assert.match(dialog, /minLength=\{3\}/);
   assert.match(dialog, /reason\.trim\(\)\.length < 3/);
   assert.match(audit, /\/api\/admin\/audit/);
-  assert.match(audit, /Append-only/);
+  assert.match(audit, /useTranslations\('adminPortal'\)/);
+  assert.match(audit, /t\('auditDescription'\)/);
 });
 
 void test('existing verification screens remain inside the protected admin route tree', () => {

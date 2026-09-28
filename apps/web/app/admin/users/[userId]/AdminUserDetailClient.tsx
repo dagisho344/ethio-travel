@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { AdminActionDialog } from '../../../../components/admin/AdminActionDialog';
 import {
@@ -29,6 +30,7 @@ type UserDetail = AdminUser & {
 };
 
 export function AdminUserDetailClient({ userId }: { userId: string }) {
+  const t = useTranslations('adminPortal');
   const [user, setUser] = useState<UserDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const load = () => {
@@ -46,7 +48,7 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
         {error}
       </p>
     );
-  if (!user) return <p className="text-slate-600">Loading user…</p>;
+  if (!user) return <p className="text-slate-600">{t('loadingUser')}</p>;
   const action =
     user.status === 'SUSPENDED'
       ? 'Restore'
@@ -59,7 +61,7 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
         href="/admin/users"
         className="text-sm font-semibold text-emerald-800"
       >
-        ← All users
+        ← {t('allUsers')}
       </Link>
       <header className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -69,7 +71,7 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
             </h1>
             <p className="mt-1 text-slate-600">{user.email}</p>
             <p className="mt-2 text-sm text-slate-500">
-              Created {formatDate(user.createdAt)}
+              {t('createdOn', { date: formatDate(user.createdAt) })}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -91,21 +93,21 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
       </header>
       <section className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Bookings</p>
+          <p className="text-sm text-slate-500">{t('bookings')}</p>
           <p className="mt-1 text-2xl font-bold">{user.bookingCount}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Trips</p>
+          <p className="text-sm text-slate-500">{t('trips')}</p>
           <p className="mt-1 text-2xl font-bold">{user.tripCount}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Reviews</p>
+          <p className="text-sm text-slate-500">{t('reviews')}</p>
           <p className="mt-1 text-2xl font-bold">{user.reviewCount}</p>
         </div>
       </section>
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="text-lg font-bold text-slate-950">
-          Business memberships
+          {t('businessMemberships')}
         </h2>
         <ul className="mt-3 divide-y divide-slate-100">
           {user.businessMemberships.map((membership) => (
@@ -127,7 +129,7 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
           ))}
           {!user.businessMemberships.length ? (
             <li className="py-3 text-sm text-slate-500">
-              No business memberships.
+              {t('noBusinessMemberships')}
             </li>
           ) : null}
         </ul>

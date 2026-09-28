@@ -19,8 +19,8 @@ void test('restaurant workspace uses RESTAURANT family visibility and preserves 
   assert.doesNotMatch(services, /category\.code === 'MEAL'/);
   assert.match(restaurant, /canEditBusiness/);
   assert.match(restaurant, /ServiceWorkspaceHeader/);
-  assert.match(restaurant, /Deactivate/);
-  assert.match(restaurant, /Mark unavailable/);
+  assert.match(restaurant, /t\('deactivate'\)/);
+  assert.match(restaurant, /t\('markUnavailable'\)/);
   assert.doesNotMatch(
     restaurant,
     /DELETE|localStorage|sessionStorage|accessToken/i,

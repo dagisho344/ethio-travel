@@ -87,11 +87,12 @@ void test('business bookings page includes manager actions and read states', () 
     'app/businesses/[businessId]/bookings/BusinessBookingsClient.tsx',
   );
   assert.match(client, /businessActions/);
-  assert.match(client, /Confirm/);
-  assert.match(client, /Reject/);
-  assert.match(client, /Complete/);
-  assert.match(client, /No-show/);
-  assert.match(client, /You do not have access/);
+  assert.match(client, /useTranslations\('businessPortal'\)/);
+  assert.match(client, /confirmBooking/);
+  assert.match(client, /rejectBooking/);
+  assert.match(client, /completeBooking/);
+  assert.match(client, /noShow/);
+  assert.match(client, /t\('businessBookingsDenied'\)/);
 });
 
 void test('service and explore cards expose booking only for services', () => {

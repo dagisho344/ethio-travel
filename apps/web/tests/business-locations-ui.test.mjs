@@ -42,7 +42,8 @@ void test('location workspace renders server-authorized controls and cascading r
   const source = read('components/businesses/BusinessLocationsClient.tsx');
   assert.match(source, /getManagedBusiness/);
   assert.match(source, /canEditBusiness/);
-  assert.match(source, /Staff members have read-only access/);
+  assert.match(source, /useTranslations\('businessPortal'\)/);
+  assert.match(source, /t\('locationsReadOnly'\)/);
   assert.match(source, /makeLocationPrimary/);
   assert.match(source, /archiveLocation/);
   assert.match(source, /saveLocationHours/);

@@ -22,8 +22,8 @@ void test('transport workspace uses TRANSPORT family visibility and preserves st
     /getJson<PaginatedResponse<City>>\('\/cities', \{ limit: 100 \}\)/,
   );
   assert.match(transport, /ServiceWorkspaceHeader/);
-  assert.match(transport, /Deactivate/);
-  assert.match(transport, /Reactivate/);
+  assert.match(transport, /t\('deactivate'\)/);
+  assert.match(transport, /t\('reactivate'\)/);
   assert.doesNotMatch(
     transport,
     /DELETE|localStorage|sessionStorage|accessToken/i,

@@ -1,6 +1,7 @@
 'use client';
 
 import { ServiceWorkspaceHeader } from './ServiceWorkspaceHeader';
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { getJson } from '../../lib/api';
 import {
@@ -92,6 +93,7 @@ export function BusinessTransportClient({
   businessId: string;
   serviceId: string;
 }) {
+  const t = useTranslations('businessPortal');
   const [transport, setTransport] = useState<ManagedTransport | null>(null);
   const [cities, setCities] = useState<City[]>([]);
   const [canWrite, setCanWrite] = useState(false);
@@ -123,9 +125,7 @@ export function BusinessTransportClient({
       setCities(cityPage.data);
       setCanWrite(canEditBusiness(business));
     } catch (reason) {
-      setError(
-        operationError(reason, 'Transport details could not be loaded.'),
-      );
+      setError(operationError(reason, t('loadTransportError')));
     } finally {
       setLoading(false);
     }
@@ -141,9 +141,7 @@ export function BusinessTransportClient({
     const mode = detail.mode.trim();
     const operatorName = detail.operatorName.trim();
     if (mode.length > 40 || operatorName.length > 180) {
-      setError(
-        'Mode must be at most 40 characters and operator name at most 180.',
-      );
+      setError(t('transportDetailInvalid'));
       return;
     }
     setSaving(true);
@@ -156,7 +154,7 @@ export function BusinessTransportClient({
       setTransport(updated);
       setDetail(detailFields(updated));
     } catch (reason) {
-      setError(operationError(reason, 'Transport details could not be saved.'));
+      setError(operationError(reason, t('saveTransportError')));
     } finally {
       setSaving(false);
     }
@@ -164,11 +162,11 @@ export function BusinessTransportClient({
 
   function transportRouteInput(): TransportRouteInput | null {
     if (!route.originCityId || !route.destinationCityId) {
-      setError('Choose both origin and destination cities.');
+      setError(t('transportCitiesRequired'));
       return null;
     }
     if (route.originCityId === route.destinationCityId) {
-      setError('Origin and destination cities must be different.');
+      setError(t('transportCitiesDistinct'));
       return null;
     }
     return route;
@@ -196,9 +194,7 @@ export function BusinessTransportClient({
       setRoute(blankRoute());
       await load();
     } catch (reason) {
-      setError(
-        operationError(reason, 'The transport route could not be saved.'),
-      );
+      setError(operationError(reason, t('saveTransportRouteError')));
     } finally {
       setSaving(false);
     }
@@ -209,7 +205,7 @@ export function BusinessTransportClient({
     const departure = new Date(schedule.departureAt);
     const arrival = new Date(schedule.arrivalAt);
     if (!schedule.departureAt || !schedule.arrivalAt || arrival <= departure) {
-      setError('Arrival must be after departure.');
+      setError(t('transportArrivalInvalid'));
       return null;
     }
     if (
@@ -217,9 +213,7 @@ export function BusinessTransportClient({
       !/^[A-Z]{3}$/.test(schedule.currency) ||
       capacity === null
     ) {
-      setError(
-        'Use a non-negative decimal fare, uppercase currency, and positive whole capacity.',
-      );
+      setError(t('transportScheduleInvalid'));
       return null;
     }
     return {
@@ -263,9 +257,7 @@ export function BusinessTransportClient({
       setSchedule(blankSchedule());
       await load();
     } catch (reason) {
-      setError(
-        operationError(reason, 'The transport schedule could not be saved.'),
-      );
+      setError(operationError(reason, t('saveTransportScheduleError')));
     } finally {
       setSaving(false);
     }
@@ -289,7 +281,7 @@ export function BusinessTransportClient({
       );
       await load();
     } catch (reason) {
-      setError(operationError(reason, 'Schedule status could not be changed.'));
+      setError(operationError(reason, t('scheduleLifecycleError')));
     } finally {
       setSaving(false);
     }
@@ -298,7 +290,7 @@ export function BusinessTransportClient({
   if (loading) {
     return (
       <p className="rounded-md bg-white p-5 text-sm text-slate-500">
-        Loading transport details...
+        {t('loadingTransport')}
       </p>
     );
   }
@@ -309,13 +301,15 @@ export function BusinessTransportClient({
         <ServiceWorkspaceHeader
           businessId={businessId}
           serviceId={serviceId}
-          serviceName={transport?.service.name ?? 'Transport Details'}
+          serviceName={transport?.service.name ?? t('transportDetails')}
           serviceStatus={transport?.service.status ?? 'DRAFT'}
-          categoryName={transport?.service.category.name ?? 'Transport Details'}
+          categoryName={
+            transport?.service.category.name ?? t('transportDetails')
+          }
           categoryFamily="TRANSPORT"
           canWrite={canWrite}
           currentSection="category"
-          description="Configure route and dated schedule information. Transport capacity remains configuration metadata."
+          description={t('transportDetails')}
         />
         {error ? (
           <p
@@ -329,14 +323,15 @@ export function BusinessTransportClient({
           <>
             <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-bold text-slate-950">
-                Transport details
+                {t('transportDetails')}
               </h2>
               <form
                 onSubmit={(event) => void saveDetail(event)}
                 className="mt-4 grid gap-4 sm:grid-cols-2"
               >
                 <label className="text-sm font-semibold text-slate-700">
-                  Mode <span className="font-normal">(optional)</span>
+                  {t('mode')}{' '}
+                  <span className="font-normal">({t('optional')})</span>
                   <input
                     disabled={!canWrite || saving}
                     maxLength={40}
@@ -351,7 +346,8 @@ export function BusinessTransportClient({
                   />
                 </label>
                 <label className="text-sm font-semibold text-slate-700">
-                  Operator name <span className="font-normal">(optional)</span>
+                  {t('operatorName')}{' '}
+                  <span className="font-normal">({t('optional')})</span>
                   <input
                     disabled={!canWrite || saving}
                     maxLength={180}
@@ -371,7 +367,7 @@ export function BusinessTransportClient({
                       disabled={saving}
                       className="rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                     >
-                      {saving ? 'Saving...' : 'Save transport details'}
+                      {saving ? t('saving') : t('saveTransportDetails')}
                     </button>
                   </div>
                 ) : null}
@@ -382,7 +378,7 @@ export function BusinessTransportClient({
               <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-bold text-slate-950">
-                    {editingRoute ? 'Edit route' : 'Add route'}
+                    {editingRoute ? t('editRoute') : t('addRoute')}
                   </h2>
                   {editingRoute ? (
                     <button
@@ -393,13 +389,13 @@ export function BusinessTransportClient({
                       }}
                       className="text-sm font-semibold text-slate-600"
                     >
-                      Cancel edit
+                      {t('cancelEdit')}
                     </button>
                   ) : null}
                 </div>
                 {!transport.detail ? (
                   <p className="mt-3 text-sm text-slate-600">
-                    Save transport details first to add routes.
+                    {t('saveTransportBeforeRoutes')}
                   </p>
                 ) : (
                   <form
@@ -407,7 +403,7 @@ export function BusinessTransportClient({
                     className="mt-4 grid gap-4 sm:grid-cols-2"
                   >
                     <label className="text-sm font-semibold text-slate-700">
-                      Origin city
+                      {t('originCity')}
                       <select
                         required
                         disabled={saving}
@@ -420,7 +416,7 @@ export function BusinessTransportClient({
                         }
                         className="mt-1.5 w-full rounded-md border border-slate-300 p-2.5"
                       >
-                        <option value="">Choose a city</option>
+                        <option value="">{t('chooseCity')}</option>
                         {cities.map((city) => (
                           <option key={city.id} value={city.id}>
                             {city.name}
@@ -429,7 +425,7 @@ export function BusinessTransportClient({
                       </select>
                     </label>
                     <label className="text-sm font-semibold text-slate-700">
-                      Destination city
+                      {t('destinationCity')}
                       <select
                         required
                         disabled={saving}
@@ -442,7 +438,7 @@ export function BusinessTransportClient({
                         }
                         className="mt-1.5 w-full rounded-md border border-slate-300 p-2.5"
                       >
-                        <option value="">Choose a city</option>
+                        <option value="">{t('chooseCity')}</option>
                         {cities.map((city) => (
                           <option key={city.id} value={city.id}>
                             {city.name}
@@ -456,10 +452,10 @@ export function BusinessTransportClient({
                         className="rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                       >
                         {saving
-                          ? 'Saving...'
+                          ? t('saving')
                           : editingRoute
-                            ? 'Save route'
-                            : 'Add route'}
+                            ? t('saveRoute')
+                            : t('addRoute')}
                       </button>
                     </div>
                   </form>
@@ -469,7 +465,7 @@ export function BusinessTransportClient({
 
             <section className="mt-6 space-y-4">
               <h2 className="text-lg font-bold text-slate-950">
-                Routes and schedules
+                {t('routesSchedules')}
               </h2>
               {transport.routes.length ? (
                 transport.routes.map((item) => (
@@ -485,8 +481,7 @@ export function BusinessTransportClient({
                           {item.destinationCity.name}
                         </h3>
                         <p className="mt-1 text-sm text-slate-600">
-                          Schedules are configured departure metadata; they do
-                          not reserve capacity.
+                          {t('transportScheduleBoundary')}
                         </p>
                       </div>
                       {canWrite ? (
@@ -499,7 +494,7 @@ export function BusinessTransportClient({
                           }}
                           className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
                         >
-                          Edit route
+                          {t('editRoute')}
                         </button>
                       ) : null}
                     </div>
@@ -509,7 +504,7 @@ export function BusinessTransportClient({
                         className="mt-5 grid gap-3 border-t border-slate-100 pt-5 md:grid-cols-3"
                       >
                         <label className="text-sm font-semibold text-slate-700">
-                          Departure
+                          {t('departure')}
                           <input
                             required
                             disabled={saving}
@@ -530,7 +525,7 @@ export function BusinessTransportClient({
                           />
                         </label>
                         <label className="text-sm font-semibold text-slate-700">
-                          Arrival
+                          {t('arrival')}
                           <input
                             required
                             disabled={saving}
@@ -551,7 +546,7 @@ export function BusinessTransportClient({
                           />
                         </label>
                         <label className="text-sm font-semibold text-slate-700">
-                          Fare
+                          {t('fare')}
                           <input
                             required
                             disabled={saving}
@@ -570,7 +565,7 @@ export function BusinessTransportClient({
                           />
                         </label>
                         <label className="text-sm font-semibold text-slate-700">
-                          Currency
+                          {t('currency')}
                           <input
                             required
                             disabled={saving}
@@ -591,7 +586,7 @@ export function BusinessTransportClient({
                           />
                         </label>
                         <label className="text-sm font-semibold text-slate-700">
-                          Capacity
+                          {t('capacity')}
                           <input
                             required
                             disabled={saving}
@@ -617,10 +612,10 @@ export function BusinessTransportClient({
                             className="rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                           >
                             {saving
-                              ? 'Saving...'
+                              ? t('saving')
                               : editingSchedule?.routeId === item.id
-                                ? 'Save schedule'
-                                : 'Add schedule'}
+                                ? t('saveSchedule')
+                                : t('addSchedule')}
                           </button>
                           {editingSchedule?.routeId === item.id ? (
                             <button
@@ -632,7 +627,7 @@ export function BusinessTransportClient({
                               }}
                               className="text-sm font-semibold text-slate-600"
                             >
-                              Cancel
+                              {t('cancel')}
                             </button>
                           ) : null}
                         </div>
@@ -656,9 +651,14 @@ export function BusinessTransportClient({
                                 ).toLocaleString()}
                               </p>
                               <p className="mt-1 text-slate-600">
-                                {scheduleItem.fare} {scheduleItem.currency} ·
-                                capacity {scheduleItem.capacity} ·{' '}
-                                {scheduleItem.isActive ? 'Active' : 'Inactive'}
+                                {t('scheduleSummary', {
+                                  fare: scheduleItem.fare,
+                                  currency: scheduleItem.currency,
+                                  capacity: scheduleItem.capacity,
+                                })}{' '}
+                                {scheduleItem.isActive
+                                  ? t('active')
+                                  : t('inactive')}
                               </p>
                             </div>
                             {canWrite ? (
@@ -676,7 +676,7 @@ export function BusinessTransportClient({
                                   }}
                                   className="rounded-md border border-slate-300 px-3 py-2 font-semibold text-slate-700"
                                 >
-                                  Edit
+                                  {t('edit')}
                                 </button>
                                 <button
                                   type="button"
@@ -691,8 +691,8 @@ export function BusinessTransportClient({
                                   className="rounded-md border border-slate-300 px-3 py-2 font-semibold text-slate-700"
                                 >
                                   {scheduleItem.isActive
-                                    ? 'Deactivate'
-                                    : 'Reactivate'}
+                                    ? t('deactivate')
+                                    : t('reactivate')}
                                 </button>
                               </div>
                             ) : null}
@@ -700,7 +700,7 @@ export function BusinessTransportClient({
                         ))
                       ) : (
                         <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-600">
-                          No schedules have been added for this route.
+                          {t('noSchedules')}
                         </p>
                       )}
                     </div>
@@ -708,7 +708,7 @@ export function BusinessTransportClient({
                 ))
               ) : (
                 <p className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
-                  No routes have been added yet.
+                  {t('noRoutes')}
                 </p>
               )}
             </section>

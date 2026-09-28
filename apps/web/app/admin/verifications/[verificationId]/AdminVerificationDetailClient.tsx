@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   getAdminVerification,
   getPrivateDocumentAccess,
@@ -13,6 +14,7 @@ import {
 import type { AdminVerification } from '../../../../lib/admin-verifications';
 
 export function AdminVerificationDetailClient() {
+  const t = useTranslations('adminPortal');
   const params = useParams<{ verificationId: string }>();
   const pathname = usePathname();
   const router = useRouter();
@@ -38,9 +40,8 @@ export function AdminVerificationDetailClient() {
           : undefined;
       if (code === 401)
         router.replace(`/login?returnTo=${encodeURIComponent(pathname)}`);
-      else if (code === 403)
-        setError('Only administrators can review this verification.');
-      else setError('We could not load this verification.');
+      else if (code === 403) setError(t('adminOnlyVerification'));
+      else setError(t('loadVerificationError'));
     } finally {
       setLoading(false);
     }
@@ -60,7 +61,7 @@ export function AdminVerificationDetailClient() {
           : protectedDocumentContentPath(params.verificationId, documentId);
       window.open(target, '_blank', 'noopener,noreferrer');
     } catch {
-      setError('The private document could not be opened.');
+      setError(t('documentOpenError'));
     }
   };
   const approve = async () => {
@@ -70,7 +71,7 @@ export function AdminVerificationDetailClient() {
       await approveVerification(verification.id, notes.trim() || undefined);
       await load();
     } catch {
-      setError('The verification could not be approved.');
+      setError(t('verificationApproveError'));
     } finally {
       setSaving(false);
     }
@@ -78,7 +79,7 @@ export function AdminVerificationDetailClient() {
   const reject = async () => {
     if (!verification || saving) return;
     if (reason.trim().length < 3) {
-      setError('A rejection reason of at least three characters is required.');
+      setError(t('rejectionReasonMinimum'));
       return;
     }
     setSaving(true);
@@ -90,7 +91,7 @@ export function AdminVerificationDetailClient() {
       );
       await load();
     } catch {
-      setError('The verification could not be rejected.');
+      setError(t('verificationRejectError'));
     } finally {
       setSaving(false);
     }
@@ -101,11 +102,11 @@ export function AdminVerificationDetailClient() {
         href="/admin/verifications"
         className="text-sm font-semibold text-highland"
       >
-        ← Verification queue
+        ← {t('verificationQueue')}
       </Link>
       {loading ? (
         <p className="rounded border bg-white p-6 text-sm text-slate-600">
-          Loading verification...
+          {t('loadingVerification')}
         </p>
       ) : null}
       {error ? (
@@ -128,25 +129,25 @@ export function AdminVerificationDetailClient() {
                   {verification.business.name}
                 </h2>
                 <p className="mt-2 text-sm text-slate-600">
-                  Applicant: {verification.applicant.email}
+                  {t('applicant')}: {verification.applicant.email}
                 </p>
                 <p className="mt-1 text-sm text-slate-600">
-                  Submitted:{' '}
+                  {t('submitted')}:{' '}
                   {verification.submittedAt
                     ? new Date(verification.submittedAt).toLocaleString()
-                    : 'Not submitted'}
+                    : t('notSubmitted')}
                 </p>
               </div>
               <p className="text-sm text-slate-600">
-                Primary location:{' '}
+                {t('primaryLocation')}:{' '}
                 {verification.business.locations[0]
                   ? `${verification.business.locations[0].label}, ${verification.business.locations[0].city.name}`
-                  : 'Not available'}
+                  : t('notAvailable')}
               </p>
             </div>
           </section>
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-bold">Evidence</h2>
+            <h2 className="text-lg font-bold">{t('evidence')}</h2>
             <ul className="mt-4 space-y-3">
               {verification.documents.map((document) => (
                 <li
@@ -163,7 +164,7 @@ export function AdminVerificationDetailClient() {
                     onClick={() => void openDocument(document.id)}
                     className="rounded border border-slate-300 px-3 py-2 text-sm font-semibold text-highland"
                   >
-                    View document
+                    {t('viewDocument')}
                   </button>
                 </li>
               ))}
@@ -171,9 +172,9 @@ export function AdminVerificationDetailClient() {
           </section>
           {verification.status === 'PENDING' ? (
             <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-bold">Review decision</h2>
+              <h2 className="text-lg font-bold">{t('reviewDecision')}</h2>
               <label className="mt-4 block text-sm font-semibold text-slate-700">
-                Admin notes (optional)
+                {t('adminNotes')} ({t('optional')})
                 <textarea
                   value={notes}
                   maxLength={5000}
@@ -183,7 +184,7 @@ export function AdminVerificationDetailClient() {
                 />
               </label>
               <label className="mt-4 block text-sm font-semibold text-slate-700">
-                Rejection reason (required only to reject)
+                {t('rejectionReason')} ({t('requiredToReject')})
                 <textarea
                   value={reason}
                   maxLength={5000}
@@ -199,7 +200,7 @@ export function AdminVerificationDetailClient() {
                   onClick={() => void approve()}
                   className="rounded bg-highland px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
-                  Approve
+                  {t('approve')}
                 </button>
                 <button
                   type="button"
@@ -207,7 +208,7 @@ export function AdminVerificationDetailClient() {
                   onClick={() => void reject()}
                   className="rounded border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
                 >
-                  Reject
+                  {t('reject')}
                 </button>
               </div>
             </section>

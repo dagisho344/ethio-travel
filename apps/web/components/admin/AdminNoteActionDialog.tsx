@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { adminFetch } from '../../lib/admin';
 
 export function AdminNoteActionDialog({
@@ -16,6 +17,7 @@ export function AdminNoteActionDialog({
   onComplete: () => void;
   target: string;
 }) {
+  const t = useTranslations('adminPortal');
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +34,7 @@ export function AdminNoteActionDialog({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (note.trim().length < 3) {
-      setError('Enter at least 3 characters.');
+      setError(t('noteMinimum'));
       return;
     }
     setSaving(true);
@@ -46,7 +48,7 @@ export function AdminNoteActionDialog({
       setNote('');
       onComplete();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Action failed.');
+      setError(cause instanceof Error ? cause.message : t('actionFailed'));
     } finally {
       setSaving(false);
     }
@@ -65,15 +67,14 @@ export function AdminNoteActionDialog({
           <section
             role="dialog"
             aria-modal="true"
-            aria-label={`${action} confirmation`}
+            aria-label={t('dialogConfirmation', { action })}
             className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl"
           >
             <h2 className="text-lg font-bold text-slate-950">
-              {action} {target}?
+              {t('dialogActionTarget', { action, target })}
             </h2>
             <p className="mt-2 text-sm text-slate-600">
-              This action preserves historical content and creates an audit
-              record.
+              {t('auditRecordNotice')}
             </p>
             <form
               onSubmit={(event) => {
@@ -83,8 +84,8 @@ export function AdminNoteActionDialog({
             >
               <label className="block text-sm font-semibold text-slate-800">
                 {field === 'resolution'
-                  ? 'Resolution note'
-                  : 'Moderation reason'}
+                  ? t('resolutionNote')
+                  : t('moderationReason')}
                 <textarea
                   required
                   minLength={3}
@@ -107,14 +108,14 @@ export function AdminNoteActionDialog({
                   onClick={() => setOpen(false)}
                   className="rounded border border-slate-300 px-3 py-2 text-sm font-semibold"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="rounded bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
                 >
-                  {saving ? 'Saving…' : action}
+                  {saving ? t('saving') : action}
                 </button>
               </div>
             </form>

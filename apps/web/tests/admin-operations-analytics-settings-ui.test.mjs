@@ -12,12 +12,13 @@ function read(path) {
 
 void test('admin operations navigation exposes only implemented investigation, analytics, and settings pages', () => {
   const shell = read('components/admin/AdminWorkspaceShell.tsx');
-  for (const label of ['Bookings', 'Payments', 'Analytics', 'Settings']) {
+  for (const label of ['bookings', 'payments', 'analytics', 'settings']) {
     assert.match(shell, new RegExp(`label: '${label}'`));
   }
-  assert.match(shell, /label: 'Operations'/);
-  assert.match(shell, /label: 'Insights'/);
-  assert.match(shell, /label: 'System'/);
+  assert.match(shell, /label: 'operations'/);
+  assert.match(shell, /label: 'insights'/);
+  assert.match(shell, /label: 'system'/);
+  assert.match(shell, /useTranslations\('adminPortal'\)/);
 });
 
 void test('booking and payment investigation BFF routes are bounded, UUID-validated, and token-free', () => {
@@ -55,9 +56,10 @@ void test('analytics and settings use real safe BFF data without secret-like edi
   const bff = read('app/api/admin/bff.ts');
 
   assert.match(analytics, /\/api\/admin\/analytics/);
-  assert.match(analytics, /Captured revenue/);
+  assert.match(analytics, /useTranslations\('adminPortal'\)/);
+  assert.match(analytics, /t\('capturedRevenue'\)/);
   assert.match(settings, /\/api\/admin\/settings/);
-  assert.match(settings, /Support email/);
+  assert.match(settings, /t\('supportEmail'\)/);
   assert.match(settingsBff, /adminAllowedBody\(request, allowedFields, true\)/);
   assert.match(bff, /rejectUnknown/);
   for (const source of [analytics, settings, settingsBff, bff]) {
@@ -72,7 +74,7 @@ void test('admin payment UI keeps booking and payment status distinct and avoids
   const detail = read('app/admin/payments/[id]/AdminPaymentDetailClient.tsx');
   const summary = read('components/payments/PaymentSummary.tsx');
 
-  assert.match(detail, /Relevant audit history/);
+  assert.match(detail, /t\('relevantAuditHistory'\)/);
   assert.match(summary, /useTranslations\('payment'\)/);
   assert.match(summary, /t\('bookingStatus'\)/);
   assert.match(summary, /t\('paymentStatus'\)/);

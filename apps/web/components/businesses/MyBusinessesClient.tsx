@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight, Building2, MapPin, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   getManagedBusinesses,
   nextBusinessAction,
@@ -19,6 +20,7 @@ function statusClass(status: string): string {
 }
 
 export function MyBusinessesClient() {
+  const t = useTranslations('businessPortal');
   const [page, setPage] = useState<ManagedBusinessesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,12 +35,7 @@ export function MyBusinessesClient() {
         if (active) setPage(result);
       } catch (requestError) {
         if (active) {
-          setError(
-            requestErrorMessage(
-              requestError,
-              'We could not load your businesses right now.',
-            ),
-          );
+          setError(requestErrorMessage(requestError, t('loadBusinessesError')));
         }
       } finally {
         if (active) setLoading(false);
@@ -54,7 +51,7 @@ export function MyBusinessesClient() {
   const hasBusinesses = businesses.length > 0;
 
   return (
-    <section aria-label="My businesses">
+    <section aria-label={t('myBusinesses')}>
       {error ? (
         <p
           role="alert"
@@ -65,20 +62,18 @@ export function MyBusinessesClient() {
       ) : null}
       {loading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-          Loading your businesses…
+          {t('loadingBusinesses')}
         </div>
       ) : hasBusinesses ? (
         <>
           <div className="mb-6 flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-slate-600">
-              Manage the businesses where you are an active member.
-            </p>
+            <p className="text-sm text-slate-600">{t('activeMemberNotice')}</p>
             <Link
               href="/business/onboarding"
               className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-highland px-3 py-2 text-sm font-semibold text-highland transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
-              Add another business
+              {t('addBusiness')}
             </Link>
           </div>
           <div className="grid gap-5 md:grid-cols-2">
@@ -122,7 +117,7 @@ export function MyBusinessesClient() {
                 </p>
                 <div className="mt-auto flex items-end justify-between gap-4 pt-6">
                   <p className="text-sm text-slate-600">
-                    Your role:{' '}
+                    {t('yourRole')}{' '}
                     <strong className="text-slate-900">
                       {business.currentMember.role.toLowerCase()}
                     </strong>
@@ -132,8 +127,8 @@ export function MyBusinessesClient() {
                     className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-highland px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
                   >
                     {business.status === 'ARCHIVED'
-                      ? 'View Dashboard'
-                      : 'Open Dashboard'}
+                      ? t('viewDashboard')
+                      : t('openDashboard')}
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
                 </div>
@@ -148,18 +143,17 @@ export function MyBusinessesClient() {
             aria-hidden="true"
           />
           <h2 className="mt-4 text-lg font-bold text-slate-950">
-            No businesses yet
+            {t('noBusinesses')}
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-            Create a private business draft. It will not appear in public
-            discovery until the established verification process approves it.
+            {t('noBusinessesDescription')}
           </p>
           <Link
             href="/business/onboarding"
             className="mt-5 inline-flex items-center gap-2 rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            List your business
+            {t('listBusiness')}
           </Link>
         </div>
       )}

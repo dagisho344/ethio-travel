@@ -3,27 +3,28 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { ArrowRight, CalendarSearch } from 'lucide-react';
 import {
   BookingStatusBadge,
   PaymentStatusBadge,
 } from '../../../components/bookings/BookingStatusBadge';
-import {
-  bookingStatusOptions,
-  formatBookingDate,
-  formatMoney,
-} from '../../../lib/bookings';
+import { bookingStatusOptions } from '../../../lib/bookings';
 import type { AdminBooking, AdminPage } from '../../../lib/admin';
+import { resolveLocale } from '../../../i18n/config';
+import { formatLocaleDate, formatLocaleMoney } from '../../../i18n/format';
 
-function travelerName(booking: AdminBooking): string {
+function travelerName(booking: AdminBooking, fallback: string): string {
   const profile = booking.traveler.profile;
   const name = [profile?.firstName, profile?.lastName]
     .filter(Boolean)
     .join(' ');
-  return name || 'Traveler';
+  return name || fallback;
 }
 
 export function AdminBookingsClient() {
+  const t = useTranslations('adminPortal');
+  const locale = resolveLocale(useLocale());
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -54,20 +55,20 @@ export function AdminBookingsClient() {
         }
         if (response.status === 403) {
           setPage(null);
-          setError('Only administrators can inspect bookings.');
+          setError(t('adminBookingsDenied'));
           return;
         }
         if (!response.ok) throw new Error('Request failed');
         setPage((await response.json()) as AdminPage<AdminBooking>);
       } catch {
         setPage(null);
-        setError('We could not load bookings right now.');
+        setError(t('loadBookingsError'));
       } finally {
         setLoading(false);
       }
     };
     void load();
-  }, [pathname, query, router]);
+  }, [pathname, query, router, t]);
 
   function update(updates: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams);
@@ -83,23 +84,22 @@ export function AdminBookingsClient() {
     <div className="mx-auto max-w-7xl space-y-6">
       <header>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-          Operations
+          {t('operations')}
         </p>
         <h1 className="mt-1 text-3xl font-bold text-slate-950">
-          Booking investigation
+          {t('bookingInvestigation')}
         </h1>
         <p className="mt-2 text-slate-600">
-          Inspect booking records, schedules, and payment states without
-          overriding lifecycle controls.
+          {t('bookingInvestigationDescription')}
         </p>
       </header>
 
       <section
-        aria-label="Booking filters"
+        aria-label={t('bookingFilters')}
         className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-4"
       >
         <label className="text-sm font-semibold text-slate-700">
-          Booking status
+          {t('bookingStatus')}
           <select
             value={searchParams.get('status') ?? ''}
             onChange={(event) =>
@@ -115,7 +115,7 @@ export function AdminBookingsClient() {
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Reference
+          {t('reference')}
           <input
             value={searchParams.get('reference') ?? ''}
             onChange={(event) =>
@@ -129,7 +129,7 @@ export function AdminBookingsClient() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Traveler
+          {t('traveler')}
           <input
             value={searchParams.get('traveler') ?? ''}
             onChange={(event) =>
@@ -143,7 +143,7 @@ export function AdminBookingsClient() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Business
+          {t('business')}
           <input
             value={searchParams.get('business') ?? ''}
             onChange={(event) =>
@@ -157,7 +157,7 @@ export function AdminBookingsClient() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Service
+          {t('service')}
           <input
             value={searchParams.get('service') ?? ''}
             onChange={(event) =>
@@ -171,7 +171,7 @@ export function AdminBookingsClient() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Starts from
+          {t('startsFrom')}
           <input
             type="date"
             value={searchParams.get('startFrom') ?? ''}
@@ -182,7 +182,7 @@ export function AdminBookingsClient() {
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Starts to
+          {t('startsTo')}
           <input
             type="date"
             value={searchParams.get('startTo') ?? ''}
@@ -208,7 +208,7 @@ export function AdminBookingsClient() {
           }
           className="self-end rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-emerald-700 hover:text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
         >
-          Clear filters
+          {t('clearFilters')}
         </button>
       </section>
 
@@ -225,7 +225,7 @@ export function AdminBookingsClient() {
       {!loading && page?.data.length ? (
         <>
           <p className="text-sm text-slate-600">
-            {page.meta.total} booking{page.meta.total === 1 ? '' : 's'} found
+            {t('bookingsFound', { count: page.meta.total })}
           </p>
           <div className="space-y-4">
             {page.data.map((booking) => (
@@ -242,7 +242,8 @@ export function AdminBookingsClient() {
                       {booking.service.name}
                     </h2>
                     <p className="mt-1 text-sm text-slate-600">
-                      {booking.business.name} · {travelerName(booking)}
+                      {booking.business.name} ·{' '}
+                      {travelerName(booking, t('traveler'))}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -252,21 +253,39 @@ export function AdminBookingsClient() {
                 </div>
                 <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
                   <div>
-                    <dt className="font-semibold text-slate-700">Schedule</dt>
+                    <dt className="font-semibold text-slate-700">
+                      {t('schedule')}
+                    </dt>
                     <dd className="mt-1 text-slate-600">
-                      {formatBookingDate(booking.startAt)}
+                      {formatLocaleDate(booking.startAt, locale, {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}
                     </dd>
                   </div>
                   <div>
-                    <dt className="font-semibold text-slate-700">Amount</dt>
+                    <dt className="font-semibold text-slate-700">
+                      {t('amount')}
+                    </dt>
                     <dd className="mt-1 text-slate-600">
-                      {formatMoney(booking.subtotal, booking.currency)}
+                      {booking.currency
+                        ? formatLocaleMoney(
+                            String(booking.subtotal),
+                            booking.currency,
+                            locale,
+                          )
+                        : String(booking.subtotal)}
                     </dd>
                   </div>
                   <div>
-                    <dt className="font-semibold text-slate-700">Created</dt>
+                    <dt className="font-semibold text-slate-700">
+                      {t('created')}
+                    </dt>
                     <dd className="mt-1 text-slate-600">
-                      {formatBookingDate(booking.createdAt)}
+                      {formatLocaleDate(booking.createdAt, locale, {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      })}
                     </dd>
                   </div>
                 </dl>
@@ -274,7 +293,7 @@ export function AdminBookingsClient() {
                   href={'/admin/bookings/' + booking.id}
                   className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-emerald-800 hover:text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
                 >
-                  Investigate booking <ArrowRight className="h-4 w-4" />
+                  {t('investigateBooking')} <ArrowRight className="h-4 w-4" />
                 </Link>
               </article>
             ))}
@@ -285,16 +304,16 @@ export function AdminBookingsClient() {
         <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
           <CalendarSearch className="mx-auto h-8 w-8 text-emerald-700" />
           <h2 className="mt-3 text-lg font-semibold text-slate-950">
-            No bookings found
+            {t('noBookings')}
           </h2>
           <p className="mt-2 text-sm text-slate-600">
-            Adjust the bounded filters to inspect another booking record.
+            {t('noBookingsDescription')}
           </p>
         </div>
       ) : null}
       {page && page.meta.totalPages > 1 ? (
         <nav
-          aria-label="Booking pagination"
+          aria-label={t('bookingPagination')}
           className="flex justify-center gap-2"
         >
           <button
@@ -303,7 +322,7 @@ export function AdminBookingsClient() {
             onClick={() => update({ page: String(page.meta.page - 1) })}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40"
           >
-            Previous
+            {t('previous')}
           </button>
           <button
             type="button"
@@ -311,7 +330,7 @@ export function AdminBookingsClient() {
             onClick={() => update({ page: String(page.meta.page + 1) })}
             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-40"
           >
-            Next
+            {t('next')}
           </button>
         </nav>
       ) : null}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { getJson } from '../../lib/api';
 import {
   canEditBusiness,
@@ -67,6 +68,7 @@ export function BusinessServiceWorkspaceClient({
   businessId: string;
   serviceId: string;
 }) {
+  const t = useTranslations('businessPortal');
   const [service, setService] = useState<ManagedService | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [canWrite, setCanWrite] = useState(false);
@@ -93,7 +95,7 @@ export function BusinessServiceWorkspaceClient({
       );
       setFields(fieldsFor(currentService));
     } catch (reason) {
-      setError(operationError(reason, 'The service workspace could not load.'));
+      setError(operationError(reason, t('loadServiceWorkspaceError')));
     } finally {
       setLoading(false);
     }
@@ -131,21 +133,21 @@ export function BusinessServiceWorkspaceClient({
       fields.shortDescription.trim().length < 10 ||
       fields.description.trim().length < 10
     ) {
-      setError('Complete the required service fields.');
+      setError(t('serviceRequired'));
       return null;
     }
     if (
       (price !== null && (!Number.isFinite(price) || price < 0)) ||
       (duration !== null && (!Number.isInteger(duration) || duration < 1))
     ) {
-      setError('Enter a valid non-negative price and a whole-number duration.');
+      setError(t('servicePriceInvalid'));
       return null;
     }
     if (
       paidModels.has(fields.pricingModel) &&
       (price === null || !/^[A-Z]{3}$/.test(currency))
     ) {
-      setError('Paid services need a price and a three-letter currency.');
+      setError(t('serviceCurrencyRequired'));
       return null;
     }
     return {
@@ -172,7 +174,7 @@ export function BusinessServiceWorkspaceClient({
       setService(updated);
       setFields(fieldsFor(updated));
     } catch (reason) {
-      setError(operationError(reason, 'The service could not be saved.'));
+      setError(operationError(reason, t('saveServiceError')));
     } finally {
       setSaving(false);
     }
@@ -181,7 +183,7 @@ export function BusinessServiceWorkspaceClient({
   if (loading) {
     return (
       <p className="rounded-md bg-white p-5 text-sm text-slate-500">
-        Loading service workspace...
+        {t('loadingServiceWorkspace')}
       </p>
     );
   }
@@ -192,7 +194,7 @@ export function BusinessServiceWorkspaceClient({
         role="alert"
         className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
       >
-        {error ?? 'The service workspace is unavailable.'}
+        {error ?? t('serviceWorkspaceUnavailable')}
       </p>
     );
   }
@@ -211,7 +213,7 @@ export function BusinessServiceWorkspaceClient({
           categoryFamily={service.category.family}
           canWrite={canWrite}
           currentSection="general"
-          description="Manage shared service details, then use the relevant category editor for specialized information."
+          description={t('serviceWorkspaceDescription')}
         />
         {error ? (
           <p
@@ -225,16 +227,16 @@ export function BusinessServiceWorkspaceClient({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-slate-950">
-                General details
+                {t('generalDetails')}
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Shared Service fields remain separate from category-specific
-                prices and configuration.
+                {t('sharedServiceFields')}
               </p>
             </div>
             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-              Booking{' '}
-              {service.bookingConfig?.enabled ? 'enabled' : 'not configured'}
+              {service.bookingConfig?.enabled
+                ? t('bookingEnabled')
+                : t('bookingDisabled')}
             </span>
           </div>
           {canWrite ? (
@@ -243,7 +245,7 @@ export function BusinessServiceWorkspaceClient({
               className="mt-5 grid gap-4 sm:grid-cols-2"
             >
               <label className="text-sm font-semibold text-slate-700">
-                Service category
+                {t('serviceCategory')}
                 <select
                   required
                   disabled={saving}
@@ -259,7 +261,7 @@ export function BusinessServiceWorkspaceClient({
                 </select>
               </label>
               <label className="text-sm font-semibold text-slate-700">
-                Service name
+                {t('serviceName')}
                 <input
                   required
                   disabled={saving}
@@ -270,7 +272,7 @@ export function BusinessServiceWorkspaceClient({
                 />
               </label>
               <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-                Short description
+                {t('shortDescription')}
                 <input
                   required
                   disabled={saving}
@@ -284,7 +286,7 @@ export function BusinessServiceWorkspaceClient({
                 />
               </label>
               <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-                Description
+                {t('description')}
                 <textarea
                   required
                   disabled={saving}
@@ -298,7 +300,7 @@ export function BusinessServiceWorkspaceClient({
                 />
               </label>
               <label className="text-sm font-semibold text-slate-700">
-                Pricing model
+                {t('pricingModel')}
                 <select
                   disabled={saving}
                   value={fields.pricingModel}
@@ -324,7 +326,7 @@ export function BusinessServiceWorkspaceClient({
                 </select>
               </label>
               <label className="text-sm font-semibold text-slate-700">
-                Price
+                {t('price')}
                 <input
                   disabled={saving}
                   inputMode="decimal"
@@ -334,7 +336,7 @@ export function BusinessServiceWorkspaceClient({
                 />
               </label>
               <label className="text-sm font-semibold text-slate-700">
-                Currency
+                {t('currency')}
                 <input
                   disabled={saving}
                   maxLength={3}
@@ -346,8 +348,8 @@ export function BusinessServiceWorkspaceClient({
                 />
               </label>
               <label className="text-sm font-semibold text-slate-700">
-                Duration in minutes{' '}
-                <span className="font-normal">(optional)</span>
+                {t('durationMinutes')}{' '}
+                <span className="font-normal">({t('optional')})</span>
                 <input
                   disabled={saving}
                   inputMode="numeric"
@@ -360,9 +362,7 @@ export function BusinessServiceWorkspaceClient({
               </label>
               {categoryFamilyChanged ? (
                 <p className="sm:col-span-2 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                  Changing the category changes which category-specific editor
-                  is used. Existing specialized configuration is preserved and
-                  is not deleted by this update.
+                  {t('categoryChangeWarning')}
                 </p>
               ) : null}
               <div className="sm:col-span-2">
@@ -370,18 +370,20 @@ export function BusinessServiceWorkspaceClient({
                   disabled={saving}
                   className="rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                 >
-                  {saving ? 'Saving...' : 'Save general details'}
+                  {saving ? t('saving') : t('saveGeneralDetails')}
                 </button>
               </div>
             </form>
           ) : (
             <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
               <div>
-                <dt className="font-semibold text-slate-700">Description</dt>
+                <dt className="font-semibold text-slate-700">
+                  {t('description')}
+                </dt>
                 <dd className="mt-1 text-slate-600">{service.description}</dd>
               </div>
               <div>
-                <dt className="font-semibold text-slate-700">Pricing</dt>
+                <dt className="font-semibold text-slate-700">{t('pricing')}</dt>
                 <dd className="mt-1 text-slate-600">
                   {service.price === null
                     ? service.pricingModel.replaceAll('_', ' ')
@@ -393,16 +395,18 @@ export function BusinessServiceWorkspaceClient({
         </section>
         <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-bold text-slate-950">
-            Category-specific configuration
+            {t('categorySpecificConfiguration')}
           </h2>
           {editor ? (
             <p className="mt-2 text-sm text-slate-600">
-              {editor.description}. Use {editor.label} to manage this Service's
-              specialized data.
+              {t('categoryEditorDescription', {
+                description: editor.description,
+                label: editor.label,
+              })}
             </p>
           ) : (
             <p className="mt-2 text-sm text-slate-600">
-              No category-specific editor is required for this service.
+              {t('noCategorySpecificEditor')}
             </p>
           )}
         </section>

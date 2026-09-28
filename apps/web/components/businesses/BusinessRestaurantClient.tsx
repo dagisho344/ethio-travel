@@ -1,6 +1,7 @@
 'use client';
 
 import { ServiceWorkspaceHeader } from './ServiceWorkspaceHeader';
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import {
   canEditBusiness,
@@ -104,6 +105,7 @@ export function BusinessRestaurantClient({
   businessId: string;
   serviceId: string;
 }) {
+  const t = useTranslations('businessPortal');
   const [restaurant, setRestaurant] = useState<ManagedRestaurant | null>(null);
   const [canWrite, setCanWrite] = useState(false);
   const [detail, setDetail] = useState<DetailFields>(blankDetail);
@@ -129,9 +131,7 @@ export function BusinessRestaurantClient({
       setDetail(detailValues(data));
       setCanWrite(canEditBusiness(business));
     } catch (reason) {
-      setError(
-        operationError(reason, 'Restaurant details could not be loaded.'),
-      );
+      setError(operationError(reason, t('loadRestaurantError')));
     } finally {
       setLoading(false);
     }
@@ -152,7 +152,7 @@ export function BusinessRestaurantClient({
       cuisineTypes.length > 20 ||
       cuisineTypes.some((value) => value.length > 80)
     ) {
-      setError('Use at most 20 cuisine types, each at most 80 characters.');
+      setError(t('cuisineTypesInvalid'));
       return;
     }
     setSaving(true);
@@ -166,9 +166,7 @@ export function BusinessRestaurantClient({
       setRestaurant(updated);
       setDetail(detailValues(updated));
     } catch (reason) {
-      setError(
-        operationError(reason, 'Restaurant details could not be saved.'),
-      );
+      setError(operationError(reason, t('saveRestaurantError')));
     } finally {
       setSaving(false);
     }
@@ -181,11 +179,11 @@ export function BusinessRestaurantClient({
       menu.name.trim().length > 180 ||
       sortOrder === null
     ) {
-      setError('Enter a menu name and a non-negative whole-number sort order.');
+      setError(t('menuInvalid'));
       return null;
     }
     if (menu.description.trim().length > 1000) {
-      setError('Menu descriptions can contain at most 1,000 characters.');
+      setError(t('menuDescriptionInvalid'));
       return null;
     }
     return {
@@ -217,9 +215,7 @@ export function BusinessRestaurantClient({
       setEditingMenu(null);
       await load();
     } catch (reason) {
-      setError(
-        operationError(reason, 'The restaurant menu could not be saved.'),
-      );
+      setError(operationError(reason, t('saveMenuError')));
     } finally {
       setSaving(false);
     }
@@ -238,9 +234,7 @@ export function BusinessRestaurantClient({
       !/^[A-Z]{3}$/.test(currency) ||
       sortOrder === null
     ) {
-      setError(
-        'Enter a menu-item name, valid non-negative decimal price, three-letter currency, and whole-number sort order.',
-      );
+      setError(t('menuItemInvalid'));
       return null;
     }
     return {
@@ -281,7 +275,7 @@ export function BusinessRestaurantClient({
       setEditingItem(null);
       await load();
     } catch (reason) {
-      setError(operationError(reason, 'The menu item could not be saved.'));
+      setError(operationError(reason, t('saveMenuItemError')));
     } finally {
       setSaving(false);
     }
@@ -300,7 +294,7 @@ export function BusinessRestaurantClient({
       );
       await load();
     } catch (reason) {
-      setError(operationError(reason, 'The menu state could not be changed.'));
+      setError(operationError(reason, t('menuLifecycleError')));
     } finally {
       setSaving(false);
     }
@@ -323,12 +317,7 @@ export function BusinessRestaurantClient({
       );
       await load();
     } catch (reason) {
-      setError(
-        operationError(
-          reason,
-          'The menu item availability could not be changed.',
-        ),
-      );
+      setError(operationError(reason, t('menuItemAvailabilityError')));
     } finally {
       setSaving(false);
     }
@@ -337,7 +326,7 @@ export function BusinessRestaurantClient({
   if (loading) {
     return (
       <p className="rounded-md bg-white p-5 text-sm text-slate-500">
-        Loading restaurant details...
+        {t('loadingRestaurant')}
       </p>
     );
   }
@@ -348,15 +337,15 @@ export function BusinessRestaurantClient({
         <ServiceWorkspaceHeader
           businessId={businessId}
           serviceId={serviceId}
-          serviceName={restaurant?.service.name ?? 'Restaurant Details'}
+          serviceName={restaurant?.service.name ?? t('restaurantDetails')}
           serviceStatus={restaurant?.service.status ?? 'DRAFT'}
           categoryName={
-            restaurant?.service.category.name ?? 'Restaurant Details'
+            restaurant?.service.category.name ?? t('restaurantDetails')
           }
           categoryFamily="RESTAURANT"
           canWrite={canWrite}
           currentSection="category"
-          description="Configure cuisine, menus, and menu items. Reservation and delivery settings remain descriptive capabilities."
+          description={t('restaurantDetails')}
         />
         {error ? (
           <p
@@ -370,19 +359,19 @@ export function BusinessRestaurantClient({
           <>
             <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-bold text-slate-950">
-                Restaurant details
+                {t('restaurantDetails')}
               </h2>
               <form
                 onSubmit={(event) => void saveDetail(event)}
                 className="mt-4 grid gap-4 sm:grid-cols-2"
               >
                 <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-                  Cuisine types{' '}
-                  <span className="font-normal">(comma separated)</span>
+                  {t('cuisineTypes')}{' '}
+                  <span className="font-normal">({t('commaSeparated')})</span>
                   <input
                     disabled={!canWrite || saving}
                     maxLength={1619}
-                    placeholder="Ethiopian, Wolaita, International"
+                    placeholder={t('cuisineTypesPlaceholder')}
                     value={detail.cuisineTypes}
                     onChange={(event) =>
                       setDetail((current) => ({
@@ -405,7 +394,7 @@ export function BusinessRestaurantClient({
                       }))
                     }
                   />
-                  Reservation supported
+                  {t('reservationSupported')}
                 </label>
                 <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                   <input
@@ -419,7 +408,7 @@ export function BusinessRestaurantClient({
                       }))
                     }
                   />
-                  Delivery supported
+                  {t('deliverySupported')}
                 </label>
                 {canWrite ? (
                   <div className="sm:col-span-2">
@@ -427,7 +416,7 @@ export function BusinessRestaurantClient({
                       disabled={saving}
                       className="rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                     >
-                      {saving ? 'Saving...' : 'Save restaurant details'}
+                      {saving ? t('saving') : t('saveRestaurantDetails')}
                     </button>
                   </div>
                 ) : null}
@@ -438,7 +427,7 @@ export function BusinessRestaurantClient({
               <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-bold text-slate-950">
-                    {editingMenu ? 'Edit menu' : 'Add menu'}
+                    {editingMenu ? t('editMenu') : t('addMenu')}
                   </h2>
                   {editingMenu ? (
                     <button
@@ -449,13 +438,13 @@ export function BusinessRestaurantClient({
                       }}
                       className="text-sm font-semibold text-slate-600"
                     >
-                      Cancel edit
+                      {t('cancelEdit')}
                     </button>
                   ) : null}
                 </div>
                 {!restaurant.detail ? (
                   <p className="mt-3 text-sm text-slate-600">
-                    Save restaurant details first to add menus.
+                    {t('saveRestaurantBeforeMenus')}
                   </p>
                 ) : (
                   <form
@@ -463,7 +452,7 @@ export function BusinessRestaurantClient({
                     className="mt-4 grid gap-4 sm:grid-cols-2"
                   >
                     <label className="text-sm font-semibold text-slate-700">
-                      Menu name
+                      {t('menuName')}
                       <input
                         required
                         disabled={saving}
@@ -479,7 +468,7 @@ export function BusinessRestaurantClient({
                       />
                     </label>
                     <label className="text-sm font-semibold text-slate-700">
-                      Sort order
+                      {t('sortOrder')}
                       <input
                         required
                         disabled={saving}
@@ -495,8 +484,8 @@ export function BusinessRestaurantClient({
                       />
                     </label>
                     <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-                      Description{' '}
-                      <span className="font-normal">(optional)</span>
+                      {t('description')}{' '}
+                      <span className="font-normal">({t('optional')})</span>
                       <textarea
                         disabled={saving}
                         maxLength={1000}
@@ -516,10 +505,10 @@ export function BusinessRestaurantClient({
                         className="rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                       >
                         {saving
-                          ? 'Saving...'
+                          ? t('saving')
                           : editingMenu
-                            ? 'Save menu'
-                            : 'Add menu'}
+                            ? t('saveMenu')
+                            : t('addMenu')}
                       </button>
                     </div>
                   </form>
@@ -531,7 +520,7 @@ export function BusinessRestaurantClient({
               <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-bold text-slate-950">
-                    {editingItem.item ? 'Edit menu item' : 'Add menu item'}
+                    {editingItem.item ? t('editMenuItem') : t('addMenuItem')}
                   </h2>
                   <button
                     type="button"
@@ -541,7 +530,7 @@ export function BusinessRestaurantClient({
                     }}
                     className="text-sm font-semibold text-slate-600"
                   >
-                    Cancel
+                    {t('cancel')}
                   </button>
                 </div>
                 <form
@@ -549,7 +538,7 @@ export function BusinessRestaurantClient({
                   className="mt-4 grid gap-4 sm:grid-cols-2"
                 >
                   <label className="text-sm font-semibold text-slate-700">
-                    Item name
+                    {t('itemName')}
                     <input
                       required
                       disabled={saving}
@@ -565,7 +554,8 @@ export function BusinessRestaurantClient({
                     />
                   </label>
                   <label className="text-sm font-semibold text-slate-700">
-                    Section <span className="font-normal">(optional)</span>
+                    {t('section')}{' '}
+                    <span className="font-normal">({t('optional')})</span>
                     <input
                       disabled={saving}
                       maxLength={120}
@@ -580,7 +570,7 @@ export function BusinessRestaurantClient({
                     />
                   </label>
                   <label className="text-sm font-semibold text-slate-700">
-                    Price
+                    {t('price')}
                     <input
                       required
                       disabled={saving}
@@ -596,7 +586,7 @@ export function BusinessRestaurantClient({
                     />
                   </label>
                   <label className="text-sm font-semibold text-slate-700">
-                    Currency
+                    {t('currency')}
                     <input
                       required
                       disabled={saving}
@@ -612,7 +602,7 @@ export function BusinessRestaurantClient({
                     />
                   </label>
                   <label className="text-sm font-semibold text-slate-700">
-                    Sort order
+                    {t('sortOrder')}
                     <input
                       required
                       disabled={saving}
@@ -628,7 +618,8 @@ export function BusinessRestaurantClient({
                     />
                   </label>
                   <label className="text-sm font-semibold text-slate-700">
-                    Description <span className="font-normal">(optional)</span>
+                    {t('description')}{' '}
+                    <span className="font-normal">({t('optional')})</span>
                     <input
                       disabled={saving}
                       maxLength={1000}
@@ -648,10 +639,10 @@ export function BusinessRestaurantClient({
                       className="rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                     >
                       {saving
-                        ? 'Saving...'
+                        ? t('saving')
                         : editingItem.item
-                          ? 'Save menu item'
-                          : 'Add menu item'}
+                          ? t('saveMenuItem')
+                          : t('addMenuItem')}
                     </button>
                   </div>
                 </form>
@@ -659,7 +650,7 @@ export function BusinessRestaurantClient({
             ) : null}
 
             <section className="mt-6">
-              <h2 className="text-lg font-bold text-slate-950">Menus</h2>
+              <h2 className="text-lg font-bold text-slate-950">{t('menus')}</h2>
               <div className="mt-3 space-y-3">
                 {restaurant.menus.length ? (
                   restaurant.menus.map((currentMenu) => (
@@ -676,7 +667,9 @@ export function BusinessRestaurantClient({
                             <span
                               className={`rounded-full px-2 py-1 text-xs font-semibold ${currentMenu.isActive ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}
                             >
-                              {currentMenu.isActive ? 'Active' : 'Inactive'}
+                              {currentMenu.isActive
+                                ? t('active')
+                                : t('inactive')}
                             </span>
                           </div>
                           {currentMenu.description ? (
@@ -696,7 +689,7 @@ export function BusinessRestaurantClient({
                               }}
                               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
                             >
-                              Edit menu
+                              {t('editMenu')}
                             </button>
                             <button
                               type="button"
@@ -705,8 +698,8 @@ export function BusinessRestaurantClient({
                               className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
                             >
                               {currentMenu.isActive
-                                ? 'Deactivate'
-                                : 'Reactivate'}
+                                ? t('deactivate')
+                                : t('reactivate')}
                             </button>
                             <button
                               type="button"
@@ -720,7 +713,7 @@ export function BusinessRestaurantClient({
                               }}
                               className="rounded-md border border-amber-200 px-3 py-2 text-sm font-semibold text-amber-800"
                             >
-                              Add menu item
+                              {t('addMenuItem')}
                             </button>
                           </div>
                         ) : null}
@@ -741,8 +734,8 @@ export function BusinessRestaurantClient({
                                     className={`rounded-full px-2 py-1 text-xs font-semibold ${currentItem.available ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-200 text-slate-700'}`}
                                   >
                                     {currentItem.available
-                                      ? 'Available'
-                                      : 'Unavailable'}
+                                      ? t('available')
+                                      : t('unavailable')}
                                   </span>
                                 </div>
                                 <p className="mt-1 text-sm text-slate-600">
@@ -771,7 +764,7 @@ export function BusinessRestaurantClient({
                                     }}
                                     className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
                                   >
-                                    Edit item
+                                    {t('editMenuItem')}
                                   </button>
                                   <button
                                     type="button"
@@ -785,8 +778,8 @@ export function BusinessRestaurantClient({
                                     className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
                                   >
                                     {currentItem.available
-                                      ? 'Mark unavailable'
-                                      : 'Mark available'}
+                                      ? t('markUnavailable')
+                                      : t('markAvailable')}
                                   </button>
                                 </div>
                               ) : null}
@@ -794,7 +787,7 @@ export function BusinessRestaurantClient({
                           ))
                         ) : (
                           <p className="text-sm text-slate-600">
-                            No menu items have been added yet.
+                            {t('noMenuItems')}
                           </p>
                         )}
                       </div>
@@ -802,7 +795,7 @@ export function BusinessRestaurantClient({
                   ))
                 ) : (
                   <p className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
-                    No menus have been added yet.
+                    {t('noMenus')}
                   </p>
                 )}
               </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { ServiceWorkspaceHeader } from './ServiceWorkspaceHeader';
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import {
   canEditBusiness,
@@ -92,6 +93,7 @@ export function BusinessTourClient({
   businessId: string;
   serviceId: string;
 }) {
+  const t = useTranslations('businessPortal');
   const [tour, setTour] = useState<ManagedTour | null>(null);
   const [canWrite, setCanWrite] = useState(false);
   const [detail, setDetail] = useState<DetailFields>(blankDetail);
@@ -114,7 +116,7 @@ export function BusinessTourClient({
       setDetail(detailValues(data));
       setCanWrite(canEditBusiness(business));
     } catch (reason) {
-      setError(operationError(reason, 'Tour details could not be loaded.'));
+      setError(operationError(reason, t('loadTourError')));
     } finally {
       setLoading(false);
     }
@@ -141,9 +143,7 @@ export function BusinessTourClient({
       inclusions.some((item) => item.length > 300) ||
       exclusions.some((item) => item.length > 300)
     ) {
-      setError(
-        'Use a duration from 1 to 365 days and at most 30 inclusions or exclusions, each at most 300 characters.',
-      );
+      setError(t('tourDetailInvalid'));
       return;
     }
     setSaving(true);
@@ -163,7 +163,7 @@ export function BusinessTourClient({
       setTour(updated);
       setDetail(detailValues(updated));
     } catch (reason) {
-      setError(operationError(reason, 'Tour details could not be saved.'));
+      setError(operationError(reason, t('saveTourError')));
     } finally {
       setSaving(false);
     }
@@ -179,9 +179,7 @@ export function BusinessTourClient({
       itinerary.title.trim().length > 180 ||
       itinerary.description.trim().length > 2000
     ) {
-      setError(
-        'Enter a day number, title, and non-negative whole-number sort order.',
-      );
+      setError(t('itineraryItemInvalid'));
       return null;
     }
     if (
@@ -189,7 +187,7 @@ export function BusinessTourClient({
       tour?.detail?.durationDays !== undefined &&
       dayNumber > tour.detail.durationDays
     ) {
-      setError('Itinerary day must be within the configured tour duration.');
+      setError(t('itineraryDayInvalid'));
       return null;
     }
     return {
@@ -222,9 +220,7 @@ export function BusinessTourClient({
       setEditingItem(null);
       await load();
     } catch (reason) {
-      setError(
-        operationError(reason, 'The itinerary item could not be saved.'),
-      );
+      setError(operationError(reason, t('saveItineraryItemError')));
     } finally {
       setSaving(false);
     }
@@ -233,7 +229,7 @@ export function BusinessTourClient({
   if (loading) {
     return (
       <p className="rounded-md bg-white p-5 text-sm text-slate-500">
-        Loading tour details...
+        {t('loadingTour')}
       </p>
     );
   }
@@ -244,13 +240,13 @@ export function BusinessTourClient({
         <ServiceWorkspaceHeader
           businessId={businessId}
           serviceId={serviceId}
-          serviceName={tour?.service.name ?? 'Tour Details'}
+          serviceName={tour?.service.name ?? t('tourDetails')}
           serviceStatus={tour?.service.status ?? 'DRAFT'}
-          categoryName={tour?.service.category.name ?? 'Tour Details'}
+          categoryName={tour?.service.category.name ?? t('tourDetails')}
           categoryFamily="TOUR"
           canWrite={canWrite}
           currentSection="category"
-          description="Configure tour information and itinerary content. Existing Service availability remains authoritative."
+          description={t('tourDetails')}
         />
         {error ? (
           <p
@@ -263,13 +259,15 @@ export function BusinessTourClient({
         {tour ? (
           <>
             <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-950">Tour details</h2>
+              <h2 className="text-lg font-bold text-slate-950">
+                {t('tourDetails')}
+              </h2>
               <form
                 onSubmit={(event) => void saveDetail(event)}
                 className="mt-4 grid gap-4 sm:grid-cols-2"
               >
                 <label className="text-sm font-semibold text-slate-700">
-                  Duration (days)
+                  {t('durationDays')}
                   <input
                     disabled={!canWrite || saving}
                     inputMode="numeric"
@@ -284,7 +282,8 @@ export function BusinessTourClient({
                   />
                 </label>
                 <label className="text-sm font-semibold text-slate-700">
-                  Difficulty <span className="font-normal">(optional)</span>
+                  {t('difficulty')}{' '}
+                  <span className="font-normal">({t('optional')})</span>
                   <input
                     disabled={!canWrite || saving}
                     maxLength={40}
@@ -299,7 +298,8 @@ export function BusinessTourClient({
                   />
                 </label>
                 <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-                  Meeting point <span className="font-normal">(optional)</span>
+                  {t('meetingPoint')}{' '}
+                  <span className="font-normal">({t('optional')})</span>
                   <input
                     disabled={!canWrite || saving}
                     maxLength={240}
@@ -314,8 +314,8 @@ export function BusinessTourClient({
                   />
                 </label>
                 <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-                  Inclusions{' '}
-                  <span className="font-normal">(comma separated)</span>
+                  {t('inclusions')}{' '}
+                  <span className="font-normal">({t('commaSeparated')})</span>
                   <textarea
                     disabled={!canWrite || saving}
                     maxLength={9029}
@@ -330,8 +330,8 @@ export function BusinessTourClient({
                   />
                 </label>
                 <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-                  Exclusions{' '}
-                  <span className="font-normal">(comma separated)</span>
+                  {t('exclusions')}{' '}
+                  <span className="font-normal">({t('commaSeparated')})</span>
                   <textarea
                     disabled={!canWrite || saving}
                     maxLength={9029}
@@ -351,7 +351,7 @@ export function BusinessTourClient({
                       disabled={saving}
                       className="rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                     >
-                      {saving ? 'Saving...' : 'Save tour details'}
+                      {saving ? t('saving') : t('saveTourDetails')}
                     </button>
                   </div>
                 ) : null}
@@ -362,7 +362,9 @@ export function BusinessTourClient({
               <section className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-lg font-bold text-slate-950">
-                    {editingItem ? 'Edit itinerary item' : 'Add itinerary item'}
+                    {editingItem
+                      ? t('editItineraryItem')
+                      : t('addItineraryItem')}
                   </h2>
                   {editingItem ? (
                     <button
@@ -373,13 +375,13 @@ export function BusinessTourClient({
                       }}
                       className="text-sm font-semibold text-slate-600"
                     >
-                      Cancel edit
+                      {t('cancelEdit')}
                     </button>
                   ) : null}
                 </div>
                 {!tour.detail ? (
                   <p className="mt-3 text-sm text-slate-600">
-                    Save tour details first to add itinerary items.
+                    {t('saveTourBeforeItinerary')}
                   </p>
                 ) : (
                   <form
@@ -387,7 +389,7 @@ export function BusinessTourClient({
                     className="mt-4 grid gap-4 sm:grid-cols-2"
                   >
                     <label className="text-sm font-semibold text-slate-700">
-                      Day number
+                      {t('dayNumber')}
                       <input
                         required
                         disabled={saving}
@@ -403,7 +405,7 @@ export function BusinessTourClient({
                       />
                     </label>
                     <label className="text-sm font-semibold text-slate-700">
-                      Sort order
+                      {t('sortOrder')}
                       <input
                         required
                         disabled={saving}
@@ -419,7 +421,7 @@ export function BusinessTourClient({
                       />
                     </label>
                     <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-                      Title
+                      {t('title')}
                       <input
                         required
                         disabled={saving}
@@ -435,8 +437,8 @@ export function BusinessTourClient({
                       />
                     </label>
                     <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-                      Description{' '}
-                      <span className="font-normal">(optional)</span>
+                      {t('description')}{' '}
+                      <span className="font-normal">({t('optional')})</span>
                       <textarea
                         disabled={saving}
                         maxLength={2000}
@@ -456,10 +458,10 @@ export function BusinessTourClient({
                         className="rounded-md bg-highland px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                       >
                         {saving
-                          ? 'Saving...'
+                          ? t('saving')
                           : editingItem
-                            ? 'Save itinerary item'
-                            : 'Add itinerary item'}
+                            ? t('saveItineraryItem')
+                            : t('addItineraryItem')}
                       </button>
                     </div>
                   </form>
@@ -468,7 +470,9 @@ export function BusinessTourClient({
             ) : null}
 
             <section className="mt-6">
-              <h2 className="text-lg font-bold text-slate-950">Itinerary</h2>
+              <h2 className="text-lg font-bold text-slate-950">
+                {t('itinerary')}
+              </h2>
               <div className="mt-3 space-y-3">
                 {tour.itinerary.length ? (
                   tour.itinerary.map((item) => (
@@ -479,7 +483,7 @@ export function BusinessTourClient({
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-wide text-highland">
-                            Day {item.dayNumber}
+                            {t('dayNumber')} {item.dayNumber}
                           </p>
                           <h3 className="mt-1 font-bold text-slate-950">
                             {item.title}
@@ -500,7 +504,7 @@ export function BusinessTourClient({
                             }}
                             className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
                           >
-                            Edit itinerary item
+                            {t('editItineraryItem')}
                           </button>
                         ) : null}
                       </div>
@@ -508,7 +512,7 @@ export function BusinessTourClient({
                   ))
                 ) : (
                   <p className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600">
-                    No itinerary items have been added yet.
+                    {t('noItineraryItems')}
                   </p>
                 )}
               </div>

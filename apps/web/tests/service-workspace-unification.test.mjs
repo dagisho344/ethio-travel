@@ -25,7 +25,8 @@ void test('Services list uses one Manage Service entry and the shared family res
 
   assert.match(services, /getServiceCategoryEditor/);
   assert.match(services, /serviceCategoryEditorPath/);
-  assert.match(services, />\s*Manage Service\s*</);
+  assert.match(services, /t\('manageService'\)/);
+  assert.match(services, /useTranslations\('businessPortal'\)/);
   assert.match(services, /\{categoryEditor\.label\}/);
   assert.doesNotMatch(
     services,
@@ -45,12 +46,8 @@ void test('canonical Service workspace is authenticated, family-aware, and prese
   assert.match(page, /currentTokens/);
   assert.match(page, /redirect\('\/login\?returnTo=\/businesses\/manage'\)/);
   assert.match(workspace, /getManagedService\(businessId, serviceId\)/);
-  assert.match(
-    workspace,
-    /Changing the category changes which category-specific editor\s+is/,
-  );
-  assert.match(workspace, /Existing specialized configuration is preserved/);
-  assert.match(workspace, /No category-specific editor is required/);
+  assert.match(workspace, /t\('categoryChangeWarning'\)/);
+  assert.match(workspace, /t\('noCategorySpecificEditor'\)/);
   assert.match(header, /Read-only access/);
   assert.match(header, /aria-current/);
   assert.doesNotMatch(workspace, /localStorage|sessionStorage|accessToken/i);

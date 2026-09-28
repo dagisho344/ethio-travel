@@ -35,7 +35,8 @@ void test('workspace operational pages are protected, role-aware, and preserve p
   const reviews = await read('components/businesses/BusinessReviewsClient.tsx');
   assert.match(services, /canEditBusiness/);
   assert.match(availability, /Staff can view availability/);
-  assert.match(customers, /No contact, account, or trip data/);
-  assert.match(reviews, /Only published reviews/);
+  assert.match(customers, /useTranslations\('businessPortal'\)/);
+  assert.match(customers, /t\('customersDescription'\)/);
+  assert.match(reviews, /t\('publishedOnlyResponse'\)/);
   assert.doesNotMatch(customers, /email|password|token/i);
 });

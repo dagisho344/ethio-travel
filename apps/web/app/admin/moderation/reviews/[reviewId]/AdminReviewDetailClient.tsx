@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { AdminNoteActionDialog } from '../../../../../components/admin/AdminNoteActionDialog';
 import {
   AdminReview,
@@ -10,6 +11,7 @@ import {
 } from '../../../../../lib/admin';
 
 export function AdminReviewDetailClient({ reviewId }: { reviewId: string }) {
+  const t = useTranslations('adminPortal');
   const [review, setReview] = useState<AdminReview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
@@ -18,7 +20,7 @@ export function AdminReviewDetailClient({ reviewId }: { reviewId: string }) {
       .then(setReview)
       .catch((cause: unknown) =>
         setError(
-          cause instanceof Error ? cause.message : 'Review is unavailable.',
+          cause instanceof Error ? cause.message : t('moderationUnavailable'),
         ),
       );
   }, [reviewId]);
@@ -33,23 +35,21 @@ export function AdminReviewDetailClient({ reviewId }: { reviewId: string }) {
       load();
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : 'Review could not be published.',
+        cause instanceof Error ? cause.message : t('reviewPublishError'),
       );
     } finally {
       setPublishing(false);
     }
   }
-  if (!review) return <p className="text-slate-600">Loading review…</p>;
+  if (!review) return <p className="text-slate-600">{t('loadingReview')}</p>;
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <header>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-          Moderation
+          {t('moderation')}
         </p>
         <h1 className="mt-1 text-3xl font-bold text-slate-950">
-          Review detail
+          {t('reviewDetail')}
         </h1>
       </header>
       {error ? (
@@ -62,7 +62,8 @@ export function AdminReviewDetailClient({ reviewId }: { reviewId: string }) {
           <div>
             <p className="font-bold text-slate-950">{review.target.name}</p>
             <p className="text-sm text-slate-600">
-              By {review.author.displayName} · {formatDate(review.createdAt)}
+              {t('byAuthor', { name: review.author.displayName })} ·{' '}
+              {formatDate(review.createdAt)}
             </p>
           </div>
           <span
@@ -75,11 +76,13 @@ export function AdminReviewDetailClient({ reviewId }: { reviewId: string }) {
           {review.rating}/5 {review.title ? `· ${review.title}` : ''}
         </p>
         <p className="whitespace-pre-wrap text-slate-700">
-          {review.body ?? 'No written review.'}
+          {review.body ?? t('noWrittenReview')}
         </p>
         {review.businessResponse ? (
           <section className="rounded-lg bg-slate-50 p-4">
-            <h2 className="font-semibold text-slate-950">Business response</h2>
+            <h2 className="font-semibold text-slate-950">
+              {t('businessResponse')}
+            </h2>
             <p className="mt-2 text-sm text-slate-700">
               {review.businessResponse.body}
             </p>
@@ -87,15 +90,16 @@ export function AdminReviewDetailClient({ reviewId }: { reviewId: string }) {
         ) : null}
         {review.moderationNote ? (
           <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
-            Latest moderation note: {review.moderationNote}
+            {t('latestModerationNote')} {review.moderationNote}
           </p>
         ) : null}
       </article>
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-bold text-slate-950">Moderation action</h2>
+        <h2 className="text-lg font-bold text-slate-950">
+          {t('moderationAction')}
+        </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Review text and rating remain immutable. Visibility changes are
-          audited.
+          {t('reviewImmutableNotice')}
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           {review.status === 'PENDING' ? (
@@ -108,32 +112,32 @@ export function AdminReviewDetailClient({ reviewId }: { reviewId: string }) {
                 }}
                 className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
-                {publishing ? 'Publishing…' : 'Publish'}
+                {publishing ? t('publishing') : t('publish')}
               </button>
               <AdminNoteActionDialog
-                action="Reject"
+                action={t('reject')}
                 endpoint={`/api/admin/reviews/${review.id}/reject`}
                 field="moderationNote"
-                target="this review"
+                target={t('thisReview')}
                 onComplete={load}
               />
             </>
           ) : null}
           {review.status === 'PUBLISHED' ? (
             <AdminNoteActionDialog
-              action="Hide"
+              action={t('hide')}
               endpoint={`/api/admin/reviews/${review.id}/hide`}
               field="moderationNote"
-              target="this review"
+              target={t('thisReview')}
               onComplete={load}
             />
           ) : null}
           {review.status === 'HIDDEN' ? (
             <AdminNoteActionDialog
-              action="Restore"
+              action={t('restore')}
               endpoint={`/api/admin/reviews/${review.id}/restore`}
               field="moderationNote"
-              target="this review"
+              target={t('thisReview')}
               onComplete={load}
             />
           ) : null}

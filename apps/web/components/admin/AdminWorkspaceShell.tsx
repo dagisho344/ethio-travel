@@ -21,68 +21,89 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 type AdminLink = {
   href: string;
   icon: typeof LayoutDashboard;
-  label: string;
+  label: AdminPortalNavigationKey;
 };
 
 type AdminNavigationGroup = {
-  label?: string;
+  label?: AdminPortalNavigationKey;
   links: AdminLink[];
 };
 
+type AdminPortalNavigationKey =
+  | 'dashboard'
+  | 'platform'
+  | 'users'
+  | 'businesses'
+  | 'verifications'
+  | 'content'
+  | 'destinations'
+  | 'categories'
+  | 'moderation'
+  | 'reports'
+  | 'operations'
+  | 'bookings'
+  | 'payments'
+  | 'insights'
+  | 'analytics'
+  | 'system'
+  | 'audit'
+  | 'settings';
+
 const adminNavigation: AdminNavigationGroup[] = [
   {
-    links: [{ href: '/admin', icon: LayoutDashboard, label: 'Dashboard' }],
+    links: [{ href: '/admin', icon: LayoutDashboard, label: 'dashboard' }],
   },
   {
-    label: 'Platform',
+    label: 'platform',
     links: [
-      { href: '/admin/users', icon: Users, label: 'Users' },
-      { href: '/admin/businesses', icon: Building2, label: 'Businesses' },
+      { href: '/admin/users', icon: Users, label: 'users' },
+      { href: '/admin/businesses', icon: Building2, label: 'businesses' },
       {
         href: '/admin/verifications',
         icon: ShieldCheck,
-        label: 'Verifications',
+        label: 'verifications',
       },
     ],
   },
   {
-    label: 'Content',
+    label: 'content',
     links: [
-      { href: '/admin/destinations', icon: MapPinned, label: 'Destinations' },
-      { href: '/admin/categories', icon: Tags, label: 'Categories' },
+      { href: '/admin/destinations', icon: MapPinned, label: 'destinations' },
+      { href: '/admin/categories', icon: Tags, label: 'categories' },
     ],
   },
   {
-    label: 'Moderation',
+    label: 'moderation',
     links: [
       {
         href: '/admin/moderation',
         icon: MessageSquareWarning,
-        label: 'Moderation',
+        label: 'moderation',
       },
-      { href: '/admin/reports', icon: Flag, label: 'Reports' },
+      { href: '/admin/reports', icon: Flag, label: 'reports' },
     ],
   },
   {
-    label: 'Operations',
+    label: 'operations',
     links: [
-      { href: '/admin/bookings', icon: CalendarDays, label: 'Bookings' },
-      { href: '/admin/payments', icon: CreditCard, label: 'Payments' },
+      { href: '/admin/bookings', icon: CalendarDays, label: 'bookings' },
+      { href: '/admin/payments', icon: CreditCard, label: 'payments' },
     ],
   },
   {
-    label: 'Insights',
-    links: [{ href: '/admin/analytics', icon: BarChart3, label: 'Analytics' }],
+    label: 'insights',
+    links: [{ href: '/admin/analytics', icon: BarChart3, label: 'analytics' }],
   },
   {
-    label: 'System',
+    label: 'system',
     links: [
-      { href: '/admin/audit', icon: ClipboardList, label: 'Audit' },
-      { href: '/admin/settings', icon: Settings, label: 'Settings' },
+      { href: '/admin/audit', icon: ClipboardList, label: 'audit' },
+      { href: '/admin/settings', icon: Settings, label: 'settings' },
     ],
   },
 ];
@@ -94,8 +115,9 @@ function isActive(pathname: string, href: string): boolean {
 
 function AdminNavigation({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const t = useTranslations('adminPortal');
   return (
-    <nav aria-label="Administrator navigation" className="space-y-1">
+    <nav aria-label={t('navigation')} className="space-y-1">
       {adminNavigation.map((group, groupIndex) => (
         <div
           key={group.label ?? 'dashboard'}
@@ -103,7 +125,7 @@ function AdminNavigation({ onNavigate }: { onNavigate?: () => void }) {
         >
           {group.label ? (
             <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {group.label}
+              {t(group.label)}
             </p>
           ) : null}
           {group.links.map((item) => {
@@ -122,7 +144,7 @@ function AdminNavigation({ onNavigate }: { onNavigate?: () => void }) {
                 }`}
               >
                 <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {item.label}
+                {t(item.label)}
               </Link>
             );
           })}
@@ -133,13 +155,14 @@ function AdminNavigation({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function AdminAside({ onNavigate }: { onNavigate?: () => void }) {
+  const t = useTranslations('adminPortal');
   return (
     <div className="flex h-full flex-col">
       <div className="mb-5 border-b border-slate-200 pb-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Administration
+          {t('administration')}
         </p>
-        <p className="mt-1 text-sm text-slate-600">Secure operational tools</p>
+        <p className="mt-1 text-sm text-slate-600">{t('secureTools')}</p>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <AdminNavigation onNavigate={onNavigate} />
@@ -151,7 +174,7 @@ function AdminAside({ onNavigate }: { onNavigate?: () => void }) {
           className="flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          Back to EthioTravel
+          {t('backToEthioTravel')}
         </Link>
       </div>
     </div>
@@ -163,6 +186,7 @@ export function AdminWorkspaceShell({
 }: {
   children: React.ReactNode;
 }) {
+  const t = useTranslations('adminPortal');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -187,14 +211,14 @@ export function AdminWorkspaceShell({
             <button
               ref={menuButtonRef}
               type="button"
-              aria-label="Open administrator navigation"
+              aria-label={t('openNavigation')}
               aria-controls="admin-workspace-drawer"
               aria-expanded={drawerOpen}
               onClick={() => setDrawerOpen(true)}
               className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-800 transition hover:border-emerald-700 hover:text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
             >
               <Menu className="h-5 w-5" aria-hidden="true" />
-              Admin menu
+              {t('navigationTitle')}
             </button>
           </div>
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">{children}</div>
@@ -204,7 +228,7 @@ export function AdminWorkspaceShell({
         <div className="fixed inset-0 z-[1300] lg:hidden">
           <button
             type="button"
-            aria-label="Close administrator navigation"
+            aria-label={t('closeNavigation')}
             className="absolute inset-0 bg-slate-950/40"
             onClick={() => setDrawerOpen(false)}
           />
@@ -212,14 +236,14 @@ export function AdminWorkspaceShell({
             id="admin-workspace-drawer"
             role="dialog"
             aria-modal="true"
-            aria-label="Administrator navigation"
+            aria-label={t('navigation')}
             className="absolute inset-y-0 left-0 flex w-[min(20rem,calc(100vw-2rem))] flex-col border-r border-slate-300 bg-white p-4 shadow-2xl"
           >
             <div className="mb-4 flex items-center justify-between border-b border-slate-200 pb-4">
-              <p className="font-bold text-slate-950">Admin Portal</p>
+              <p className="font-bold text-slate-950">{t('navigationTitle')}</p>
               <button
                 type="button"
-                aria-label="Close administrator navigation"
+                aria-label={t('closeNavigation')}
                 onClick={() => setDrawerOpen(false)}
                 className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
               >

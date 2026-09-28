@@ -109,13 +109,14 @@ void test('business payments are read-only and expose list/detail pages', () => 
   const bookings = read(
     'app/businesses/[businessId]/bookings/BusinessBookingsClient.tsx',
   );
-  assert.match(list, /Payment status/);
-  assert.match(list, /Provider/);
-  assert.match(list, /View payment/);
+  assert.match(list, /useTranslations\('businessPortal'\)/);
+  assert.match(list, /tPayment\('paymentStatus'\)/);
+  assert.match(list, /tPayment\('provider'\)/);
+  assert.match(list, /t\('viewPayment'\)/);
   assert.match(detail, /PaymentSummary/);
   assert.doesNotMatch(list, /RefundForm|\/refund/);
   assert.doesNotMatch(detail, /RefundForm|\/refund/);
-  assert.match(bookings, /View business payments/);
+  assert.match(bookings, /t\('viewBusinessPayments'\)/);
 });
 
 void test('admin payments include list detail and refund controls', () => {
@@ -124,10 +125,11 @@ void test('admin payments include list detail and refund controls', () => {
   const detail = read('app/admin/payments/[id]/AdminPaymentDetailClient.tsx');
   const refund = read('components/payments/RefundForm.tsx');
   assert.match(listPage, /currentTokens/);
-  assert.match(list, /Booking reference/);
-  assert.match(list, /Traveler/);
-  assert.match(list, /Business/);
-  assert.match(list, /Currency/);
+  assert.match(list, /useTranslations\('adminPortal'\)/);
+  assert.match(list, /t\('bookingReference'\)/);
+  assert.match(list, /t\('traveler'\)/);
+  assert.match(list, /t\('business'\)/);
+  assert.match(list, /t\('currency'\)/);
   assert.match(list, /\/api\/admin\/payments/);
   assert.match(detail, /RefundForm/);
   assert.match(refund, /t\('fullRefund'\)/);

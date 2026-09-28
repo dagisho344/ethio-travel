@@ -1,7 +1,10 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { formatDate, type PlatformSettings } from '../../../lib/admin';
+import { useLocale, useTranslations } from 'next-intl';
+import { type PlatformSettings } from '../../../lib/admin';
+import { resolveLocale } from '../../../i18n/config';
+import { formatLocaleDate } from '../../../i18n/format';
 
 const emptySettings: PlatformSettings = {
   supportEmail: null,
@@ -11,6 +14,8 @@ const emptySettings: PlatformSettings = {
 };
 
 export function AdminSettingsClient() {
+  const t = useTranslations('adminPortal');
+  const locale = resolveLocale(useLocale());
   const [settings, setSettings] = useState<PlatformSettings>(emptySettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -26,13 +31,13 @@ export function AdminSettingsClient() {
         if (!response.ok) throw new Error('Request failed');
         setSettings((await response.json()) as PlatformSettings);
       } catch {
-        setError('We could not load platform settings right now.');
+        setError(t('loadSettingsError'));
       } finally {
         setLoading(false);
       }
     };
     void load();
-  }, []);
+  }, [t]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,38 +61,30 @@ export function AdminSettingsClient() {
           payload !== null &&
           typeof (payload as { message?: unknown }).message === 'string'
             ? (payload as { message: string }).message
-            : 'We could not save platform settings.';
+            : t('saveSettingsError');
         throw new Error(message);
       }
       setSettings(payload as PlatformSettings);
-      setSuccess('Platform settings saved.');
+      setSuccess(t('settingsSaved'));
     } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : 'We could not save platform settings.',
-      );
+      setError(cause instanceof Error ? cause.message : t('saveSettingsError'));
     } finally {
       setSaving(false);
     }
   }
 
-  if (loading) return <p className="text-slate-600">Loading settings…</p>;
+  if (loading) return <p className="text-slate-600">{t('loading')}</p>;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <header>
         <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">
-          System
+          {t('system')}
         </p>
         <h1 className="mt-1 text-3xl font-bold text-slate-950">
-          Platform settings
+          {t('platformSettings')}
         </h1>
-        <p className="mt-2 text-slate-600">
-          Manage typed public support contact information. Environment secrets,
-          payment credentials, and infrastructure configuration are never stored
-          here.
-        </p>
+        <p className="mt-2 text-slate-600">{t('settingsDescription')}</p>
       </header>
       {error ? (
         <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-800">
@@ -113,7 +110,7 @@ export function AdminSettingsClient() {
             htmlFor="support-email"
             className="text-sm font-semibold text-slate-800"
           >
-            Support email
+            {t('supportEmail')}
           </label>
           <input
             id="support-email"
@@ -134,7 +131,7 @@ export function AdminSettingsClient() {
             htmlFor="support-phone"
             className="text-sm font-semibold text-slate-800"
           >
-            Support phone
+            {t('supportPhone')}
           </label>
           <input
             id="support-phone"
@@ -155,7 +152,7 @@ export function AdminSettingsClient() {
             htmlFor="support-message"
             className="text-sm font-semibold text-slate-800"
           >
-            Public support message
+            {t('supportMessage')}
           </label>
           <textarea
             id="support-message"
@@ -170,21 +167,22 @@ export function AdminSettingsClient() {
             }
             className="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           />
-          <p className="mt-1 text-xs text-slate-500">
-            Do not enter passwords, tokens, payment credentials, or private
-            documents.
-          </p>
+          <p className="mt-1 text-xs text-slate-500">{t('secretWarning')}</p>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
           <p className="text-xs text-slate-500">
-            Last updated: {formatDate(settings.updatedAt)}
+            {t('lastUpdated', {
+              date: settings.updatedAt
+                ? formatLocaleDate(settings.updatedAt, locale)
+                : '—',
+            })}
           </p>
           <button
             type="submit"
             disabled={saving}
             className="rounded-md bg-emerald-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {saving ? 'Saving…' : 'Save settings'}
+            {saving ? t('saving') : t('saveSettings')}
           </button>
         </div>
       </form>

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
 import { getJson } from '../../lib/api';
 import {
@@ -84,6 +85,7 @@ export function BusinessLocationsClient({
 }: {
   businessId: string;
 }) {
+  const t = useTranslations('businessPortal');
   const [locations, setLocations] = useState<ManagedLocation[]>([]);
   const [canEdit, setCanEdit] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -117,33 +119,31 @@ export function BusinessLocationsClient({
     }
   };
   if (loading)
-    return <main className="mx-auto max-w-6xl p-6">Loading locations…</main>;
+    return (
+      <main className="mx-auto max-w-6xl p-6">{t('loadingLocations')}</main>
+    );
   return (
     <main className="mx-auto max-w-6xl p-4 sm:p-6">
       <Link
         className="text-sm font-semibold text-highland"
         href={`/businesses/manage/${businessId}`}
       >
-        ← Business workspace
+        ← {t('backToWorkspace')}
       </Link>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Locations</h1>
-          <p className="text-slate-600">
-            Manage branches and their local operating hours.
-          </p>
+          <h1 className="text-2xl font-bold">{t('locations')}</h1>
+          <p className="text-slate-600">{t('locationsDescription')}</p>
         </div>
         {canEdit ? (
           <button
             className="rounded bg-highland px-4 py-2 font-semibold text-white"
             onClick={() => setEditing(null)}
           >
-            Add Location
+            {t('addLocation')}
           </button>
         ) : (
-          <p className="text-sm text-slate-600">
-            Staff members have read-only access.
-          </p>
+          <p className="text-sm text-slate-600">{t('locationsReadOnly')}</p>
         )}
       </div>
       {error ? (
@@ -184,7 +184,7 @@ export function BusinessLocationsClient({
                   {location.label}{' '}
                   {location.isPrimary ? (
                     <span className="ml-2 rounded bg-highland/10 px-2 py-1 text-xs text-highland">
-                      PRIMARY
+                      {t('primary')}
                     </span>
                   ) : null}
                 </h2>
@@ -208,13 +208,13 @@ export function BusinessLocationsClient({
                     className="rounded border px-3 py-1.5 text-sm"
                     onClick={() => setEditing(location)}
                   >
-                    Edit
+                    {t('edit')}
                   </button>
                   <button
                     className="rounded border px-3 py-1.5 text-sm"
                     onClick={() => setHoursFor(location)}
                   >
-                    Manage Hours
+                    {t('manageHours')}
                   </button>
                   {!location.isPrimary && location.status === 'ACTIVE' ? (
                     <button
@@ -225,7 +225,7 @@ export function BusinessLocationsClient({
                         )
                       }
                     >
-                      Set Primary
+                      {t('setPrimary')}
                     </button>
                   ) : null}
                   {!location.isPrimary && location.status !== 'ARCHIVED' ? (
@@ -237,7 +237,7 @@ export function BusinessLocationsClient({
                         )
                       }
                     >
-                      Archive
+                      {t('archiveLocation')}
                     </button>
                   ) : null}
                 </div>
@@ -266,6 +266,7 @@ function LocationForm({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations('businessPortal');
   const [fields, setFields] = useState<Fields>(() =>
     location
       ? {
@@ -304,7 +305,7 @@ function LocationForm({
         setRegions(r.data);
         setCities(c.data);
       })
-      .catch(() => setError('Locations could not be loaded.'));
+      .catch(() => setError(t('locationLoadError')));
   }, []);
   useEffect(() => {
     if (!selectedRegion || !selectedCity) {
@@ -332,7 +333,7 @@ function LocationForm({
       !Number.isFinite(latitude) ||
       !Number.isFinite(longitude)
     ) {
-      setError('Complete the required location fields.');
+      setError(t('completeLocationFields'));
       return;
     }
     setSaving(true);
@@ -365,12 +366,12 @@ function LocationForm({
       className="mt-6 rounded-lg border bg-slate-50 p-5"
     >
       <h2 className="font-bold">
-        {location ? 'Edit location' : 'Add location'}
+        {location ? t('editLocation') : t('addLocation')}
       </h2>
       {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <label>
-          Label
+          {t('location')}
           <input
             required
             className={input}
@@ -379,7 +380,7 @@ function LocationForm({
           />
         </label>
         <label>
-          Region
+          {t('region')}
           <select
             required
             className={input}
@@ -393,7 +394,7 @@ function LocationForm({
               }))
             }
           >
-            <option value="">Select region</option>
+            <option value="">{t('selectRegion')}</option>
             {regions.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -402,7 +403,7 @@ function LocationForm({
           </select>
         </label>
         <label>
-          City
+          {t('city')}
           <select
             required
             className={input}
@@ -415,7 +416,7 @@ function LocationForm({
               }))
             }
           >
-            <option value="">Select city</option>
+            <option value="">{t('selectCity')}</option>
             {visibleCities.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -424,13 +425,13 @@ function LocationForm({
           </select>
         </label>
         <label>
-          Destination
+          {t('destination')}
           <select
             className={input}
             value={fields.destinationId}
             onChange={(e) => change('destinationId', e.target.value)}
           >
-            <option value="">None</option>
+            <option value="">{t('none')}</option>
             {destinations.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
@@ -439,7 +440,7 @@ function LocationForm({
           </select>
         </label>
         <label>
-          Address
+          {t('addressLine1')}
           <input
             required
             className={input}
@@ -448,7 +449,7 @@ function LocationForm({
           />
         </label>
         <label>
-          Address line 2 (optional)
+          {t('addressLine2Optional')}
           <input
             className={input}
             value={fields.addressLine2}
@@ -456,7 +457,7 @@ function LocationForm({
           />
         </label>
         <label>
-          Neighborhood (optional)
+          {t('neighborhoodOptional')}
           <input
             className={input}
             value={fields.neighborhood}
@@ -464,7 +465,7 @@ function LocationForm({
           />
         </label>
         <label>
-          Postal code (optional)
+          {t('postalCodeOptional')}
           <input
             className={input}
             value={fields.postalCode}
@@ -494,7 +495,7 @@ function LocationForm({
           </label>
         ) : null}
         <label>
-          Latitude
+          {t('latitude')}
           <input
             required
             type="number"
@@ -505,7 +506,7 @@ function LocationForm({
           />
         </label>
         <label>
-          Longitude
+          {t('longitude')}
           <input
             required
             type="number"
@@ -521,14 +522,14 @@ function LocationForm({
           disabled={saving}
           className="rounded bg-highland px-4 py-2 font-semibold text-white disabled:opacity-50"
         >
-          {saving ? 'Saving…' : 'Save location'}
+          {saving ? t('saving') : t('saveLocation')}
         </button>
         <button
           type="button"
           className="rounded border px-4 py-2"
           onClick={onCancel}
         >
-          Cancel
+          {t('cancel')}
         </button>
       </div>
     </form>
@@ -543,6 +544,7 @@ function HoursEditor({
   location: ManagedLocation;
   onDone: () => void;
 }) {
+  const t = useTranslations('businessPortal');
   const [hours, setHours] = useState(() => schedule(location.operatingHours));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -563,7 +565,9 @@ function HoursEditor({
   };
   return (
     <section className="mt-6 rounded-lg border bg-slate-50 p-5">
-      <h2 className="font-bold">Weekly hours — {location.label}</h2>
+      <h2 className="font-bold">
+        {t('weeklyHours', { location: location.label })}
+      </h2>
       {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
       <div className="mt-3 space-y-2">
         {days.map(([day, label]) => {
@@ -586,7 +590,7 @@ function HoursEditor({
                     })
                   }
                 />{' '}
-                Open
+                {t('open')}
               </label>
               {!h.isClosed ? (
                 <span className="flex flex-wrap gap-2">
@@ -604,7 +608,7 @@ function HoursEditor({
                   />
                 </span>
               ) : (
-                <span>Closed</span>
+                <span>{t('closed')}</span>
               )}
             </div>
           );
@@ -615,7 +619,7 @@ function HoursEditor({
         onClick={() => void save()}
         className="mt-4 rounded bg-highland px-4 py-2 font-semibold text-white disabled:opacity-50"
       >
-        {saving ? 'Saving…' : 'Save hours'}
+        {saving ? t('saving') : t('saveHours')}
       </button>
     </section>
   );

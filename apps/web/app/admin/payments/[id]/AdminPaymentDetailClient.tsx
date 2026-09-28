@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { PaymentSummary } from '../../../../components/payments/PaymentSummary';
@@ -9,6 +10,7 @@ import { RefundForm } from '../../../../components/payments/RefundForm';
 import type { AdminPayment } from '../../../../lib/admin';
 
 export function AdminPaymentDetailClient() {
+  const t = useTranslations('adminPortal');
   const router = useRouter();
   const pathname = usePathname();
   const params = useParams<{ id: string }>();
@@ -28,13 +30,13 @@ export function AdminPaymentDetailClient() {
         return;
       }
       if (response.status === 403) {
-        setError('Only administrators can view this payment.');
+        setError(t('adminOnlyPayment'));
         return;
       }
       if (!response.ok) throw new Error('Request failed');
       setPayment((await response.json()) as AdminPayment);
     } catch {
-      setError('We could not load this payment right now.');
+      setError(t('loadPaymentError'));
     } finally {
       setLoading(false);
     }
@@ -50,11 +52,11 @@ export function AdminPaymentDetailClient() {
         href="/admin/payments"
         className="inline-flex items-center gap-2 text-sm font-semibold text-highland hover:text-highland/80 focus:outline-none focus:ring-2 focus:ring-highland focus:ring-offset-2"
       >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Payments
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {t('payments')}
       </Link>
       {loading ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-          Loading payment...
+          {t('loadingPayment')}
         </div>
       ) : null}
       {error ? (
@@ -78,7 +80,7 @@ export function AdminPaymentDetailClient() {
           />
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="text-lg font-bold text-slate-950">
-              Relevant audit history
+              {t('relevantAuditHistory')}
             </h2>
             {payment.auditTrail.length ? (
               <ul className="mt-4 space-y-3 text-sm">
@@ -88,14 +90,14 @@ export function AdminPaymentDetailClient() {
                       {entry.action}
                     </p>
                     <p className="mt-1 text-slate-600">
-                      {entry.reason ?? 'No reason recorded.'}
+                      {entry.reason ?? t('noReasonRecorded')}
                     </p>
                   </li>
                 ))}
               </ul>
             ) : (
               <p className="mt-4 text-sm text-slate-600">
-                No administrator audit actions relate to this payment.
+                {t('noPaymentAuditActions')}
               </p>
             )}
           </section>

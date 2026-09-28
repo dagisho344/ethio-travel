@@ -2,6 +2,7 @@
 
 import { LoaderCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   canEditBusiness,
   requestErrorMessage,
@@ -66,6 +67,7 @@ export function BusinessProfileEditor({
   business: ManagedBusiness;
   onSaved: () => Promise<void>;
 }) {
+  const t = useTranslations('businessPortal');
   const [fields, setFields] = useState<ProfileFields>(() =>
     formFields(business),
   );
@@ -107,10 +109,7 @@ export function BusinessProfileEditor({
         setCities(cityPage.data);
         setCategories(categoryPage.data);
       } catch {
-        if (active)
-          setError(
-            'Profile options could not be loaded. You can try again later.',
-          );
+        if (active) setError(t('loadProfileOptionsError'));
       } finally {
         if (active) setLoadingOptions(false);
       }
@@ -119,7 +118,7 @@ export function BusinessProfileEditor({
     return () => {
       active = false;
     };
-  }, [canEdit]);
+  }, [canEdit, t]);
 
   useEffect(() => {
     let active = true;
@@ -165,7 +164,7 @@ export function BusinessProfileEditor({
       !fields.cityId ||
       fields.addressLine1.trim().length < 2
     ) {
-      setError('Complete the required business, category and location fields.');
+      setError(t('completeBusinessProfile'));
       return;
     }
     const latitude = Number(fields.latitude);
@@ -178,7 +177,7 @@ export function BusinessProfileEditor({
       longitude < -180 ||
       longitude > 180
     ) {
-      setError('Enter valid latitude and longitude values.');
+      setError(t('invalidCoordinates'));
       return;
     }
     setSaving(true);
@@ -203,12 +202,7 @@ export function BusinessProfileEditor({
       await updateManagedBusiness(business.id, input);
       await onSaved();
     } catch (requestError) {
-      setError(
-        requestErrorMessage(
-          requestError,
-          'We could not update this business profile.',
-        ),
-      );
+      setError(requestErrorMessage(requestError, t('saveProfileError')));
     } finally {
       setSaving(false);
     }
@@ -217,11 +211,11 @@ export function BusinessProfileEditor({
   if (!canEdit) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-bold text-slate-950">Profile</h2>
+        <h2 className="text-lg font-bold text-slate-950">{t('profile')}</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           {business.currentMember.role === 'STAFF'
-            ? 'Staff members can view this workspace but cannot change business details.'
-            : 'Archived businesses are read-only.'}
+            ? t('profileReadOnlyStaff')
+            : t('profileReadOnlyArchived')}
         </p>
       </section>
     );
@@ -236,10 +230,10 @@ export function BusinessProfileEditor({
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 id="profile-heading" className="text-lg font-bold text-slate-950">
-            Edit profile
+            {t('editProfile')}
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            Owner and manager changes are authorized again by the backend.
+            {t('profileAuthorizedDescription')}
           </p>
         </div>
       </div>
@@ -253,7 +247,7 @@ export function BusinessProfileEditor({
       ) : null}
       <div className="mt-5 grid gap-5 sm:grid-cols-2">
         <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-          Business name
+          {t('businessName')}
           <input
             value={fields.name}
             onChange={(event) => update('name', event.target.value)}
@@ -263,7 +257,7 @@ export function BusinessProfileEditor({
           />
         </label>
         <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-          Description
+          {t('description')}
           <textarea
             value={fields.description}
             onChange={(event) => update('description', event.target.value)}
@@ -275,7 +269,7 @@ export function BusinessProfileEditor({
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Category
+          {t('category')}
           <select
             value={fields.categoryId}
             onChange={(event) => update('categoryId', event.target.value)}
@@ -291,7 +285,7 @@ export function BusinessProfileEditor({
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Region
+          {t('region')}
           <select
             value={fields.regionId}
             onChange={(event) =>
@@ -313,7 +307,7 @@ export function BusinessProfileEditor({
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          City
+          {t('city')}
           <select
             value={fields.cityId}
             onChange={(event) =>
@@ -335,15 +329,15 @@ export function BusinessProfileEditor({
           </select>
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Destination{' '}
-          <span className="font-normal text-slate-500">(optional)</span>
+          {t('destination')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <select
             value={fields.destinationId}
             onChange={(event) => update('destinationId', event.target.value)}
             disabled={!fields.cityId}
             className={inputClass()}
           >
-            <option value="">No destination selected</option>
+            <option value="">{t('noDestination')}</option>
             {destinations.map((destination) => (
               <option key={destination.id} value={destination.id}>
                 {destination.name}
@@ -352,7 +346,7 @@ export function BusinessProfileEditor({
           </select>
         </label>
         <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-          Address line 1
+          {t('addressLine1')}
           <input
             value={fields.addressLine1}
             onChange={(event) => update('addressLine1', event.target.value)}
@@ -362,8 +356,8 @@ export function BusinessProfileEditor({
           />
         </label>
         <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-          Address line 2{' '}
-          <span className="font-normal text-slate-500">(optional)</span>
+          {t('addressLine2')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <input
             value={fields.addressLine2}
             onChange={(event) => update('addressLine2', event.target.value)}
@@ -372,8 +366,8 @@ export function BusinessProfileEditor({
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Neighborhood{' '}
-          <span className="font-normal text-slate-500">(optional)</span>
+          {t('neighborhood')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <input
             value={fields.neighborhood}
             onChange={(event) => update('neighborhood', event.target.value)}
@@ -382,8 +376,8 @@ export function BusinessProfileEditor({
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Postal code{' '}
-          <span className="font-normal text-slate-500">(optional)</span>
+          {t('postalCode')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <input
             value={fields.postalCode}
             onChange={(event) => update('postalCode', event.target.value)}
@@ -392,7 +386,7 @@ export function BusinessProfileEditor({
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Latitude
+          {t('latitude')}
           <input
             inputMode="decimal"
             value={fields.latitude}
@@ -401,7 +395,7 @@ export function BusinessProfileEditor({
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Longitude
+          {t('longitude')}
           <input
             inputMode="decimal"
             value={fields.longitude}
@@ -410,7 +404,8 @@ export function BusinessProfileEditor({
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Phone <span className="font-normal text-slate-500">(optional)</span>
+          {t('phone')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <input
             type="tel"
             value={fields.phone}
@@ -420,7 +415,8 @@ export function BusinessProfileEditor({
           />
         </label>
         <label className="text-sm font-semibold text-slate-700">
-          Email <span className="font-normal text-slate-500">(optional)</span>
+          {t('email')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <input
             type="email"
             value={fields.email}
@@ -430,7 +426,8 @@ export function BusinessProfileEditor({
           />
         </label>
         <label className="sm:col-span-2 text-sm font-semibold text-slate-700">
-          Website <span className="font-normal text-slate-500">(optional)</span>
+          {t('website')}{' '}
+          <span className="font-normal text-slate-500">({t('optional')})</span>
           <input
             type="url"
             value={fields.website}
@@ -448,10 +445,10 @@ export function BusinessProfileEditor({
         {saving ? (
           <>
             <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Saving...
+            {t('saving')}
           </>
         ) : (
-          'Save profile'
+          t('saveProfile')
         )}
       </button>
     </form>
