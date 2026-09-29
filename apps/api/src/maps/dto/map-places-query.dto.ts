@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PricingModel } from '@prisma/client';
+import { EditorialLocale, PricingModel } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   IsArray,
@@ -20,6 +20,14 @@ import {
 } from '../../search/dto/search-query.dto';
 
 export class MapPlacesQueryDto {
+  @ApiPropertyOptional({
+    enum: EditorialLocale,
+    description: 'Omitted locale uses canonical English discovery.',
+  })
+  @IsOptional()
+  @IsEnum(EditorialLocale)
+  locale?: EditorialLocale;
+
   @ApiProperty({ minimum: -90, maximum: 90 })
   @Transform(({ value }) => parseFiniteNumber(value))
   @IsNumber()

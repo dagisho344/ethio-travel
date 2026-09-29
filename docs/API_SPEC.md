@@ -20,6 +20,8 @@ GET /regions/:regionSlug/cities/:citySlug/destinations
 GET /search
 GET /map/places
 
+Both public discovery routes accept optional `locale=en|am` (invalid explicit values return 400). Omitted or `en` keeps canonical Destination matching and presentation. With `am`, Destination matching includes canonical fields plus complete, published Amharic `displayName` and `shortDescription`; translated `fullDescription` is required for completeness but is not searched. Destination names/snippets and map labels use the F1-resolved public fields. Attraction, Business, and Service matching is unchanged. The web client does not yet forward its locale cookie to these routes (F4A-2).
+
 ## Businesses
 POST /businesses
 GET /api/v1/regions/:regionSlug/cities/:citySlug/businesses/:businessSlug

@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { PricingModel } from '@prisma/client';
+import { EditorialLocale, PricingModel } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
   IsArray,
@@ -67,6 +67,14 @@ export function parseFiniteNumber(value: unknown): number | undefined {
 }
 
 export class SearchQueryDto extends PaginationQueryDto {
+  @ApiPropertyOptional({
+    enum: EditorialLocale,
+    description: 'Omitted locale uses canonical English discovery.',
+  })
+  @IsOptional()
+  @IsEnum(EditorialLocale)
+  locale?: EditorialLocale;
+
   @ApiPropertyOptional({ enum: SearchEntityType, isArray: true })
   @Transform(({ value }) => parseSearchTypes(value))
   @IsArray()

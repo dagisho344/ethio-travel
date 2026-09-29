@@ -156,18 +156,33 @@ the same resolved public Destination response. The canonical browser route is
 unchanged (`/regions/[regionSlug]/cities/[citySlug]/destinations/[destinationSlug]`);
 F3 adds neither `/en`/`/am` routes nor hreflang alternatives.
 
-Search and map APIs, matching, ranking, filters, and marker behavior remain
-unchanged. Search's destination selector still uses its existing discovery
-contract, and map labels continue to use the existing map contract. Business,
-service, user-generated, and trip content remains untouched. `/shared-trip`
+At F3, Search and map APIs, matching, ranking, filters, and marker behavior
+remained unchanged. F4A-1 later added explicit optional `locale=en|am` on the
+existing Search and Map APIs. Omitted/English requests retain canonical
+Destination matching and display. Amharic requests also match complete,
+published Amharic `displayName` and `shortDescription`, while continuing to
+match canonical English fields including canonical `fullDescription`.
+Translated `fullDescription` is required for completeness but deliberately
+excluded from matching. A single qualified Destination identity is counted
+and paginated even when both languages match. The F1 shared resolver supplies
+the Destination Search name/snippet and Map label, with complete English
+fallback for missing, draft, unpublished, or incomplete translations. Other
+entity types, filters, coordinates, marker caps, and canonical ordering remain
+unchanged. The web client still omits this API locale parameter; forwarding
+its cookie and translating discovery selectors belong to F4A-2, while
+production-scale query performance and any index proposal belong to F4A-3.
+No schema change or migration was added for F4A-1. Business, service,
+user-generated, and trip content remains untouched. `/shared-trip`
 continues to remove its fragment token locally and resolve it only through the
 existing same-origin POST route; F3 introduces no locale redirect or token
 forwarding.
 
 ## Deferred work
 
-- **F4:** Amharic search/indexing design, localized map/discovery contracts if
-  separately approved, and regression hardening;
+- **F4A-2:** forward the validated server-resolved locale from the web Search/Map
+  experience without changing browser-facing URLs or discovery filters;
+- **F4A-3:** measure production-scale translated discovery queries and propose
+  an additive index only if evidence shows one is needed;
 - other platform/editorial, business-owned, and user-generated content remains
   in its original stored language.
 

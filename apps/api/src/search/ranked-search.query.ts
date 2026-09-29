@@ -1,5 +1,6 @@
 import { InternalServerErrorException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { EditorialLocale, Prisma } from '@prisma/client';
+import { publicAmharicEditorialSql } from '../destinations/public-destination-editorial.util';
 import {
   SearchEntityType,
   SearchQueryDto,
@@ -57,11 +58,25 @@ const destination: Context = {
     status: column('d', 'status', '"PublicationStatus"'),
     shortDescription: column('d', 'short_description'),
     fullDescription: column('d', 'full_description'),
+    latitude: column('d', 'latitude', 'numeric'),
+    longitude: column('d', 'longitude', 'numeric'),
   },
   relations: { city },
 };
 const businessDestination: Context = {
   columns: destination.columns,
+  relations: {},
+};
+// Only the root Destination branch may match translation content. Parent
+// Destination relations on other entity types retain their canonical context.
+const localizedDestination: Context = { ...destination };
+const translationContext: Context = {
+  columns: {
+    locale: column('dt', 'locale', '"EditorialLocale"'),
+    isPublished: column('dt', 'is_published'),
+    displayName: column('dt', 'display_name'),
+    shortDescription: column('dt', 'short_description'),
+  },
   relations: {},
 };
 const business: Context = {
@@ -92,7 +107,7 @@ const business: Context = {
   },
 };
 const contexts: Record<SearchEntityType, Context> = {
-  destination,
+  destination: localizedDestination,
   attraction: {
     columns: {
       name: column('a', 'name'),
@@ -200,6 +215,15 @@ function predicate(value: unknown, context: Context): Prisma.Sql {
           key,
         ),
       );
+    } else if (key === 'translations' && context === localizedDestination) {
+      const relation = object(filter);
+      if (Object.keys(relation).length !== 1 || !relation.some)
+        throw new InternalServerErrorException(
+          'Unsupported discovery translation relation.',
+        );
+      parts.push(
+        Prisma.sql`EXISTS (SELECT 1 FROM "public"."destination_translations" dt WHERE dt.destination_id = d.id AND ${publicAmharicEditorialSql()} AND ${predicate(relation.some, translationContext)})`,
+      );
     } else if (context.relations[key]) {
       parts.push(predicate(filter, context.relations[key]));
     } else if (context.columns[key]) {
@@ -246,8 +270,14 @@ export function rankedSearchQuery(
     // mixing JS query case-folding with database name case-folding can lose a
     // literal Unicode name match. No request locale/collation is introduced.
     // ILIKE pattern behavior remains confined to existing matching filters.
+    const translatedNameMatch =
+      type === SearchEntityType.DESTINATION &&
+      query.locale === EditorialLocale.am &&
+      query.q
+        ? Prisma.sql`OR EXISTS (SELECT 1 FROM "public"."destination_translations" dt WHERE dt.destination_id = d.id AND ${publicAmharicEditorialSql()} AND strpos(lower(dt.display_name), lower(${query.q})) > 0)`
+        : Prisma.empty;
     const relevance = query.q
-      ? Prisma.sql`CASE WHEN strpos(lower(${name}), lower(${query.q})) > 0 THEN 2 ELSE 1 END`
+      ? Prisma.sql`CASE WHEN strpos(lower(${name}), lower(${query.q})) > 0 ${translatedNameMatch} THEN 2 ELSE 1 END`
       : Prisma.sql`0`;
     return Prisma.sql`SELECT ${id} AS id, ${type}::text AS type, ${name} AS name, ${createdAt} AS created_at, ${relevance} AS relevance ${sources[type]} WHERE ${predicate(predicates[type], contexts[type])}`;
   });

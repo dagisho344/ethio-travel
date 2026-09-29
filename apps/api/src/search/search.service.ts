@@ -3,7 +3,19 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { PricingModel, Prisma, ServiceLocationMode } from '@prisma/client';
+import {
+  EditorialLocale,
+  PricingModel,
+  Prisma,
+  ServiceLocationMode,
+} from '@prisma/client';
+import {
+  destinationDiscoveryText,
+  eligibleAmharicEditorial,
+  publishedAmharicDiscoveryEditorial,
+  PublicDestinationEditorialTranslation,
+  resolvePublicDestinationEditorial,
+} from '../destinations/public-destination-editorial.util';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import {
   haversineDistanceKm,
@@ -51,6 +63,7 @@ export interface SearchResult {
   distanceKm?: number;
   createdAt: Date;
   relevance: number;
+  canonicalName?: string;
 }
 
 const destinationSelect = {
@@ -94,6 +107,11 @@ const attractionSelect = {
     },
   },
 } satisfies Prisma.AttractionSelect;
+
+const localizedDestinationSelect = {
+  ...destinationSelect,
+  translations: publishedAmharicDiscoveryEditorial,
+} satisfies Prisma.DestinationSelect;
 
 const businessSelect = {
   id: true,
@@ -150,7 +168,7 @@ const serviceSelect = {
 
 type DestinationRecord = Prisma.DestinationGetPayload<{
   select: typeof destinationSelect;
-}>;
+}> & { translations?: PublicDestinationEditorialTranslation[] };
 type AttractionRecord = Prisma.AttractionGetPayload<{
   select: typeof attractionSelect;
 }>;
@@ -312,17 +330,59 @@ export class SearchService {
     ids?: string[],
   ): Promise<SearchResult[]> {
     if (ids && !ids.length) return Promise.resolve([]);
+    // Nearby am candidates must satisfy SQL trim/completeness BEFORE take.
+    // Ordinary ranked-page hydration supplies already-qualified IDs.
+    if (!ids && query.locale === EditorialLocale.am) {
+      return this.prisma.$transaction(
+        async (tx) => {
+          const rows = await tx.$queryRaw<RankedSearchRow[]>(
+            rankedSearchQuery(
+              {
+                ...query,
+                page: 1,
+                limit: take,
+                sort:
+                  query.sort === SearchSort.NEWEST
+                    ? SearchSort.NEWEST
+                    : query.sort === SearchSort.NAME_DESC
+                      ? SearchSort.NAME_DESC
+                      : SearchSort.NAME_ASC,
+              },
+              [SearchEntityType.DESTINATION],
+              {
+                destination: this.destinationWhere(query),
+                attraction: {},
+                business: {},
+                service: {},
+              },
+            ),
+          );
+          return this.findDestinations(
+            query,
+            take,
+            tx,
+            rows.flatMap((row) => (row.id ? [row.id] : [])),
+          );
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+      );
+    }
     return client.destination
       .findMany({
         where: ids
           ? { AND: [this.destinationWhere(query), { id: { in: ids } }] }
           : this.destinationWhere(query),
-        select: destinationSelect,
+        select:
+          query.locale === EditorialLocale.am
+            ? localizedDestinationSelect
+            : destinationSelect,
         orderBy: this.orderBy(query.sort),
         take: ids ? ids.length : take,
       })
       .then((records) =>
-        records.map((record) => this.mapDestination(record, query.q)),
+        records.map((record) =>
+          this.mapDestination(record, query.q, query.locale),
+        ),
       );
   }
 
@@ -395,7 +455,7 @@ export class SearchService {
     return {
       AND: [
         publicDestinationWhere(query),
-        this.destinationText(query.q),
+        destinationDiscoveryText(query.q, query.locale),
         this.nearbyCoordinatesWhere(query),
       ],
     };
@@ -474,24 +534,6 @@ export class SearchService {
       ],
     };
   }
-  private destinationText(q?: string): Prisma.DestinationWhereInput {
-    return q
-      ? {
-          OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { shortDescription: { contains: q, mode: 'insensitive' } },
-            { fullDescription: { contains: q, mode: 'insensitive' } },
-            { city: { name: { contains: q, mode: 'insensitive' } } },
-            {
-              city: {
-                region: { name: { contains: q, mode: 'insensitive' } },
-              },
-            },
-          ],
-        }
-      : {};
-  }
-
   private attractionText(q?: string): Prisma.AttractionWhereInput {
     return q
       ? {
@@ -594,7 +636,9 @@ export class SearchService {
         );
       if (sort === SearchSort.NAME_DESC)
         return (
-          right.name.localeCompare(left.name) || this.typeCompare(left, right)
+          (right.canonicalName ?? right.name).localeCompare(
+            left.canonicalName ?? left.name,
+          ) || this.typeCompare(left, right)
         );
       if (sort === SearchSort.NAME_ASC) return this.nameCompare(left, right);
       if (sort === SearchSort.DISTANCE)
@@ -607,7 +651,11 @@ export class SearchService {
     });
   }
   private nameCompare(left: SearchResult, right: SearchResult): number {
-    return left.name.localeCompare(right.name) || this.typeCompare(left, right);
+    return (
+      (left.canonicalName ?? left.name).localeCompare(
+        right.canonicalName ?? right.name,
+      ) || this.typeCompare(left, right)
+    );
   }
 
   private typeCompare(left: SearchResult, right: SearchResult): number {
@@ -705,13 +753,27 @@ export class SearchService {
     this.resolveTypes(query);
   }
 
-  private mapDestination(record: DestinationRecord, q?: string): SearchResult {
+  private mapDestination(
+    record: DestinationRecord,
+    q?: string,
+    locale?: EditorialLocale,
+  ): SearchResult {
+    const translation = eligibleAmharicEditorial(
+      locale,
+      record.translations?.[0],
+    );
+    const editorial = resolvePublicDestinationEditorial(
+      record,
+      locale,
+      translation,
+    );
     return {
       type: SearchEntityType.DESTINATION,
       id: record.id,
-      name: record.name,
+      name: editorial.name,
+      canonicalName: record.name,
       slug: record.slug,
-      shortDescription: record.shortDescription,
+      shortDescription: editorial.shortDescription,
       latitude: record.latitude,
       longitude: record.longitude,
       location: {
@@ -722,7 +784,12 @@ export class SearchService {
         },
       },
       createdAt: record.createdAt,
-      relevance: this.relevance(record.name, q),
+      relevance: Math.max(
+        this.relevance(record.name, q),
+        translation?.displayName
+          ? this.relevance(translation.displayName.trim(), q)
+          : 0,
+      ),
     };
   }
 

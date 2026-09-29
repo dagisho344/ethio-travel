@@ -3,6 +3,7 @@ import {
   AttractionCategory,
   BusinessStatus,
   BusinessVerificationSummary,
+  EditorialLocale,
   LocationStatus,
   PricingModel,
   Prisma,
@@ -17,6 +18,8 @@ import {
   publicServiceWhere,
 } from '../src/common/utils/public-visibility.util';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { MapsService } from '../src/maps/maps.service';
+import { MapPlacesQueryDto } from '../src/maps/dto/map-places-query.dto';
 import {
   SearchEntityType,
   SearchQueryDto,
@@ -129,6 +132,7 @@ async function fixture(tx: Prisma.TransactionClient) {
     attraction: tx.attraction,
     business: tx.business,
     service: tx.service,
+    review: tx.review,
     $transaction: (
       callback: (client: Prisma.TransactionClient) => Promise<unknown>,
     ) => callback(tx),
@@ -143,6 +147,7 @@ async function fixture(tx: Prisma.TransactionClient) {
     business,
     service,
     search: new SearchService(adapter as unknown as PrismaService),
+    maps: new MapsService(adapter as unknown as PrismaService),
   };
 }
 type Fixture = Awaited<ReturnType<typeof fixture>>;
@@ -155,16 +160,22 @@ databaseDescribe('F4A-0 actual PostgreSQL ranked Search', () => {
   async function within(
     callback: (tx: Prisma.TransactionClient, data: Fixture) => Promise<void>,
   ) {
+    let regionId: string | undefined;
     try {
       await prisma.$transaction(
         async (tx) => {
-          await callback(tx, await fixture(tx));
+          const data = await fixture(tx);
+          regionId = data.region.id;
+          await callback(tx, data);
           throw rollback;
         },
         { timeout: 60_000 },
       );
     } catch (error) {
       if (error !== rollback) throw error;
+    }
+    if (regionId) {
+      expect(await prisma.region.count({ where: { id: regionId } })).toBe(0);
     }
   }
   function query(
@@ -179,6 +190,308 @@ databaseDescribe('F4A-0 actual PostgreSQL ranked Search', () => {
       ...overrides,
     };
   }
+
+  function mapQuery(
+    data: Fixture,
+    overrides: Partial<MapPlacesQueryDto> = {},
+  ): MapPlacesQueryDto {
+    return {
+      north: 7,
+      south: 5,
+      east: 38,
+      west: 36,
+      limit: 20,
+      regionSlug: data.region.slug,
+      types: [SearchEntityType.DESTINATION],
+      ...overrides,
+    };
+  }
+
+  it('matches published complete Amharic once, ranks translated names, and preserves canonical fallback', async () => {
+    await within(async (tx, data) => {
+      const first = data.destinations[0]!;
+      const second = data.destinations[1]!;
+      await tx.destinationTranslation.createMany({
+        data: [
+          {
+            destinationId: first.id,
+            locale: EditorialLocale.am,
+            displayName: 'ሐይቅ መዳረሻ',
+            shortDescription: 'ሐይቅ ጉብኝት',
+            fullDescription: 'የተሟላ መግለጫ',
+            isPublished: true,
+          },
+          {
+            destinationId: second.id,
+            locale: EditorialLocale.am,
+            displayName: null,
+            shortDescription: 'ሐይቅ መግለጫ',
+            fullDescription: 'የተሟላ መግለጫ',
+            isPublished: true,
+          },
+        ],
+      });
+      const am = query(data, {
+        q: 'ሐይቅ',
+        locale: EditorialLocale.am,
+        types: [SearchEntityType.DESTINATION],
+        limit: 1,
+      });
+      const page1 = await data.search.search(am);
+      const page2 = await data.search.search({ ...am, page: 2 });
+      expect(page1.meta.total).toBe(2);
+      expect(page1.data[0]).toMatchObject({
+        id: first.id,
+        slug: first.slug,
+        name: 'ሐይቅ መዳረሻ',
+        shortDescription: 'ሐይቅ ጉብኝት',
+      });
+      expect(page2.data[0]).toMatchObject({
+        id: second.id,
+        name: second.name,
+        shortDescription: 'ሐይቅ መግለጫ',
+      });
+      const nearby = await data.search.search({
+        ...am,
+        sort: SearchSort.DISTANCE,
+        lat: 6.1,
+        lng: 37.1,
+        radiusKm: 5,
+        limit: 20,
+      });
+      expect(nearby.meta.total).toBe(2);
+      expect(nearby.data.map((item) => item.id).sort()).toEqual(
+        [first.id, second.id].sort(),
+      );
+      expect(
+        (await data.search.search({ ...am, locale: EditorialLocale.en })).meta
+          .total,
+      ).toBe(0);
+      expect(
+        (await data.search.search({ ...am, locale: undefined })).meta.total,
+      ).toBe(0);
+      expect(
+        (
+          await data.search.search(
+            query(data, {
+              q: 'Lake',
+              locale: EditorialLocale.am,
+              types: [SearchEntityType.DESTINATION],
+            }),
+          )
+        ).meta.total,
+      ).toBe(4);
+      expect(
+        (
+          await data.search.search(
+            query(data, { q: 'ሐይቅ', locale: EditorialLocale.am }),
+          )
+        ).meta.total,
+      ).toBe(2);
+      expect(
+        (
+          await data.search.search(
+            query(data, {
+              q: 'የተሟላ',
+              locale: EditorialLocale.am,
+              types: [SearchEntityType.DESTINATION],
+            }),
+          )
+        ).meta.total,
+      ).toBe(0);
+      const marker = await data.maps.findPlaces(
+        mapQuery(data, { q: 'ሐይቅ', locale: EditorialLocale.am, limit: 1 }),
+      );
+      expect(marker.data).toHaveLength(1);
+      expect(marker.data[0]).toMatchObject({ id: first.id, name: 'ሐይቅ መዳረሻ' });
+      expect(
+        (
+          await data.maps.findPlaces(
+            mapQuery(data, { q: 'ሐይቅ መግለጫ', locale: EditorialLocale.am }),
+          )
+        ).data[0],
+      ).toMatchObject({ id: second.id, name: second.name });
+      expect(
+        (
+          await data.maps.findPlaces(
+            mapQuery(data, { q: 'ሐይቅ', locale: EditorialLocale.en }),
+          )
+        ).data,
+      ).toEqual([]);
+      for (const item of [...page1.data, ...page2.data, ...marker.data]) {
+        expect(item).not.toHaveProperty('translations');
+        expect(item).not.toHaveProperty('isPublished');
+        expect(item).not.toHaveProperty('publishedAt');
+        expect(item).not.toHaveProperty('canonicalName');
+      }
+      expect(
+        (
+          await data.search.search(
+            query(data, {
+              q: 'Lake',
+              locale: EditorialLocale.en,
+              types: [SearchEntityType.DESTINATION],
+            }),
+          )
+        ).data[0]?.name,
+      ).not.toBe('ሐይቅ መዳረሻ');
+      await tx.destinationTranslation.update({
+        where: {
+          destinationId_locale: {
+            destinationId: first.id,
+            locale: EditorialLocale.am,
+          },
+        },
+        data: { displayName: 'Lake ሐይቅ' },
+      });
+      const both = await data.search.search(
+        query(data, {
+          q: 'Lake',
+          locale: EditorialLocale.am,
+          types: [SearchEntityType.DESTINATION],
+        }),
+      );
+      expect(both.meta.total).toBe(4);
+      expect(both.data.filter((row) => row.id === first.id)).toHaveLength(1);
+      await tx.destination.update({
+        where: { id: first.id },
+        data: { fullDescription: 'Unique canonical canyon prose' },
+      });
+      expect(
+        (
+          await data.search.search(
+            query(data, {
+              q: 'canyon prose',
+              locale: EditorialLocale.am,
+              types: [SearchEntityType.DESTINATION],
+            }),
+          )
+        ).data.map((row) => row.id),
+      ).toEqual([first.id]);
+    });
+  });
+
+  it('excludes draft, unpublished, and incomplete translations before counting and map caps', async () => {
+    await within(async (tx, data) => {
+      const destination = data.destinations[0]!;
+      const token = 'ልዩመፈለጊያ';
+      const translation = await tx.destinationTranslation.create({
+        data: {
+          destinationId: destination.id,
+          locale: EditorialLocale.am,
+          displayName: token,
+          shortDescription: 'መግለጫ',
+          fullDescription: 'የተሟላ መግለጫ',
+          isPublished: false,
+        },
+      });
+      const search = () =>
+        data.search.search(
+          query(data, {
+            q: token,
+            locale: EditorialLocale.am,
+            types: [SearchEntityType.DESTINATION],
+          }),
+        );
+      const map = () =>
+        data.maps.findPlaces(
+          mapQuery(data, { q: token, locale: EditorialLocale.am, limit: 1 }),
+        );
+      expect((await search()).meta.total).toBe(0);
+      expect((await map()).data).toEqual([]);
+      await tx.destinationTranslation.update({
+        where: { id: translation.id },
+        data: { isPublished: true },
+      });
+      expect((await search()).data[0]?.name).toBe(token);
+      for (const invalid of [null, '', '   ', '\u2003\u00a0']) {
+        await tx.destinationTranslation.update({
+          where: { id: translation.id },
+          data: { fullDescription: invalid },
+        });
+        expect((await search()).meta.total).toBe(0);
+        expect((await map()).data).toEqual([]);
+      }
+      const canonicalFallback = await data.search.search(
+        query(data, {
+          q: 'Lake',
+          locale: EditorialLocale.am,
+          types: [SearchEntityType.DESTINATION],
+        }),
+      );
+      expect(
+        canonicalFallback.data.find((item) => item.id === destination.id),
+      ).toMatchObject({
+        name: destination.name,
+        shortDescription: destination.shortDescription,
+      });
+      expect(
+        (
+          await data.maps.findPlaces(
+            mapQuery(data, { q: 'Lake', locale: EditorialLocale.am }),
+          )
+        ).data.find((item) => item.id === destination.id)?.name,
+      ).toBe(destination.name);
+      await tx.destinationTranslation.update({
+        where: { id: translation.id },
+        data: { fullDescription: 'የተሟላ', shortDescription: '\u2003\u00a0' },
+      });
+      expect((await search()).meta.total).toBe(0);
+      await tx.destinationTranslation.update({
+        where: { id: translation.id },
+        data: { shortDescription: 'መግለጫ' },
+      });
+      expect((await search()).meta.total).toBe(1);
+      await tx.city.update({
+        where: { id: data.city.id },
+        data: { status: LocationStatus.INACTIVE },
+      });
+      expect((await search()).meta.total).toBe(0);
+      expect((await map()).data).toEqual([]);
+    });
+  });
+
+  it('does not let alphabetically earlier incomplete translations consume a bounded map slot', async () => {
+    await within(async (tx, data) => {
+      const q = 'ልዩየካርታመፈለጊያ';
+      await tx.destinationTranslation.createMany({
+        data: [
+          {
+            destinationId: data.destinations[0]!.id,
+            locale: EditorialLocale.am,
+            displayName: q,
+            shortDescription: 'መግለጫ',
+            fullDescription: '\u2003\u00a0',
+            isPublished: true,
+          },
+          {
+            destinationId: data.destinations[1]!.id,
+            locale: EditorialLocale.am,
+            displayName: q,
+            shortDescription: 'መግለጫ',
+            fullDescription: 'የተሟላ',
+            isPublished: true,
+          },
+        ],
+      });
+      const result = await data.maps.findPlaces(
+        mapQuery(data, { q, locale: EditorialLocale.am, limit: 1 }),
+      );
+      expect(result.data.map((item) => item.id)).toEqual([
+        data.destinations[1]!.id,
+      ]);
+      const searched = await data.search.search(
+        query(data, {
+          q,
+          locale: EditorialLocale.am,
+          types: [SearchEntityType.DESTINATION],
+          limit: 1,
+        }),
+      );
+      expect(searched.meta.total).toBe(1);
+      expect(searched.data[0]?.id).toBe(data.destinations[1]!.id);
+    });
+  });
 
   it('ranks before paging and never repeats or omits the alphabetical-prefix fixture', async () => {
     await within(async (_tx, data) => {
@@ -337,6 +650,16 @@ databaseDescribe('F4A-0 actual PostgreSQL ranked Search', () => {
       );
       expect(first.meta.total).toBe(1005);
       expect(first.data[0]?.name).toBe('LargeOnly 0000');
+      const amFirst = await data.search.search(
+        query(data, {
+          q: 'LargeOnly',
+          locale: EditorialLocale.am,
+          types: [SearchEntityType.DESTINATION],
+          limit: 1,
+        }),
+      );
+      expect(amFirst.meta.total).toBe(1005);
+      expect(amFirst.data[0]?.id).toBe(first.data[0]?.id);
       const last = await data.search.search(
         query(data, {
           q: 'LargeOnly',

@@ -20,31 +20,19 @@ import { DestinationQueryDto } from './dto/destination-query.dto';
 import { PublicDestinationQueryDto } from './dto/public-destination-query.dto';
 import { UpdateDestinationDto } from './dto/update-destination.dto';
 import { UpsertDestinationTranslationDto } from './dto/upsert-destination-translation.dto';
+import {
+  isDestinationTranslationComplete,
+  nonEmptyEditorialText,
+  publishedAmharicEditorial,
+  resolvePublicDestinationEditorial,
+} from './public-destination-editorial.util';
 
 type DestinationRecord = Awaited<
   ReturnType<PrismaService['destination']['findFirstOrThrow']>
 >;
 
-const publishedAmharicTranslation = {
-  where: {
-    isPublished: true,
-    locale: EditorialLocale.am,
-  },
-  select: {
-    bestTimeToVisit: true,
-    displayName: true,
-    fullDescription: true,
-    gettingThere: true,
-    isPublished: true,
-    localTips: true,
-    safetyNotes: true,
-    shortDescription: true,
-  },
-  take: 1,
-} satisfies Prisma.DestinationTranslationFindManyArgs;
-
 const publicDestinationInclude = {
-  translations: publishedAmharicTranslation,
+  translations: publishedAmharicEditorial,
 } satisfies Prisma.DestinationInclude;
 
 type PublicDestinationQueryRecord = Prisma.DestinationGetPayload<{
@@ -496,51 +484,7 @@ export class DestinationsService {
     locale: EditorialLocale,
   ): DestinationRecord {
     const { translations, ...source } = destination;
-    const translation = translations[0];
-    if (
-      locale !== EditorialLocale.am ||
-      !translation ||
-      !translation.isPublished ||
-      !this.isTranslationComplete(translation)
-    ) {
-      return source;
-    }
-
-    return {
-      ...source,
-      name: this.nonEmptyText(translation.displayName) ?? source.name,
-      shortDescription: this.nonEmptyText(translation.shortDescription)!,
-      fullDescription: this.nonEmptyText(translation.fullDescription)!,
-      travelInfo: this.resolveTranslatedTravelInfo(
-        source.travelInfo,
-        translation,
-      ),
-    };
-  }
-
-  private resolveTranslatedTravelInfo(
-    source: Prisma.JsonValue | null,
-    translation: PublicDestinationQueryRecord['translations'][number],
-  ): Prisma.JsonValue | null {
-    const translatedTravelInfo: Record<string, string> = {};
-    for (const field of [
-      'bestTimeToVisit',
-      'gettingThere',
-      'localTips',
-      'safetyNotes',
-    ] as const) {
-      const value = this.nonEmptyText(translation[field]);
-      if (value) translatedTravelInfo[field] = value;
-    }
-    if (Object.keys(translatedTravelInfo).length === 0) return source;
-    if (
-      source === null ||
-      typeof source !== 'object' ||
-      Array.isArray(source)
-    ) {
-      return translatedTravelInfo;
-    }
-    return { ...source, ...translatedTravelInfo };
+    return resolvePublicDestinationEditorial(source, locale, translations[0]);
   }
 
   private translationValues(
@@ -567,21 +511,11 @@ export class DestinationsService {
     fullDescription: string | null;
     shortDescription: string | null;
   }): void {
-    if (!this.isTranslationComplete(translation)) {
+    if (!isDestinationTranslationComplete(translation)) {
       throw new BadRequestException(
         'Published destination translations require a short and full description.',
       );
     }
-  }
-
-  private isTranslationComplete(translation: {
-    fullDescription: string | null;
-    shortDescription: string | null;
-  }): boolean {
-    return Boolean(
-      this.nonEmptyText(translation.shortDescription) &&
-      this.nonEmptyText(translation.fullDescription),
-    );
   }
 
   private normalizeOptionalText(value: string | null): string | null {
@@ -589,8 +523,7 @@ export class DestinationsService {
   }
 
   private nonEmptyText(value: string | null | undefined): string | null {
-    const normalized = value?.trim();
-    return normalized ? normalized : null;
+    return nonEmptyEditorialText(value);
   }
 
   private createData(

@@ -1,5 +1,15 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Prisma, ReviewStatus, ServiceLocationMode } from '@prisma/client';
+import {
+  EditorialLocale,
+  Prisma,
+  ReviewStatus,
+  ServiceLocationMode,
+} from '@prisma/client';
+import {
+  destinationDiscoveryText,
+  publishedAmharicDiscoveryEditorial,
+  resolvePublicDestinationEditorial,
+} from '../destinations/public-destination-editorial.util';
 import {
   hasNearbyCoordinates,
   haversineDistanceKm,
@@ -16,7 +26,11 @@ import {
   publicServiceWhere,
 } from '../common/utils/public-visibility.util';
 import { PrismaService } from '../prisma/prisma.service';
-import { SearchEntityType } from '../search/dto/search-query.dto';
+import { SearchEntityType, SearchSort } from '../search/dto/search-query.dto';
+import {
+  rankedSearchQuery,
+  RankedSearchRow,
+} from '../search/ranked-search.query';
 import { MapPlacesQueryDto } from './dto/map-places-query.dto';
 
 export interface MapMarker {
@@ -50,6 +64,11 @@ const destinationSelect = {
       region: { select: { name: true, slug: true } },
     },
   },
+} satisfies Prisma.DestinationSelect;
+
+const localizedDestinationSelect = {
+  ...destinationSelect,
+  translations: publishedAmharicDiscoveryEditorial,
 } satisfies Prisma.DestinationSelect;
 
 const attractionSelect = {
@@ -119,7 +138,11 @@ const serviceSelect = {
 
 type DestinationRecord = Prisma.DestinationGetPayload<{
   select: typeof destinationSelect;
-}>;
+}> & {
+  translations?: Prisma.DestinationGetPayload<{
+    select: typeof localizedDestinationSelect;
+  }>['translations'];
+};
 type AttractionRecord = Prisma.AttractionGetPayload<{
   select: typeof attractionSelect;
 }>;
@@ -170,24 +193,59 @@ export class MapsService {
     return { data: await this.withRatings(boundedMarkers) };
   }
 
-  private destinations(
+  private async destinations(
     query: MapPlacesQueryDto,
     take: number,
   ): Promise<MapMarker[]> {
-    return this.prisma.destination
-      .findMany({
-        where: {
-          AND: [
-            publicDestinationWhere(query),
-            this.destinationText(query.q),
-            this.bboxWhere(query),
-          ],
+    const where: Prisma.DestinationWhereInput = {
+      AND: [
+        publicDestinationWhere(query),
+        destinationDiscoveryText(query.q, query.locale),
+        this.bboxWhere(query),
+      ],
+    };
+    const orderBy = [{ name: 'asc' as const }, { id: 'asc' as const }];
+    if (query.locale === EditorialLocale.am && query.q) {
+      return this.prisma.$transaction(
+        async (tx) => {
+          const ranked = await tx.$queryRaw<RankedSearchRow[]>(
+            rankedSearchQuery(
+              { ...query, page: 1, limit: take, sort: SearchSort.NAME_ASC },
+              [SearchEntityType.DESTINATION],
+              { destination: where, attraction: {}, business: {}, service: {} },
+            ),
+          );
+          const ids = ranked.flatMap((row) => (row.id ? [row.id] : []));
+          if (!ids.length) return [];
+          const records = await tx.destination.findMany({
+            where: { AND: [where, { id: { in: ids } }] },
+            select: localizedDestinationSelect,
+            orderBy,
+            take: ids.length,
+          });
+          return records.map((record) =>
+            this.mapDestination(record, query.locale),
+          );
         },
-        select: destinationSelect,
-        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+      );
+    }
+    if (query.locale === EditorialLocale.am) {
+      const records = await this.prisma.destination.findMany({
+        where,
+        select: localizedDestinationSelect,
+        orderBy,
         take,
-      })
-      .then((records) => records.map((record) => this.mapDestination(record)));
+      });
+      return records.map((record) => this.mapDestination(record, query.locale));
+    }
+    const records = await this.prisma.destination.findMany({
+      where,
+      select: destinationSelect,
+      orderBy,
+      take,
+    });
+    return records.map((record) => this.mapDestination(record));
   }
 
   private attractions(
@@ -306,24 +364,6 @@ export class MapsService {
       east: Math.min(query.east, nearbyBounds.east),
       west: Math.max(query.west, nearbyBounds.west),
     };
-  }
-
-  private destinationText(q?: string): Prisma.DestinationWhereInput {
-    return q
-      ? {
-          OR: [
-            { name: { contains: q, mode: 'insensitive' } },
-            { shortDescription: { contains: q, mode: 'insensitive' } },
-            { fullDescription: { contains: q, mode: 'insensitive' } },
-            { city: { name: { contains: q, mode: 'insensitive' } } },
-            {
-              city: {
-                region: { name: { contains: q, mode: 'insensitive' } },
-              },
-            },
-          ],
-        }
-      : {};
   }
 
   private attractionText(q?: string): Prisma.AttractionWhereInput {
@@ -576,11 +616,19 @@ export class MapsService {
     });
   }
 
-  private mapDestination(record: DestinationRecord): MapMarker {
+  private mapDestination(
+    record: DestinationRecord,
+    locale?: EditorialLocale,
+  ): MapMarker {
+    const resolved = resolvePublicDestinationEditorial(
+      record,
+      locale,
+      record.translations?.[0],
+    );
     return {
       type: SearchEntityType.DESTINATION,
       id: record.id,
-      name: record.name,
+      name: resolved.name,
       slug: record.slug,
       latitude: record.latitude,
       longitude: record.longitude,

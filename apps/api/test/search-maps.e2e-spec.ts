@@ -14,6 +14,7 @@ import { MapsService } from '../src/maps/maps.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { RedisService } from '../src/redis/redis.service';
 import { SearchEntityType } from '../src/search/dto/search-query.dto';
+import { EditorialLocale } from '@prisma/client';
 import { SearchService } from '../src/search/search.service';
 
 const publicResult = {
@@ -154,13 +155,37 @@ describe('Phase 5 search and map routes', () => {
     );
   });
 
-  it('keeps locale and translation matching out of this correctness checkpoint', async () => {
-    await request(httpServer)
-      .get('/api/v1/search?q=Lake&locale=am')
-      .expect(400);
-    await request(httpServer)
-      .get('/api/v1/map/places?north=10&south=0&east=40&west=30&locale=en')
-      .expect(400);
+  it('accepts only explicit en/am locale on Search and Map, without changing omitted-locale requests', async () => {
+    await request(httpServer).get('/api/v1/search?q=Lake').expect(200);
+    expect(search).toHaveBeenCalledWith(
+      expect.objectContaining({ locale: undefined }),
+    );
+    for (const locale of [EditorialLocale.en, EditorialLocale.am]) {
+      await request(httpServer)
+        .get(`/api/v1/search?q=Lake&locale=${locale}`)
+        .expect(200);
+      expect(search).toHaveBeenCalledWith(expect.objectContaining({ locale }));
+      await request(httpServer)
+        .get(
+          `/api/v1/map/places?north=10&south=0&east=40&west=30&locale=${locale}`,
+        )
+        .expect(200);
+      expect(findPlaces).toHaveBeenCalledWith(
+        expect.objectContaining({ locale }),
+      );
+    }
+    search.mockClear();
+    findPlaces.mockClear();
+    for (const locale of ['fr', 'AM', 'amh', '']) {
+      await request(httpServer)
+        .get(`/api/v1/search?q=Lake&locale=${locale}`)
+        .expect(400);
+      await request(httpServer)
+        .get(
+          `/api/v1/map/places?north=10&south=0&east=40&west=30&locale=${locale}`,
+        )
+        .expect(400);
+    }
     expect(search).not.toHaveBeenCalled();
     expect(findPlaces).not.toHaveBeenCalled();
   });
