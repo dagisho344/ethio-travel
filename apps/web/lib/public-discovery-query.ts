@@ -1,3 +1,5 @@
+import type { AppLocale } from '../i18n/config';
+
 export const publicSearchParamKeys = [
   'q',
   'types',
@@ -49,10 +51,12 @@ export function allowedPublicSearchParams(
 
 export function buildSearchRequestParams(
   source: URLSearchParams,
+  locale: AppLocale,
   nearby?: CoordinateInput | null,
 ): URLSearchParams {
   const result = allowedPublicSearchParams(source);
   result.delete('view');
+  result.set('locale', locale);
   if (nearby) {
     result.set('lat', String(nearby.lat));
     result.set('lng', String(nearby.lng));
@@ -64,9 +68,10 @@ export function buildSearchRequestParams(
 export function buildMapPlacesParams(
   source: URLSearchParams,
   bounds: { north: number; south: number; east: number; west: number },
+  locale: AppLocale,
   nearby?: CoordinateInput | null,
 ): URLSearchParams {
-  const result = buildMapIntentParams(source, nearby);
+  const result = buildMapIntentParams(source, locale, nearby);
   for (const [key, value] of Object.entries(bounds)) {
     result.set(key, String(value));
   }
@@ -76,6 +81,7 @@ export function buildMapPlacesParams(
 /** Marker intent excludes list-only page/sort/view and ephemeral viewport bounds. */
 export function buildMapIntentParams(
   source: URLSearchParams,
+  locale: AppLocale,
   nearby?: CoordinateInput | null,
 ): URLSearchParams {
   const result = new URLSearchParams();
@@ -88,6 +94,7 @@ export function buildMapIntentParams(
     result.set('lng', String(nearby.lng));
     result.set('radiusKm', String(nearby.radiusKm));
   }
+  result.set('locale', locale);
   result.set('limit', '200');
   return result;
 }

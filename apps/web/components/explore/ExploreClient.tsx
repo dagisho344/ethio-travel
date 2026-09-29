@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Filter, List, LocateFixed, Map, Search, X } from 'lucide-react';
 import { getJson } from '../../lib/api';
+import type { AppLocale } from '../../i18n/config';
 import {
   allowedPublicSearchParams,
   buildMapPlacesParams,
@@ -156,6 +157,7 @@ function ResultsEmptyState({
 }
 
 export function ExploreClient({
+  locale,
   businessCategories,
   serviceCategories,
   regions,
@@ -165,6 +167,7 @@ export function ExploreClient({
   normalizedCitySlug,
   normalizedDestinationSlug,
 }: {
+  locale: AppLocale;
   businessCategories: Category[];
   serviceCategories: Category[];
   regions: LocationSummary[];
@@ -226,12 +229,12 @@ export function ExploreClient({
   ]);
 
   const query = useMemo(
-    () => buildSearchRequestParams(normalizedParams, nearby).toString(),
-    [nearby, normalizedParams],
+    () => buildSearchRequestParams(normalizedParams, locale, nearby).toString(),
+    [locale, nearby, normalizedParams],
   );
   const mapIntent = useMemo(
-    () => buildMapIntentParams(normalizedParams, nearby).toString(),
-    [nearby, normalizedParams],
+    () => buildMapIntentParams(normalizedParams, locale, nearby).toString(),
+    [locale, nearby, normalizedParams],
   );
   const currentQuery = useRef(query);
   const currentMapIntent = useRef(mapIntent);
@@ -534,7 +537,12 @@ export function ExploreClient({
     setMapLoading(true);
     setMapError(null);
     try {
-      const params = buildMapPlacesParams(normalizedParams, bounds, nearby);
+      const params = buildMapPlacesParams(
+        normalizedParams,
+        bounds,
+        locale,
+        nearby,
+      );
       const data = await getJson<{ data: MapPlace[] }>(
         `/map/places?${params.toString()}`,
       );

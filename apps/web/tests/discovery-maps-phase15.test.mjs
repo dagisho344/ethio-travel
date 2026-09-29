@@ -46,9 +46,12 @@ void test('discovery requests are allowlisted and Nearby coordinates stay epheme
   assert.match(client, /setNearby\(/);
   assert.match(
     client,
-    /buildMapPlacesParams\(normalizedParams, bounds, nearby\)/,
+    /buildMapPlacesParams\(\s*normalizedParams,\s*bounds,\s*locale,\s*nearby,?\s*\)/,
   );
-  assert.match(client, /buildSearchRequestParams\(normalizedParams, nearby\)/);
+  assert.match(
+    client,
+    /buildSearchRequestParams\(normalizedParams, locale, nearby\)/,
+  );
   assert.match(client, /const searchRequestId = useRef\(0\)/);
   assert.match(
     client,

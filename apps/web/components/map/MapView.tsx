@@ -74,16 +74,19 @@ function BoundsReporter({
 
 function SelectionFocus({ place }: { place?: MapPlace | null }) {
   const map = useMap();
+  const placeKey = place ? `${place.type}:${place.id}` : null;
+  const latitude = place?.latitude;
+  const longitude = place?.longitude;
   useEffect(() => {
-    if (!place) return;
+    if (!placeKey || latitude === undefined || longitude === undefined) return;
     map.flyTo(
-      [Number(place.latitude), Number(place.longitude)],
+      [Number(latitude), Number(longitude)],
       Math.max(map.getZoom(), 12),
       {
         animate: true,
       },
     );
-  }, [map, place]);
+  }, [map, placeKey, latitude, longitude]);
   return null;
 }
 

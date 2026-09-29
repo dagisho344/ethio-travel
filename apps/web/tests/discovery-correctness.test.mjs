@@ -178,6 +178,48 @@ function boundsHarness() {
   };
 }
 
+function selectionHarness() {
+  const hook = hookHarness();
+  /** @type {Array<{coordinates:number[],zoom:number}>} */ const focusCalls =
+    [];
+  const map = {
+    getZoom: () => 9,
+    /** @param {number[]} coordinates @param {number} zoom */
+    flyTo: (coordinates, zoom) => focusCalls.push({ coordinates, zoom }),
+  };
+  const exports = execute(
+    'components/map/MapView.tsx',
+    (name) => {
+      if (name === 'react') return hook.hooks;
+      if (name === 'react-leaflet') return { useMap: () => map };
+      if (name === 'leaflet') return { divIcon: () => ({}) };
+      if (
+        name === 'next-intl' ||
+        name === 'next/link' ||
+        name === 'react-leaflet-cluster' ||
+        name === 'react/jsx-runtime' ||
+        name.startsWith('../../lib/')
+      )
+        return {};
+      return /** @type {unknown} */ (require(name));
+    },
+    {},
+    'exports.testSelectionFocus = SelectionFocus;',
+  );
+  const render = /** @type {(props:{place:unknown})=>null} */ (
+    exports.testSelectionFocus
+  );
+  return {
+    focusCalls,
+    /** @param {unknown} place */
+    render(place) {
+      hook.start();
+      render({ place });
+      hook.flush();
+    },
+  };
+}
+
 const query = /** @type {typeof import('../lib/public-discovery-query')} */ (
   execute(
     'lib/public-discovery-query.ts',
@@ -237,11 +279,13 @@ function exploreHarness() {
   return {
     requests,
     states: () => hook.states(),
+    mapRequestKey: () => mapProps?.requestKey,
     /** @param {string} intent @param {boolean} flush */
-    render(intent, flush = true) {
+    render(intent, flush = true, locale = 'en') {
       params = new URLSearchParams(intent);
       hook.start();
       render({
+        locale,
         businessCategories: [],
         serviceCategories: [],
         regions: [],
@@ -307,13 +351,13 @@ void test('query and filter intent changes refresh a stationary map exactly once
   assert.deepEqual(requests[2], harness.bounds);
 });
 
-void test('marker intent covers existing filters and Nearby, but not list-only or UI/locale keys', () => {
+void test('marker intent covers filters, Nearby and validated locale, but not list-only or UI keys', () => {
   const source = new URLSearchParams(
-    'q=Lake&types=service&regionSlug=south&citySlug=sodo&destinationSlug=lake&businessCategory=HOTEL&serviceCategory=ROOM&pricingModel=FIXED&currency=ETB&minPrice=10&maxPrice=100&sort=newest&page=2&view=map&locale=am&unknown=secret',
+    'q=Lake&types=service&regionSlug=south&citySlug=sodo&destinationSlug=lake&businessCategory=HOTEL&serviceCategory=ROOM&pricingModel=FIXED&currency=ETB&minPrice=10&maxPrice=100&sort=newest&page=2&limit=7&view=map&locale=fr&unknown=secret',
   );
   const nearby = { lat: 6.1, lng: 37.1, radiusKm: 25 };
   const bounds = { north: 10, south: 0, east: 40, west: 30 };
-  const intent = query.buildMapIntentParams(source, nearby);
+  const intent = query.buildMapIntentParams(source, 'am', nearby);
   for (const key of [
     'q',
     'types',
@@ -328,21 +372,169 @@ void test('marker intent covers existing filters and Nearby, but not list-only o
     'maxPrice',
   ])
     assert.equal(intent.get(key), source.get(key));
-  for (const key of ['page', 'sort', 'view', 'locale', 'unknown', 'north'])
+  for (const key of ['page', 'sort', 'view', 'unknown', 'north'])
     assert.equal(intent.has(key), false);
+  assert.equal(intent.get('locale'), 'am');
   assert.equal(intent.get('limit'), '200');
   assert.equal(intent.get('lat'), '6.1');
   assert.equal(intent.get('lng'), '37.1');
   assert.equal(intent.get('radiusKm'), '25');
-  const request = query.buildMapPlacesParams(source, bounds, nearby);
+  const request = query.buildMapPlacesParams(source, bounds, 'am', nearby);
   for (const [key, value] of Object.entries(bounds))
     assert.equal(request.get(key), String(value));
   source.set('page', '3');
   source.set('sort', 'name_asc');
   assert.equal(
-    query.buildMapIntentParams(source, nearby).toString(),
+    query.buildMapIntentParams(source, 'am', nearby).toString(),
     intent.toString(),
   );
+  assert.notEqual(
+    query.buildMapIntentParams(source, 'en', nearby).toString(),
+    intent.toString(),
+  );
+  const searchRequest = query.buildSearchRequestParams(source, 'am', nearby);
+  assert.equal(searchRequest.get('locale'), 'am');
+  assert.equal(searchRequest.get('q'), 'Lake');
+  assert.equal(searchRequest.get('page'), '3');
+  assert.equal(searchRequest.get('sort'), 'name_asc');
+  assert.equal(searchRequest.get('lat'), '6.1');
+  assert.equal(searchRequest.get('lng'), '37.1');
+  assert.equal(searchRequest.get('radiusKm'), '25');
+  for (const key of query.publicSearchParamKeys) {
+    if (key !== 'view') assert.equal(searchRequest.get(key), source.get(key));
+  }
+  for (const locale of ['en', 'am']) {
+    const plain = query.buildSearchRequestParams(
+      new URLSearchParams('q=Lake'),
+      locale,
+    );
+    assert.equal(plain.get('q'), 'Lake');
+    assert.equal(plain.get('locale'), locale);
+    assert.equal(plain.has('lat'), false);
+  }
+  assert.equal(searchRequest.has('view'), false);
+  assert.equal(searchRequest.has('unknown'), false);
+  assert.equal(query.allowedPublicSearchParams(source).has('locale'), false);
+  assert.equal(query.canonicalSearchHref(source).includes('locale='), false);
+});
+
+void test('changing only locale refreshes stationary map bounds without remounting or changing viewport', () => {
+  const harness = boundsHarness();
+  /** @type {Bounds[]} */ const requests = [];
+  const source = new URLSearchParams('q=Lake&view=map&page=2');
+  const onBoundsChange = (/** @type {Bounds} */ bounds) =>
+    requests.push({ ...bounds });
+  harness.render({
+    requestKey: query.buildMapIntentParams(source, 'en').toString(),
+    onBoundsChange,
+  });
+  harness.render({
+    requestKey: query.buildMapIntentParams(source, 'am').toString(),
+    onBoundsChange,
+  });
+  harness.render({
+    requestKey: query.buildMapIntentParams(source, 'en').toString(),
+    onBoundsChange,
+  });
+  assert.equal(requests.length, 3);
+  assert.deepEqual(requests[1], requests[0]);
+  assert.deepEqual(requests[2], requests[0]);
+});
+
+void test('localized marker labels do not refocus or zoom an unchanged selected place', () => {
+  const harness = selectionHarness();
+  harness.render({
+    type: 'destination',
+    id: 'same',
+    name: 'English',
+    latitude: '6.1',
+    longitude: '37.1',
+  });
+  assert.equal(harness.focusCalls.length, 1);
+  harness.render({
+    type: 'destination',
+    id: 'same',
+    name: 'አማርኛ',
+    latitude: '6.1',
+    longitude: '37.1',
+  });
+  assert.equal(harness.focusCalls.length, 1);
+  harness.render({
+    type: 'destination',
+    id: 'other',
+    name: 'Other',
+    latitude: '6.2',
+    longitude: '37.2',
+  });
+  assert.equal(harness.focusCalls.length, 2);
+  assert.equal(harness.focusCalls[1].zoom, 12);
+});
+
+void test('actual Search and Map effects reject old-locale responses and errors', async () => {
+  const harness = exploreHarness();
+  harness.render('q=Lake&view=map', true, 'en');
+  harness.markerRequest();
+  assert.match(harness.requests[0].url, /locale=en/);
+  assert.match(harness.requests[1].url, /locale=en/);
+  const englishKey = harness.mapRequestKey();
+  harness.render('q=Lake&view=map', false, 'am');
+  assert.notEqual(harness.mapRequestKey(), englishKey);
+  assert.equal(harness.states()[0], null);
+  assert.equal(harness.states()[1].length, 0);
+  harness.flush();
+  harness.markerRequest();
+  const amSearch = harness.requests[2];
+  const amMap = harness.requests[3];
+  assert.match(amSearch.url, /locale=am/);
+  assert.match(amMap.url, /locale=am/);
+  amSearch.resolve({
+    data: [{ name: 'የአማርኛ መዳረሻ', shortDescription: 'መግለጫ' }],
+    meta: {},
+  });
+  amMap.resolve({ data: [{ name: 'የአማርኛ መዳረሻ' }] });
+  await settle();
+  harness.requests[0].resolve({ data: [{ name: 'Old English' }], meta: {} });
+  harness.requests[1].resolve({ data: [{ name: 'Old marker' }] });
+  await settle();
+  assert.deepEqual(harness.states()[0], {
+    data: [{ name: 'የአማርኛ መዳረሻ', shortDescription: 'መግለጫ' }],
+    meta: {},
+  });
+  assert.deepEqual(harness.states()[1], [{ name: 'የአማርኛ መዳረሻ' }]);
+  harness.render('q=Lake&view=map', true, 'en');
+  harness.markerRequest();
+  const latestSearch = harness.requests.at(-2);
+  const latestMap = harness.requests.at(-1);
+  assert.match(latestSearch.url, /locale=en/);
+  assert.match(latestMap.url, /locale=en/);
+  latestSearch.resolve({ data: [{ name: 'Canonical English' }], meta: {} });
+  latestMap.resolve({ data: [{ name: 'Canonical marker' }] });
+  await settle();
+  assert.deepEqual(harness.states()[0], {
+    data: [{ name: 'Canonical English' }],
+    meta: {},
+  });
+  assert.deepEqual(harness.states()[1], [{ name: 'Canonical marker' }]);
+  harness.render('q=Lake&view=map', true, 'am');
+  harness.markerRequest();
+  const [staleSearch, staleMap] = harness.requests.slice(-2);
+  harness.render('q=Lake&view=map', true, 'en');
+  harness.markerRequest();
+  const [freshSearch, freshMap] = harness.requests.slice(-2);
+  freshSearch.resolve({ data: [{ name: 'Latest English' }], meta: {} });
+  freshMap.resolve({ data: [{ name: 'Latest marker' }] });
+  await settle();
+  staleSearch.reject(new Error('Stale language failure'));
+  staleMap.reject(new Error('Stale map failure'));
+  await settle();
+  assert.deepEqual(harness.states()[0], {
+    data: [{ name: 'Latest English' }],
+    meta: {},
+  });
+  assert.deepEqual(harness.states()[1], [{ name: 'Latest marker' }]);
+  assert.equal(harness.states()[2], null);
+  assert.equal(harness.states()[3], false);
+  assert.equal(harness.states()[4], null);
 });
 
 const settle = async () => {

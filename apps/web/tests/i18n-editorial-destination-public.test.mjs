@@ -73,12 +73,14 @@ void test('localized detail metadata uses resolved public content without changi
   assert.doesNotMatch(detail, /\/en\/|\/am\/|hreflang|alternates/);
 });
 
-void test('F3 leaves Search, map behavior, and shared-trip fragment handling outside locale forwarding', () => {
+void test('F4A-2 forwards a server-resolved locale without changing shared-trip fragment handling', () => {
   const search = read('components/explore/PublicSearchPage.tsx');
   const map = read('components/map/MapView.tsx');
   const sharedTrip = read('components/trips/SharedTripClient.tsx');
 
-  assert.doesNotMatch(search, /public-destinations|safeDestinationPage/);
+  assert.match(search, /getRequestLocale/);
+  assert.match(search, /safeDestinationPage/);
+  assert.match(search, /locale=\{locale\}/);
   assert.doesNotMatch(map, /public-destinations|locale=/);
   assert.match(sharedTrip, /window\.location\.hash\.slice\(1\)/);
   assert.match(sharedTrip, /window\.history\.replaceState/);

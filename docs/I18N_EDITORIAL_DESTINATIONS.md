@@ -168,9 +168,9 @@ and paginated even when both languages match. The F1 shared resolver supplies
 the Destination Search name/snippet and Map label, with complete English
 fallback for missing, draft, unpublished, or incomplete translations. Other
 entity types, filters, coordinates, marker caps, and canonical ordering remain
-unchanged. The web client still omits this API locale parameter; forwarding
-its cookie and translating discovery selectors belong to F4A-2, while
-production-scale query performance and any index proposal belong to F4A-3.
+unchanged. F4A-2 now forwards the server-resolved locale to discovery and
+uses the F1 public Destination endpoint for selector labels. Production-scale
+query performance and any index proposal belong to F4A-3.
 No schema change or migration was added for F4A-1. Business, service,
 user-generated, and trip content remains untouched. `/shared-trip`
 continues to remove its fragment token locally and resolve it only through the
@@ -179,12 +179,61 @@ forwarding.
 
 ## Deferred work
 
-- **F4A-2:** forward the validated server-resolved locale from the web Search/Map
-  experience without changing browser-facing URLs or discovery filters;
 - **F4A-3:** measure production-scale translated discovery queries and propose
   an additive index only if evidence shows one is needed;
 - other platform/editorial, business-owned, and user-generated content remains
   in its original stored language.
+
+## F4A-2 Search and Map web integration
+
+The existing `/search` Server Component reads `et_locale` through
+`getRequestLocale`, which resolves missing or invalid values to `en`. It passes
+only typed `en|am` to the existing client. The public Destination options use
+`safeDestinationPage` and the same locale, so their labels are F1-resolved
+while filter values remain canonical slugs. Region, City and arbitrary category
+database names remain canonical; no other persisted content is translated.
+
+Search and Map request builders append the validated locale to their existing
+public API parameters, not to the browser-facing URL. The locale joins both
+request identities: a language switch refreshes Search and stationary Map data
+without resetting filters, Near Me coordinates or map bounds. Existing
+request-version and intent guards reject old-locale success, error and loading
+updates. The map's selection focus now depends on place identity and
+coordinates, so a refreshed translated label cannot recenter or zoom an
+unchanged selection. Cards and popups render the API-returned name and snippet;
+the web neither fetches translation rows nor reconstructs publication rules.
+
+Discovery fetches retain `no-store`, canonical `/search` and scoped detail
+links, and the existing `/shared-trip#token` behavior is unchanged. No Prisma
+schema, migration, index, extension, backend ranking, or locale-prefixed route
+was added in F4A-2. Real-browser desktop/mobile switching, viewport, Near Me
+permission and rapid-change checks remain manual acceptance tasks.
+
+F4A-2 automated verification includes runtime cookie resolution, server-loaded
+Destination options, Search/Map parameter preservation, stationary locale
+refresh, late old-locale success/error/loading rejection, and real card/popup
+rendering of English, resolved Amharic and English-fallback API fixtures.
+Canonical IDs, scoped slugs and selector values are asserted unchanged. The
+full web suite passes 202 tests; relevant API regressions pass 29 unit tests
+and 21 E2E tests across five suites, including the real PostgreSQL ranked-ID
+path. Targeted formatting, web lint, web typecheck and the complete production
+web build pass. These results do not certify full API lint: the four known,
+unchanged unsafe-assignment errors in the F1 test remain outside this checkpoint.
+
+Manual F4A-2 acceptance is still required (no runtime browser was available):
+
+- On desktop and narrow mobile, search in English, switch to Amharic and back
+  without changing the query, and confirm API-resolved Destination text and
+  fallback text render while the same route/query/view/page remain intact.
+- On `/search?view=map`, record the viewport and zoom, switch languages without
+  moving the map, and verify refreshed Destination popup labels without a
+  viewport/zoom reset; check clustering and canonical detail links.
+- Preserve Region, City, Destination, category and pricing selections during
+  switching; only the Destination option label should localize, never its slug.
+- Rapidly switch `en -> am -> en` while changing query/filters and confirm no
+  old-language result, marker, error or loading state replaces the current one.
+- Test Near Me with permission granted and denied/manual fallback; switching
+  languages must not request permission again or discard valid coordinates.
 
 ## Verification
 

@@ -4,7 +4,9 @@ import { ExploreClient } from './ExploreClient';
 import { Container } from '../ui/Container';
 import { SectionHeading } from '../ui/States';
 import { safePage } from '../../lib/api';
-import type { Category, Destination, LocationSummary } from '../../lib/types';
+import { safeDestinationPage } from '../../lib/public-destinations';
+import { getRequestLocale } from '../../i18n/server';
+import type { Category, LocationSummary } from '../../lib/types';
 
 export async function PublicSearchPage({
   searchParams,
@@ -12,6 +14,7 @@ export async function PublicSearchPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const t = await getTranslations('discovery');
+  const locale = await getRequestLocale();
   const params = await searchParams;
   const regionSlug =
     typeof params.regionSlug === 'string' ? params.regionSlug : '';
@@ -39,8 +42,9 @@ export async function PublicSearchPage({
   const selectedCity = cities?.data.find((city) => city.slug === citySlug);
   const destinations =
     selectedRegion && selectedCity
-      ? await safePage<Destination>(
+      ? await safeDestinationPage(
           `/regions/${selectedRegion.slug}/cities/${selectedCity.slug}/destinations`,
+          locale,
           { limit: 100 },
         )
       : null;
@@ -64,6 +68,7 @@ export async function PublicSearchPage({
           }
         >
           <ExploreClient
+            locale={locale}
             businessCategories={businessCategories?.data ?? []}
             serviceCategories={serviceCategories?.data ?? []}
             regions={regions?.data ?? []}
