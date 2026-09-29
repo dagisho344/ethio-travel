@@ -169,8 +169,10 @@ the Destination Search name/snippet and Map label, with complete English
 fallback for missing, draft, unpublished, or incomplete translations. Other
 entity types, filters, coordinates, marker caps, and canonical ordering remain
 unchanged. F4A-2 now forwards the server-resolved locale to discovery and
-uses the F1 public Destination endpoint for selector labels. Production-scale
-query performance and any index proposal belong to F4A-3.
+uses the F1 public Destination endpoint for selector labels. Synthetic-scale
+query performance and the index decision are recorded in
+[F4A-3](DISCOVERY_PERFORMANCE_F4A3.md); production deployment measurements remain
+separate operational work.
 No schema change or migration was added for F4A-1. Business, service,
 user-generated, and trip content remains untouched. `/shared-trip`
 continues to remove its fragment token locally and resolve it only through the
@@ -179,8 +181,8 @@ forwarding.
 
 ## Deferred work
 
-- **F4A-3:** measure production-scale translated discovery queries and propose
-  an additive index only if evidence shows one is needed;
+- Any permanent discovery index or query-shape optimization requires separate
+  approval and measured benefit on the complete production query;
 - other platform/editorial, business-owned, and user-generated content remains
   in its original stored language.
 
@@ -234,6 +236,22 @@ Manual F4A-2 acceptance is still required (no runtime browser was available):
   old-language result, marker, error or loading state replaces the current one.
 - Test Near Me with permission granted and denied/manual fallback; switching
   languages must not request permission again or discard valid coordinates.
+
+## F4A-3 performance checkpoint
+
+The opt-in benchmark measures the actual locale-aware Search/Map paths at
+100, 1,000 and 10,000 synthetic Destinations, using complete published,
+draft/unpublished, whitespace-incomplete and missing Amharic translations.
+It verifies that hidden content has no matching effect and dual-language matches
+remain single-counted. Existing F1 completeness/resolution rules are unchanged.
+
+The larger unscoped substring workloads are concerning; qualification scans
+and translation work outweigh final paging in several plans. Existing indexes
+support bounded selection and hydration. No new index has yet been demonstrated
+to improve the entire cross-table OR/ranking query, so no schema, migration or
+extension is added. See [environment, medians, plans, caveats and reevaluation
+triggers](DISCOVERY_PERFORMANCE_F4A3.md). Deployment hardware, PostgreSQL 16
+collation/plans, concurrency and review volumes still require operational testing.
 
 ## Verification
 

@@ -51,7 +51,7 @@ Focused tests first reproduced the pre-ranking prefix defect and the stationary-
 
 Run the database-backed suite from `apps/api` with `DISCOVERY_DATABASE_TESTS=1` and `pnpm exec node --env-file=.env node_modules/jest/bin/jest.js --config test/jest-e2e.json --runInBand search-ranking.database.e2e-spec.ts`. It is explicitly skipped without that opt-in rather than claiming mock SQL verification. Native Node web tests execute the actual bounds-reporter effects, query helpers, Search effects and marker handler using deterministic hook/request adapters and the already-installed TypeScript compiler. Real-browser map interaction and production-scale latency are separate manual acceptance checks.
 
-F4A-0 itself did not introduce Search/Map localization. F4A-1 subsequently added optional validated `locale=en|am` to those API routes. Omitted/English requests retain the canonical path; Amharic requests match canonical Destination text or complete, published Amharic `displayName`/`shortDescription`. Translated `fullDescription` is checked for publication completeness but is not searched. One `EXISTS` predicate per Destination keeps counts and ranked IDs deduplicated; qualified IDs are hydrated through bounded explicit public selects. The same qualification is applied before Nearby and map candidate limits. Only Destination result name/snippet and map-marker name can be localized. F4A-2 now resolves `et_locale` at the `/search` server boundary and forwards validated `en|am` on Search/Map requests and public Destination selector queries. Locale participates in Search and stationary Map request intent, so previous-locale responses cannot replace current data. A label-only marker update does not refocus the selected place or reset the viewport. Browser URLs, filters, coordinates, marker bounds/caps, other entity matching and clustering remain unchanged. Production-scale performance/index assessment is deferred (F4A-3). Protected Favorites/Reviews, canonical URLs and secure shared-trip fragment resolution are unaffected.
+F4A-0 itself did not introduce Search/Map localization. F4A-1 subsequently added optional validated `locale=en|am` to those API routes. Omitted/English requests retain the canonical path; Amharic requests match canonical Destination text or complete, published Amharic `displayName`/`shortDescription`. Translated `fullDescription` is checked for publication completeness but is not searched. One `EXISTS` predicate per Destination keeps counts and ranked IDs deduplicated; qualified IDs are hydrated through bounded explicit public selects. The same qualification is applied before Nearby and map candidate limits. Only Destination result name/snippet and map-marker name can be localized. F4A-2 now resolves `et_locale` at the `/search` server boundary and forwards validated `en|am` on Search/Map requests and public Destination selector queries. Locale participates in Search and stationary Map request intent, so previous-locale responses cannot replace current data. A label-only marker update does not refocus the selected place or reset the viewport. Browser URLs, filters, coordinates, marker bounds/caps, other entity matching and clustering remain unchanged. F4A-3 now records synthetic-scale performance and the no-migration index decision below; deployment-target measurement remains separate. Protected Favorites/Reviews, canonical URLs and secure shared-trip fragment resolution are unaffected.
 
 Checkpoint verification: 37 API unit suites / 338 tests; 18 API E2E suites / 93 tests, including 10 actual PostgreSQL ranking tests; 195 native web tests. Targeted Prettier, changed-file API lint, API/web typechecks, web lint, production web build (including page generation and traces) and `git diff --check` passed. Full API lint remains blocked by four pre-existing unsafe-assignment errors in the unchanged `src/destinations/destinations-translations.phase16.spec.ts` at lines 181, 192, 193 and 244; they also reproduce from committed HEAD. They were not changed as part of discovery correctness.
 
@@ -62,3 +62,23 @@ OpenStreetMap attribution remains visible. No map API key, paid geocoder, revers
 ## Deferred work
 
 Phase 15 does not add PostGIS, a new geospatial index, maps-based advertising, address geocoding, stored device locations, a new search engine, offline maps, a booking/capacity engine, or payment changes. Those require separate product and operational review.
+
+## F4A-3 performance assessment
+
+An opt-in PostgreSQL benchmark now executes the actual Search and Map services
+with 100, 1,000 and 10,000 synthetic Destinations, mixed translation lifecycle
+states and related Attractions/Businesses/Services. It records a first-observed
+warm-up, five-run service medians and captured production-query
+`EXPLAIN (ANALYZE, BUFFERS)` metrics. Fixtures roll back; a scoped final ANALYZE
+refreshes live planner estimates because not all ANALYZE effects are transactional.
+The suite verifies original row counts, fixture absence, indexes and extensions.
+
+Broad selective/no-match queries show a concerning cost trend at the largest
+scale. Cross-table OR substring qualification dominates several plans; exact
+ranking also costs more for common queries. Existing scope/PK/coordinate indexes
+serve bounded queries. No particular new index has demonstrated an improvement
+on the complete production query, so this checkpoint adds **no index, extension
+or migration**. This is not a production latency certification. A separately
+approved trigram/query-shape comparison and deployment-target measurement are
+the next steps if production traffic reaches the measured scale or latency/CPU
+targets are missed. See [the full method, timings, plans and index decision](DISCOVERY_PERFORMANCE_F4A3.md).
