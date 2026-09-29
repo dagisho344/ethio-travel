@@ -16,6 +16,39 @@ GET /destinations
 GET /regions/:regionSlug/cities/:citySlug/destinations/:destinationSlug
 GET /regions/:regionSlug/cities/:citySlug/destinations
 
+## Region editorial translations — G1A
+
+GET /regions?locale=en|am
+GET /regions/:regionSlug?locale=en|am
+
+Omitted locale and `en` use canonical Region fields. `am` uses a published
+Amharic display name only when the translation is complete: a nonempty display
+name, plus a nonempty translated description when the canonical description
+is nonempty. Otherwise the entire canonical Region representation is returned.
+An approved optional translated description may be shown when source prose is
+absent. Explicit invalid/empty locale values return 400. Only ACTIVE Regions
+are public; matching and ordering remain canonical. IDs/slugs are unchanged;
+translation records and lifecycle fields are never serialized publicly.
+
+GET /admin/regions/:id/translations/:locale
+PUT /admin/regions/:id/translations/:locale
+POST /admin/regions/:id/translations/:locale/publish
+POST /admin/regions/:id/translations/:locale/unpublish
+
+These endpoints require JWT authentication and ADMIN. Managed locale is `am`
+only; English stays on Region. PUT accepts only nullable `displayName` (160)
+and `description` (5,000), trims whitespace, and saves an unpublished draft.
+Lifecycle POST bodies contain no fields. Publish revalidates completeness;
+unpublish retains text and clears `publishedAt`. ARCHIVED Regions permit read
+and unpublish only. Actual canonical name/description edits automatically
+unpublish published translations transactionally; identical or unrelated
+updates do not. Translation mutations/invalidation are audited without prose.
+
+G1A creates migration `20260929000001_region_translations` for review only.
+**It is not applied.** Deployment and database-backed verification require
+separate G1B approval. No web editor/BFF/forwarding or Search/Map translation
+matching is added. See [Region architecture](I18N_EDITORIAL_REGIONS.md).
+
 ## Search
 GET /search
 GET /map/places

@@ -12,6 +12,7 @@ const SAFE_METADATA_KEYS = new Set([
   'verificationStatus',
   'categoryType',
   'destinationId',
+  'regionId',
   'locale',
   'reviewId',
   'reportId',

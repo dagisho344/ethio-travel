@@ -9,6 +9,7 @@ import { AttractionsService } from './attractions/attractions.service';
 import { CitiesService } from './cities/cities.service';
 import { DestinationsService } from './destinations/destinations.service';
 import { RegionsService } from './regions/regions.service';
+import { AuditService } from './audit/audit.service';
 import { PrismaService } from './prisma/prisma.service';
 
 const id = '11111111-1111-1111-1111-111111111111';
@@ -61,7 +62,8 @@ function createPrismaMock(): PrismaMock {
 describe('Phase 2 location services', () => {
   it('generates slugs and rejects duplicate region slugs', async () => {
     const prisma = createPrismaMock();
-    const service = new RegionsService(prisma as unknown as PrismaService);
+    const client = prisma as unknown as PrismaService;
+    const service = new RegionsService(client, new AuditService(client));
 
     await expect(
       service.create({ name: 'South Ethiopia Regional State' }),
