@@ -11,9 +11,30 @@ export type AdminUser = {
   email: string;
   firstName: string | null;
   id: string;
+  lastLoginAt: string | null;
   lastName: string | null;
+  phone: string | null;
   roles: string[];
   status: string;
+  updatedAt: string;
+};
+
+export type AdminUserDetail = AdminUser & {
+  bookingCount: number;
+  businessMemberships: Array<{
+    business: {
+      id: string;
+      name: string;
+      status: string;
+      verificationSummary: string;
+    };
+    createdAt: string;
+    role: string;
+    status: string;
+  }>;
+  emailVerifiedAt: string | null;
+  reviewCount: number;
+  tripCount: number;
 };
 
 export type AdminBusiness = {

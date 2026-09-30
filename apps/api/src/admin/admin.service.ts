@@ -18,13 +18,17 @@ import {
   UserStatus,
   VerificationRequestStatus,
 } from '@prisma/client';
+import * as argon2 from 'argon2';
 import { AuditContext, AuditService } from '../audit/audit.service';
 import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from '../audit/audit.constants';
 import { AuthenticatedUser } from '../auth/authenticated-user';
+import { ROLE_NAMES } from '../auth/roles.constants';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   AdminActionReasonDto,
+  AdminCreateUserDto,
+  AdminUpdateUserDto,
   AdminUsersQueryDto,
   UpdatePlatformSettingsDto,
 } from './dto/admin.dto';
@@ -395,14 +399,166 @@ export class AdminService {
       })),
       createdAt: user.createdAt,
       email: user.email,
+      emailVerifiedAt: user.emailVerifiedAt,
       firstName: user.profile?.firstName ?? null,
       id: user.id,
+      lastLoginAt: user.lastLoginAt,
       lastName: user.profile?.lastName ?? null,
+      phone: user.profile?.phone ?? null,
       reviewCount: user._count.reviewsAuthored,
       roles: user.roles.map((assignment) => assignment.role.name),
       status: user.status,
       tripCount: user._count.trips,
+      updatedAt: user.updatedAt,
     };
+  }
+
+  async createUser(
+    actor: AuthenticatedUser,
+    dto: AdminCreateUserDto,
+    context: AuditContext,
+  ) {
+    const passwordHash = await argon2.hash(dto.temporaryPassword);
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const roles = await this.configuredRoles(tx, dto.roles);
+        const user = await tx.user.create({
+          data: {
+            email: dto.email.toLowerCase().trim(),
+            passwordHash,
+            profile: {
+              create: {
+                firstName: dto.firstName.trim(),
+                lastName: dto.lastName.trim(),
+                phone: dto.phone ?? null,
+              },
+            },
+            roles: {
+              create: roles.map((role) => ({ roleId: role.id })),
+            },
+          },
+          include: adminUserInclude,
+        });
+        await this.audit.record(tx, {
+          ...context,
+          action: AUDIT_ACTIONS.ADMIN_USER_CREATED,
+          actorUserId: actor.sub,
+          entityId: user.id,
+          entityType: AUDIT_ENTITY_TYPES.USER,
+          metadata: { targetUserId: user.id, roleNames: dto.roles.join(',') },
+        });
+        return this.toListUser(user);
+      });
+    } catch (error) {
+      this.throwEmailConflict(error);
+      throw error;
+    }
+  }
+
+  async updateUser(
+    actor: AuthenticatedUser,
+    userId: string,
+    dto: AdminUpdateUserDto,
+    context: AuditContext,
+  ) {
+    if (!Object.keys(dto).length) {
+      throw new BadRequestException('At least one user field is required.');
+    }
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await this.lockAdminRole(tx);
+        await tx.$queryRaw(
+          Prisma.sql`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`,
+        );
+        const existing = await tx.user.findUnique({
+          where: { id: userId },
+          include: adminUserInclude,
+        });
+        if (!existing) throw new NotFoundException('User not found.');
+        const currentRoles = existing.roles.map((item) => item.role.name);
+        const nextRoles = dto.roles ?? currentRoles;
+        const rolesChanged =
+          nextRoles.length !== currentRoles.length ||
+          nextRoles.some((role) => !currentRoles.includes(role));
+        if (rolesChanged && !nextRoles.includes('ADMIN')) {
+          if (actor.sub === userId && currentRoles.includes('ADMIN')) {
+            throw new ForbiddenException(
+              'Administrators cannot remove their own ADMIN role.',
+            );
+          }
+          await this.assertAnotherActiveAdmin(tx, userId, currentRoles);
+        }
+        const changedFields: string[] = [];
+        const email = dto.email?.toLowerCase().trim();
+        if (email !== undefined && email !== existing.email) {
+          await tx.user.update({ where: { id: userId }, data: { email } });
+          changedFields.push('email');
+        }
+        const profileData = {
+          ...(dto.firstName !== undefined &&
+          dto.firstName !== existing.profile?.firstName
+            ? { firstName: dto.firstName.trim() }
+            : {}),
+          ...(dto.lastName !== undefined &&
+          dto.lastName !== existing.profile?.lastName
+            ? { lastName: dto.lastName.trim() }
+            : {}),
+          ...(dto.phone !== undefined && dto.phone !== existing.profile?.phone
+            ? { phone: dto.phone }
+            : {}),
+        };
+        changedFields.push(...Object.keys(profileData));
+        if (Object.keys(profileData).length) {
+          await tx.userProfile.upsert({
+            where: { userId },
+            create: { userId, ...profileData },
+            update: profileData,
+          });
+        }
+        if (rolesChanged) {
+          const roles = await this.configuredRoles(tx, nextRoles);
+          await tx.userRole.deleteMany({ where: { userId } });
+          await tx.userRole.createMany({
+            data: roles.map((role) => ({ userId, roleId: role.id })),
+          });
+          await this.audit.record(tx, {
+            ...context,
+            action: AUDIT_ACTIONS.ADMIN_USER_ROLE_UPDATED,
+            actorUserId: actor.sub,
+            entityId: userId,
+            entityType: AUDIT_ENTITY_TYPES.USER,
+            metadata: { targetUserId: userId, roleNames: nextRoles.join(',') },
+          });
+        }
+        if (changedFields.length) {
+          await this.audit.record(tx, {
+            ...context,
+            action: AUDIT_ACTIONS.ADMIN_USER_UPDATED,
+            actorUserId: actor.sub,
+            entityId: userId,
+            entityType: AUDIT_ENTITY_TYPES.USER,
+            metadata: {
+              targetUserId: userId,
+              changedFields: changedFields.join(','),
+            },
+          });
+        }
+        if (rolesChanged || changedFields.includes('email')) {
+          await tx.session.updateMany({
+            where: { userId, revokedAt: null },
+            data: { revokedAt: new Date() },
+          });
+        }
+        const updated = await tx.user.findUniqueOrThrow({
+          where: { id: userId },
+          include: adminUserInclude,
+        });
+        return this.toListUser(updated);
+      });
+    } catch (error) {
+      this.throwEmailConflict(error);
+      throw error;
+    }
   }
 
   async suspendUser(
@@ -416,13 +572,24 @@ export class AdminService {
     }
     const reason = this.requiredReason(dto.reason);
     return this.prisma.$transaction(async (tx) => {
+      await this.lockAdminRole(tx);
       const target = await tx.user.findUnique({
         where: { id: userId },
-        select: { id: true, status: true },
+        select: {
+          id: true,
+          status: true,
+          roles: {
+            where: { role: { name: 'ADMIN' } },
+            select: { roleId: true },
+          },
+        },
       });
       if (!target) throw new NotFoundException('User not found.');
       if (target.status !== UserStatus.ACTIVE) {
         throw new ConflictException('Only active users can be suspended.');
+      }
+      if (target.roles.length) {
+        await this.assertAnotherActiveAdmin(tx, userId, ['ADMIN']);
       }
       const changed = await tx.user.updateMany({
         where: { id: userId, status: UserStatus.ACTIVE },
@@ -492,6 +659,177 @@ export class AdminService {
       });
       return { id: userId, status: UserStatus.ACTIVE };
     });
+  }
+
+  async deactivateUser(
+    actor: AuthenticatedUser,
+    userId: string,
+    dto: AdminActionReasonDto,
+    context: AuditContext,
+  ) {
+    if (actor.sub === userId) {
+      throw new ForbiddenException(
+        'Administrators cannot deactivate themselves.',
+      );
+    }
+    const reason = this.requiredReason(dto.reason);
+    return this.prisma.$transaction(async (tx) => {
+      await this.lockAdminRole(tx);
+      const target = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          status: true,
+          roles: {
+            where: { role: { name: 'ADMIN' } },
+            select: { roleId: true },
+          },
+        },
+      });
+      if (!target) throw new NotFoundException('User not found.');
+      if (
+        target.status !== UserStatus.ACTIVE &&
+        target.status !== UserStatus.SUSPENDED
+      ) {
+        throw new ConflictException(
+          'Only active or suspended users can be deactivated.',
+        );
+      }
+      if (target.roles.length) {
+        await this.assertAnotherActiveAdmin(tx, userId, ['ADMIN']);
+      }
+      const changed = await tx.user.updateMany({
+        where: { id: userId, status: target.status },
+        data: { status: UserStatus.DEACTIVATED },
+      });
+      if (changed.count !== 1) {
+        throw new ConflictException(
+          'User status changed. Refresh and try again.',
+        );
+      }
+      await tx.session.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await this.audit.record(tx, {
+        ...context,
+        action: AUDIT_ACTIONS.ADMIN_USER_DEACTIVATED,
+        actorUserId: actor.sub,
+        entityId: userId,
+        entityType: AUDIT_ENTITY_TYPES.USER,
+        metadata: {
+          targetUserId: userId,
+          previousStatus: target.status,
+          nextStatus: UserStatus.DEACTIVATED,
+        },
+        reason,
+      });
+      return { id: userId, status: UserStatus.DEACTIVATED };
+    });
+  }
+
+  async reactivateUser(
+    actor: AuthenticatedUser,
+    userId: string,
+    dto: AdminActionReasonDto,
+    context: AuditContext,
+  ) {
+    const reason = this.requiredReason(dto.reason);
+    return this.prisma.$transaction(async (tx) => {
+      const target = await tx.user.findUnique({
+        where: { id: userId },
+        select: { id: true, status: true },
+      });
+      if (!target) throw new NotFoundException('User not found.');
+      if (target.status !== UserStatus.DEACTIVATED) {
+        throw new ConflictException(
+          'Only deactivated users can be reactivated.',
+        );
+      }
+      const changed = await tx.user.updateMany({
+        where: { id: userId, status: UserStatus.DEACTIVATED },
+        data: { status: UserStatus.ACTIVE },
+      });
+      if (changed.count !== 1) {
+        throw new ConflictException(
+          'User status changed. Refresh and try again.',
+        );
+      }
+      await this.audit.record(tx, {
+        ...context,
+        action: AUDIT_ACTIONS.ADMIN_USER_REACTIVATED,
+        actorUserId: actor.sub,
+        entityId: userId,
+        entityType: AUDIT_ENTITY_TYPES.USER,
+        metadata: {
+          targetUserId: userId,
+          previousStatus: UserStatus.DEACTIVATED,
+          nextStatus: UserStatus.ACTIVE,
+        },
+        reason,
+      });
+      return { id: userId, status: UserStatus.ACTIVE };
+    });
+  }
+
+  private async lockAdminRole(tx: Prisma.TransactionClient): Promise<void> {
+    await tx.$queryRaw(
+      Prisma.sql`SELECT id FROM roles WHERE name = 'ADMIN' FOR UPDATE`,
+    );
+  }
+
+  private async assertAnotherActiveAdmin(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    currentRoles: string[],
+  ): Promise<void> {
+    if (!currentRoles.includes('ADMIN')) return;
+    const others = await tx.user.count({
+      where: {
+        id: { not: userId },
+        status: UserStatus.ACTIVE,
+        roles: { some: { role: { name: 'ADMIN' } } },
+      },
+    });
+    if (others < 1) {
+      throw new ConflictException(
+        'The last active administrator cannot lose access.',
+      );
+    }
+  }
+
+  private async configuredRoles(
+    tx: Prisma.TransactionClient,
+    names: readonly string[],
+  ) {
+    if (
+      !names.length ||
+      new Set(names).size !== names.length ||
+      names.some(
+        (name) => !ROLE_NAMES.includes(name as (typeof ROLE_NAMES)[number]),
+      )
+    ) {
+      throw new BadRequestException('Invalid user roles.');
+    }
+    const roles = await tx.role.findMany({
+      where: { name: { in: [...names] } },
+      select: { id: true, name: true },
+    });
+    if (roles.length !== names.length)
+      throw new ConflictException('A requested role is not configured.');
+    return roles;
+  }
+
+  private throwEmailConflict(error: unknown): void {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      const target = error.meta?.target;
+      if (Array.isArray(target) && target.includes('email')) {
+        throw new ConflictException('Email is already registered.');
+      }
+    }
   }
 
   private groupCount<T extends string>(
@@ -603,9 +941,12 @@ export class AdminService {
       email: user.email,
       firstName: user.profile?.firstName ?? null,
       id: user.id,
+      lastLoginAt: user.lastLoginAt,
       lastName: user.profile?.lastName ?? null,
+      phone: user.profile?.phone ?? null,
       roles: user.roles.map((assignment) => assignment.role.name),
       status: user.status,
+      updatedAt: user.updatedAt,
     };
   }
 }

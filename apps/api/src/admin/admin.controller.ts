@@ -11,7 +11,12 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Request } from 'express';
 import { AuthenticatedUser } from '../auth/authenticated-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -21,6 +26,8 @@ import { AdminOnly } from '../common/utils/admin-only.decorator';
 import { AdminService } from './admin.service';
 import {
   AdminActionReasonDto,
+  AdminCreateUserDto,
+  AdminUpdateUserDto,
   AdminUsersQueryDto,
   UpdatePlatformSettingsDto,
 } from './dto/admin.dto';
@@ -79,10 +86,35 @@ export class AdminController {
     return this.admin.listUsers(query);
   }
 
+  @Post('users')
+  @ApiCreatedResponse({
+    description: 'Creates a user with safe profile and roles.',
+  })
+  createUser(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() dto: AdminCreateUserDto,
+    @Req() request: Request,
+  ) {
+    return this.admin.createUser(actor, dto, auditContext(request));
+  }
+
   @Get('users/:userId')
   @ApiOkResponse({ description: 'Safe administrator user detail.' })
   user(@Param('userId', new ParseUUIDPipe()) userId: string) {
     return this.admin.findUserById(userId);
+  }
+
+  @Patch('users/:userId')
+  @ApiOkResponse({
+    description: 'Updates only approved user identity and role fields.',
+  })
+  updateUser(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body() dto: AdminUpdateUserDto,
+    @Req() request: Request,
+  ) {
+    return this.admin.updateUser(actor, userId, dto, auditContext(request));
   }
 
   @Post('users/:userId/suspend')
@@ -109,5 +141,33 @@ export class AdminController {
     @Req() request: Request,
   ) {
     return this.admin.restoreUser(actor, userId, dto, auditContext(request));
+  }
+
+  @Post('users/:userId/deactivate')
+  @HttpCode(200)
+  @ApiOkResponse({
+    description: 'Deactivates a user without deleting history.',
+  })
+  deactivateUser(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body() dto: AdminActionReasonDto,
+    @Req() request: Request,
+  ) {
+    return this.admin.deactivateUser(actor, userId, dto, auditContext(request));
+  }
+
+  @Post('users/:userId/reactivate')
+  @HttpCode(200)
+  @ApiOkResponse({
+    description: 'Reactivates a deactivated user; old sessions stay revoked.',
+  })
+  reactivateUser(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body() dto: AdminActionReasonDto,
+    @Req() request: Request,
+  ) {
+    return this.admin.reactivateUser(actor, userId, dto, auditContext(request));
   }
 }

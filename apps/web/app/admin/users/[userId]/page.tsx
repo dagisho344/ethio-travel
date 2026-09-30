@@ -1,4 +1,5 @@
 import { AdminUserDetailClient } from './AdminUserDetailClient';
+import { currentSessionSnapshot } from '../../../../lib/auth/session';
 
 export default async function AdminUserDetailPage({
   params,
@@ -6,5 +7,11 @@ export default async function AdminUserDetailPage({
   params: Promise<{ userId: string }>;
 }) {
   const { userId } = await params;
-  return <AdminUserDetailClient userId={userId} />;
+  const session = await currentSessionSnapshot();
+  return (
+    <AdminUserDetailClient
+      userId={userId}
+      currentUserId={session.user?.id ?? ''}
+    />
+  );
 }

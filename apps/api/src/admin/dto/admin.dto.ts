@@ -1,6 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
   IsEnum,
   IsEmail,
   IsIn,
@@ -45,6 +48,97 @@ export class AdminUsersQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(['asc', 'desc'])
   order: 'asc' | 'desc' = 'desc';
+}
+
+const normalizeEmail = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' ? value.trim().toLowerCase() : value;
+const trimText = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' ? value.trim() : value;
+
+export class AdminCreateUserDto {
+  @ApiProperty({ maxLength: 100 })
+  @Transform(trimText)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  firstName!: string;
+
+  @ApiProperty({ maxLength: 100 })
+  @Transform(trimText)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  lastName!: string;
+
+  @ApiProperty({ maxLength: 254 })
+  @Transform(normalizeEmail)
+  @IsEmail()
+  @MaxLength(254)
+  email!: string;
+
+  @ApiPropertyOptional({ maxLength: 32, nullable: true })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  phone?: string | null;
+
+  @ApiProperty({ enum: ROLE_NAMES, isArray: true })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayUnique()
+  @IsIn(ROLE_NAMES, { each: true })
+  roles!: RoleName[];
+
+  @ApiProperty({ minLength: 8, maxLength: 128 })
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  temporaryPassword!: string;
+}
+
+export class AdminUpdateUserDto {
+  @ApiPropertyOptional({ maxLength: 100 })
+  @Transform(trimText)
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  firstName?: string;
+
+  @ApiPropertyOptional({ maxLength: 100 })
+  @Transform(trimText)
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  lastName?: string;
+
+  @ApiPropertyOptional({ maxLength: 254 })
+  @Transform(normalizeEmail)
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(254)
+  email?: string;
+
+  @ApiPropertyOptional({ maxLength: 32, nullable: true })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || null : value,
+  )
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  phone?: string | null;
+
+  @ApiPropertyOptional({ enum: ROLE_NAMES, isArray: true })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayUnique()
+  @IsIn(ROLE_NAMES, { each: true })
+  roles?: RoleName[];
 }
 
 export class UpdatePlatformSettingsDto {

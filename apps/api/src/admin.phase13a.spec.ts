@@ -57,11 +57,19 @@ describe('Phase 13A administrator safety', () => {
       .fn<Promise<MutationResult>, [SessionUpdateInput]>()
       .mockResolvedValue({ count: 1 });
     const transaction = {
+      $queryRaw: jest.fn().mockResolvedValue([{ id: 'admin-role-id' }]),
       session: { updateMany: sessionUpdateMany },
       user: {
         findUnique: jest
-          .fn<Promise<{ id: string; status: UserStatus } | null>, [unknown]>()
-          .mockResolvedValue({ id: userId, status: UserStatus.ACTIVE }),
+          .fn<
+            Promise<{ id: string; status: UserStatus; roles: [] } | null>,
+            [unknown]
+          >()
+          .mockResolvedValue({
+            id: userId,
+            status: UserStatus.ACTIVE,
+            roles: [],
+          }),
         updateMany: jest
           .fn<Promise<MutationResult>, [unknown]>()
           .mockResolvedValue({ count: 1 }),
