@@ -13,6 +13,14 @@ enum UserStatus {
   DEACTIVATED
 }
 
+enum UserRestrictionCapability {
+  BOOKING
+  REVIEW
+  MESSAGING
+  BUSINESS_MANAGEMENT
+  PAYMENT_PROOF_SUBMISSION
+}
+
 enum AuditOutcome {
   SUCCESS
   FAILURE
@@ -44,6 +52,9 @@ model User {
   profile                        UserProfile?
   roles                          UserRole[]
   sessions                       Session[]
+  restrictions                   UserRestriction[]        @relation("RestrictedUser")
+  restrictionsCreated            UserRestriction[]        @relation("RestrictionCreatedBy")
+  restrictionsLifted             UserRestriction[]        @relation("RestrictionLiftedBy")
   passwordResetTokens            PasswordResetToken[]
   emailVerificationTokens        EmailVerificationToken[]
   businessMembers                BusinessMember[]
@@ -128,6 +139,27 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+model UserRestriction {
+  id                 String                    @id @default(uuid()) @db.Uuid
+  userId             String                    @map("user_id") @db.Uuid
+  capability         UserRestrictionCapability
+  reason             String                    @db.VarChar(1000)
+  restrictedByUserId String                    @map("restricted_by_user_id") @db.Uuid
+  restrictedAt       DateTime                  @default(now()) @map("restricted_at")
+  expiresAt          DateTime?                 @map("expires_at")
+  liftedAt           DateTime?                 @map("lifted_at")
+  liftedByUserId     String?                   @map("lifted_by_user_id") @db.Uuid
+  liftReason         String?                   @map("lift_reason") @db.VarChar(1000)
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
+  user               User                      @relation("RestrictedUser", fields: [userId], references: [id], onDelete: Restrict)
+  restrictedBy       User                      @relation("RestrictionCreatedBy", fields: [restrictedByUserId], references: [id], onDelete: Restrict)
+  liftedBy           User?                     @relation("RestrictionLiftedBy", fields: [liftedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, capability])
+  @@map("user_restrictions")
 }
 
 model PasswordResetToken {

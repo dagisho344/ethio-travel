@@ -14,6 +14,8 @@ const SAFE_METADATA_KEYS = new Set([
   'destinationId',
   'regionId',
   'targetUserId',
+  'capability',
+  'expiresAt',
   'changedFields',
   'roleNames',
   'locale',

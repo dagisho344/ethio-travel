@@ -5,6 +5,7 @@ import {
   HttpCode,
   Param,
   ParseUUIDPipe,
+  ParseEnumPipe,
   Patch,
   Post,
   Query,
@@ -18,12 +19,18 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Request } from 'express';
+import { UserRestrictionCapability } from '@prisma/client';
 import { AuthenticatedUser } from '../auth/authenticated-user';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AdminOnly } from '../common/utils/admin-only.decorator';
 import { AdminService } from './admin.service';
+import { UserRestrictionsService } from '../users/user-restrictions.service';
+import {
+  LiftUserRestrictionDto,
+  RestrictUserDto,
+} from '../users/dto/user-restriction.dto';
 import {
   AdminActionReasonDto,
   AdminCreateUserDto,
@@ -46,7 +53,10 @@ function auditContext(request: Request) {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly restrictions: UserRestrictionsService,
+  ) {}
 
   @Get('dashboard')
   @ApiOkResponse({ description: 'Bounded administrator dashboard summary.' })
@@ -102,6 +112,50 @@ export class AdminController {
   @ApiOkResponse({ description: 'Safe administrator user detail.' })
   user(@Param('userId', new ParseUUIDPipe()) userId: string) {
     return this.admin.findUserById(userId);
+  }
+
+  @Get('users/:userId/restrictions')
+  @ApiOkResponse({ description: 'Admin-only current restriction state.' })
+  listUserRestrictions(@Param('userId', new ParseUUIDPipe()) userId: string) {
+    return this.restrictions.listForAdmin(userId);
+  }
+
+  @Post('users/:userId/restrictions')
+  @ApiCreatedResponse({
+    description: 'Restricts one capability for an active non-Admin user.',
+  })
+  restrictUser(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Body() dto: RestrictUserDto,
+    @Req() request: Request,
+  ) {
+    return this.restrictions.restrict(
+      actor,
+      userId,
+      dto,
+      auditContext(request),
+    );
+  }
+
+  @Post('users/:userId/restrictions/:capability/lift')
+  @HttpCode(200)
+  @ApiOkResponse({ description: 'Lifts one active user restriction.' })
+  liftUserRestriction(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Param('capability', new ParseEnumPipe(UserRestrictionCapability))
+    capability: UserRestrictionCapability,
+    @Body() dto: LiftUserRestrictionDto,
+    @Req() request: Request,
+  ) {
+    return this.restrictions.lift(
+      actor,
+      userId,
+      capability,
+      dto,
+      auditContext(request),
+    );
   }
 
   @Patch('users/:userId')

@@ -14,6 +14,7 @@ import { AuthenticatedUser } from '../src/auth/authenticated-user';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { RedisService } from '../src/redis/redis.service';
+import { UserRestrictionsService } from '../src/users/user-restrictions.service';
 
 const userId = '22222222-2222-4222-8222-222222222222';
 let authenticated = true;
@@ -51,6 +52,13 @@ describe('Phase 17A-1 administrator user API', () => {
       .fn()
       .mockResolvedValue({ id: userId, status: 'ACTIVE' }),
   };
+  const restrictions = {
+    listForAdmin: jest.fn().mockResolvedValue([]),
+    restrict: jest
+      .fn()
+      .mockResolvedValue({ capability: 'BOOKING', active: true }),
+    lift: jest.fn().mockResolvedValue({ capability: 'BOOKING', active: false }),
+  };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
@@ -60,6 +68,8 @@ describe('Phase 17A-1 administrator user API', () => {
       .useValue({ isHealthy: () => Promise.resolve(true) })
       .overrideProvider(AdminService)
       .useValue(service)
+      .overrideProvider(UserRestrictionsService)
+      .useValue(restrictions)
       .overrideGuard(JwtAuthGuard)
       .useClass(TestJwtGuard)
       .compile();
@@ -180,6 +190,92 @@ describe('Phase 17A-1 administrator user API', () => {
     await request(server)
       .post(`/api/v1/admin/users/${userId}/reactivate`)
       .send({ reason: 'Valid reason', status: 'ACTIVE' })
+      .expect(400);
+  });
+
+  it('protects restriction routes with the existing Admin authentication and role guards', async () => {
+    roles = ['TRAVELER'];
+    await request(server)
+      .get(`/api/v1/admin/users/${userId}/restrictions`)
+      .expect(403);
+    await request(server)
+      .post(`/api/v1/admin/users/${userId}/restrictions`)
+      .send({ capability: 'BOOKING', reason: 'Policy' })
+      .expect(403);
+    await request(server)
+      .post(`/api/v1/admin/users/${userId}/restrictions/BOOKING/lift`)
+      .send({ reason: 'Resolved' })
+      .expect(403);
+    authenticated = false;
+    await request(server)
+      .get(`/api/v1/admin/users/${userId}/restrictions`)
+      .expect(401);
+    expect(restrictions.restrict).not.toHaveBeenCalled();
+  });
+
+  it('validates restriction route/body allowlists before invoking the foundation service', async () => {
+    await request(server)
+      .get(`/api/v1/admin/users/${userId}/restrictions`)
+      .expect(200);
+    await request(server)
+      .post(`/api/v1/admin/users/${userId}/restrictions`)
+      .send({
+        capability: 'BOOKING',
+        reason: '  Policy  ',
+        expiresAt: '2030-01-01T00:00:00Z',
+      })
+      .expect(201);
+    expect(restrictions.restrict).toHaveBeenCalledWith(
+      expect.objectContaining({ sub: actor.sub }),
+      userId,
+      {
+        capability: 'BOOKING',
+        reason: 'Policy',
+        expiresAt: '2030-01-01T00:00:00Z',
+      },
+      expect.objectContaining({}),
+    );
+    await request(server)
+      .post(`/api/v1/admin/users/${userId}/restrictions/BOOKING/lift`)
+      .send({ reason: ' Resolved ' })
+      .expect(200);
+    expect(restrictions.lift).toHaveBeenCalledWith(
+      expect.objectContaining({ sub: actor.sub }),
+      userId,
+      'BOOKING',
+      { reason: 'Resolved' },
+      expect.objectContaining({}),
+    );
+    for (const body of [
+      { capability: 'booking', reason: 'Policy' },
+      { capability: 'BOOKING', reason: ' ' },
+      {
+        capability: 'BOOKING',
+        reason: 'Policy',
+        expiresAt: '2030-01-01T00:00:00',
+      },
+      {
+        capability: 'BOOKING',
+        reason: 'Policy',
+        restrictedByUserId: actor.sub,
+      },
+    ]) {
+      await request(server)
+        .post(`/api/v1/admin/users/${userId}/restrictions`)
+        .send(body)
+        .expect(400);
+    }
+    await request(server)
+      .post(`/api/v1/admin/users/not-a-uuid/restrictions`)
+      .send({ capability: 'BOOKING', reason: 'Policy' })
+      .expect(400);
+    await request(server)
+      .post(`/api/v1/admin/users/${userId}/restrictions/INVALID/lift`)
+      .send({ reason: 'Resolved' })
+      .expect(400);
+    await request(server)
+      .post(`/api/v1/admin/users/${userId}/restrictions/BOOKING/lift`)
+      .send({ reason: ' ' })
       .expect(400);
   });
 });
