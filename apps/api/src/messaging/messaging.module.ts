@@ -2,13 +2,14 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { UsersModule } from '../users/users.module';
 import { MessagingController } from './messaging.controller';
 import { MessagingEvents } from './messaging.events';
 import { MessagingGateway } from './messaging.gateway';
 import { MessagingService } from './messaging.service';
 
 @Module({
-  imports: [AuthModule, PrismaModule, NotificationsModule],
+  imports: [AuthModule, PrismaModule, NotificationsModule, UsersModule],
   controllers: [MessagingController],
   providers: [MessagingEvents, MessagingGateway, MessagingService],
 })

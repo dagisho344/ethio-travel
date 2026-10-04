@@ -140,10 +140,12 @@ describe('Phase 14B accommodation service', () => {
       quantity: 2,
     });
 
-    expect(requireMembership).toHaveBeenCalledWith(userId, businessId, [
-      BusinessMemberRole.OWNER,
-      BusinessMemberRole.MANAGER,
-    ]);
+    expect(requireMembership).toHaveBeenCalledWith(
+      userId,
+      businessId,
+      [BusinessMemberRole.OWNER, BusinessMemberRole.MANAGER],
+      'manage',
+    );
     expect(detailUpsert.mock.calls[0]?.[0]).toMatchObject({
       where: { serviceId },
       update: { starClass: 5, checkInTime: '15:00' },

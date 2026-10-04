@@ -102,7 +102,12 @@ export class TransportsService {
     dto: UpdateTransportDetailDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findTransportService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     await this.prisma.transportDetail.upsert({
@@ -130,7 +135,12 @@ export class TransportsService {
     dto: CreateTransportRouteDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findTransportService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const detail = this.requireDetail(service);
@@ -164,7 +174,12 @@ export class TransportsService {
     dto: UpdateTransportRouteDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findTransportService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const route = await this.findRouteForService(routeId, service.id);
@@ -218,7 +233,12 @@ export class TransportsService {
     dto: CreateTransportScheduleDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findTransportService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const route = await this.findRouteForService(routeId, service.id);
@@ -255,7 +275,12 @@ export class TransportsService {
     dto: UpdateTransportScheduleDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findTransportService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const route = await this.findRouteForService(routeId, service.id);
@@ -289,7 +314,12 @@ export class TransportsService {
     isActive: boolean,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findTransportService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const route = await this.findRouteForService(routeId, service.id);

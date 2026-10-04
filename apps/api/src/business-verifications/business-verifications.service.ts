@@ -151,6 +151,8 @@ export class BusinessVerificationsService {
     type: VerificationDocumentType,
     file: UploadedFile,
   ) {
+    await this.requireMember(userId, businessId);
+    await this.findVerificationForBusiness(businessId, verificationId);
     await this.requireEditor(userId, businessId);
     await this.requireActiveUser(userId);
     this.assertDocument(file);
@@ -226,6 +228,8 @@ export class BusinessVerificationsService {
     businessId: string,
     verificationId: string,
   ) {
+    await this.requireMember(userId, businessId);
+    await this.findVerificationForBusiness(businessId, verificationId);
     await this.requireEditor(userId, businessId);
     await this.requireActiveUser(userId);
     const verification = await this.findEditableDraft(
@@ -513,10 +517,12 @@ export class BusinessVerificationsService {
   }
 
   private async requireEditor(userId: string, businessId: string) {
-    return this.businesses.requireMembership(userId, businessId, [
-      BusinessMemberRole.OWNER,
-      BusinessMemberRole.MANAGER,
-    ]);
+    return this.businesses.requireMembership(
+      userId,
+      businessId,
+      [BusinessMemberRole.OWNER, BusinessMemberRole.MANAGER],
+      'manage',
+    );
   }
 
   private async requireActiveUser(userId: string): Promise<void> {

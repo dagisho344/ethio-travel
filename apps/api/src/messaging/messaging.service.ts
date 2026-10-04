@@ -14,12 +14,14 @@ import {
   ConversationStatus,
   MessageStatus,
   Prisma,
+  UserRestrictionCapability,
   UserStatus,
 } from '@prisma/client';
 import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import { publicBusinessWhere } from '../common/utils/public-visibility.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { UserRestrictionsService } from '../users/user-restrictions.service';
 import {
   ConversationQueryDto,
   MessageQueryDto,
@@ -108,6 +110,7 @@ const businessConversationRoles = [
 export class MessagingService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly restrictions: UserRestrictionsService,
     private readonly events?: MessagingEvents,
     private readonly notifications?: NotificationsService,
   ) {}
@@ -145,9 +148,18 @@ export class MessagingService {
       });
       if (existing) {
         await this.requireConversationMember(userId, existing.id);
+        await this.restrictions.assertAllowed(
+          userId,
+          UserRestrictionCapability.MESSAGING,
+        );
         return this.toConversation(existing);
       }
     }
+
+    await this.restrictions.assertAllowed(
+      userId,
+      UserRestrictionCapability.MESSAGING,
+    );
 
     const businessMembers = await this.activeBusinessMembers(dto.businessId);
     if (!businessMembers.length) {
@@ -202,6 +214,7 @@ export class MessagingService {
           where: { bookingId: booking.id },
           select: conversationSelect,
         });
+        await this.requireConversationMember(userId, existing.id);
         return this.toConversation(existing);
       }
       throw error;
@@ -282,6 +295,10 @@ export class MessagingService {
     dto: CreateMessageDto,
   ) {
     await this.requireConversationMember(userId, conversationId);
+    await this.restrictions.assertAllowed(
+      userId,
+      UserRestrictionCapability.MESSAGING,
+    );
     const message = await this.prisma.$transaction(async (tx) => {
       const conversation = await tx.conversation.findUnique({
         where: { id: conversationId },

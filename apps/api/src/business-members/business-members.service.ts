@@ -41,9 +41,12 @@ export class BusinessMembersService {
     businessId: string,
     dto: CreateBusinessMemberDto,
   ) {
-    await this.businesses.requireMembership(userId, businessId, [
-      BusinessMemberRole.OWNER,
-    ]);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      [BusinessMemberRole.OWNER],
+      'manage',
+    );
     const user = await this.prisma.user.findFirst({
       where: { id: dto.userId, status: UserStatus.ACTIVE },
     });
@@ -73,9 +76,12 @@ export class BusinessMembersService {
     memberId: string,
     dto: UpdateBusinessMemberDto,
   ) {
-    await this.businesses.requireMembership(userId, businessId, [
-      BusinessMemberRole.OWNER,
-    ]);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      [BusinessMemberRole.OWNER],
+      'manage',
+    );
     return this.prisma.$transaction(async (tx) => {
       const member = await tx.businessMember.findFirst({
         where: { id: memberId, businessId },

@@ -20,6 +20,9 @@ const userId = '11111111-1111-4111-8111-111111111111';
 const businessId = '22222222-2222-4222-8222-222222222222';
 const cityId = '33333333-3333-4333-8333-333333333333';
 const categoryId = '44444444-4444-4444-8444-444444444444';
+const allowRestrictions = {
+  assertAllowed: jest.fn().mockResolvedValue(undefined),
+} as never;
 
 function prismaMock() {
   const tx: any = {};
@@ -78,7 +81,10 @@ describe('Phase 3 business services', () => {
       ...createDto,
       slug: 'sodo-sample-hotel',
     });
-    const service = new BusinessesService(prisma as PrismaService);
+    const service = new BusinessesService(
+      prisma as PrismaService,
+      allowRestrictions,
+    );
 
     await service.create(userId, createDto);
 
@@ -169,7 +175,10 @@ describe('Phase 3 business services', () => {
         media: { id: '88888888-8888-4888-8888-888888888888' },
       },
     ]);
-    const service = new BusinessesService(prisma as PrismaService);
+    const service = new BusinessesService(
+      prisma as PrismaService,
+      allowRestrictions,
+    );
 
     const result = await service.findPublicBySlugs(
       'south-ethiopia',
@@ -319,7 +328,10 @@ describe('Phase 3 business services', () => {
     };
     prisma.business.findMany.mockResolvedValue([record]);
     prisma.business.count.mockResolvedValue(1);
-    const service = new BusinessesService(prisma as PrismaService);
+    const service = new BusinessesService(
+      prisma as PrismaService,
+      allowRestrictions,
+    );
 
     const result = await service.findPublic({ page: 1, limit: 20 });
 
@@ -335,7 +347,10 @@ describe('Phase 3 business services', () => {
   });
   it('does not authorize by global role without business membership', async () => {
     const prisma = prismaMock();
-    const service = new BusinessesService(prisma as PrismaService);
+    const service = new BusinessesService(
+      prisma as PrismaService,
+      allowRestrictions,
+    );
     await expect(
       service.requireMembership(userId, businessId, [BusinessMemberRole.OWNER]),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -347,7 +362,10 @@ describe('Phase 3 business services', () => {
     prisma.city.findUnique.mockResolvedValue({ id: cityId });
     prisma.businessCategory.findFirst.mockResolvedValue({ id: categoryId });
     prisma.business.findUnique.mockResolvedValue({ id: businessId });
-    const service = new BusinessesService(prisma as PrismaService);
+    const service = new BusinessesService(
+      prisma as PrismaService,
+      allowRestrictions,
+    );
     await expect(service.create(userId, createDto)).rejects.toBeInstanceOf(
       ConflictException,
     );
@@ -370,7 +388,10 @@ describe('Phase 3 business services', () => {
       business: { status: BusinessStatus.ACTIVE },
     });
     prisma.businessMember.count.mockResolvedValue(0);
-    const businesses = new BusinessesService(prisma as PrismaService);
+    const businesses = new BusinessesService(
+      prisma as PrismaService,
+      allowRestrictions,
+    );
     const service = new BusinessMembersService(
       prisma as PrismaService,
       businesses,
@@ -386,7 +407,10 @@ describe('Phase 3 business services', () => {
   it('blocks document-less verification submission', async () => {
     const prisma = prismaMock();
     prisma.businessMember.findFirst.mockResolvedValue({ id: 'member' });
-    const businesses = new BusinessesService(prisma as PrismaService);
+    const businesses = new BusinessesService(
+      prisma as PrismaService,
+      allowRestrictions,
+    );
     const service = new BusinessVerificationsService(
       prisma as PrismaService,
       businesses,
@@ -430,7 +454,10 @@ describe('Phase 3 business services', () => {
       submittedByUser: { id: userId, email: 'owner@example.com' },
       reviewedByUser: { id: userId, email: 'admin@example.com' },
     });
-    const businesses = new BusinessesService(prisma as PrismaService);
+    const businesses = new BusinessesService(
+      prisma as PrismaService,
+      allowRestrictions,
+    );
     const service = new BusinessVerificationsService(
       prisma as PrismaService,
       businesses,
@@ -478,7 +505,10 @@ describe('Phase 3 business services', () => {
         status: BusinessMemberStatus.ACTIVE,
       },
     ]);
-    const service = new BusinessesService(prisma as PrismaService);
+    const service = new BusinessesService(
+      prisma as PrismaService,
+      allowRestrictions,
+    );
 
     const result = await service.findMine(userId, { page: 1, limit: 10 });
 
@@ -507,7 +537,10 @@ describe('Phase 3 business services', () => {
     prisma.city.findUnique.mockResolvedValue({ id: cityId });
     prisma.businessCategory.findFirst.mockResolvedValue({ id: categoryId });
     prisma.destination.findFirst.mockResolvedValue(null);
-    const service = new BusinessesService(prisma as PrismaService);
+    const service = new BusinessesService(
+      prisma as PrismaService,
+      allowRestrictions,
+    );
 
     await expect(
       service.create(userId, { ...createDto, destinationId: businessId }),
@@ -537,6 +570,7 @@ describe('Phase 3 business services', () => {
     });
     const managerService = new BusinessesService(
       managerPrisma as PrismaService,
+      allowRestrictions,
     );
 
     await expect(
@@ -547,6 +581,7 @@ describe('Phase 3 business services', () => {
     restrictedPrisma.businessMember.findFirst.mockResolvedValue(null);
     const restrictedService = new BusinessesService(
       restrictedPrisma as PrismaService,
+      allowRestrictions,
     );
 
     await expect(
@@ -557,5 +592,46 @@ describe('Phase 3 business services', () => {
     await expect(
       restrictedService.findMineById(userId, businessId),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('checks current management restriction after membership and leaves reads available', async () => {
+    const prisma = prismaMock();
+    prisma.businessMember.findFirst.mockResolvedValue({
+      userId,
+      businessId,
+      role: BusinessMemberRole.OWNER,
+    });
+    const denial = new ForbiddenException({
+      code: 'USER_CAPABILITY_RESTRICTED',
+      capability: 'BUSINESS_MANAGEMENT',
+    });
+    const restrictions = { assertAllowed: jest.fn().mockRejectedValue(denial) };
+    const service = new BusinessesService(
+      prisma as PrismaService,
+      restrictions as never,
+    );
+    await expect(
+      service.requireMembership(userId, businessId, [BusinessMemberRole.OWNER]),
+    ).resolves.toBeDefined();
+    expect(restrictions.assertAllowed).not.toHaveBeenCalled();
+    await expect(
+      service.updateMine(userId, businessId, { name: 'Denied change' }),
+    ).rejects.toBe(denial);
+    expect(restrictions.assertAllowed).toHaveBeenCalledWith(
+      userId,
+      'BUSINESS_MANAGEMENT',
+    );
+    expect(prisma.business.update).not.toHaveBeenCalled();
+    prisma.businessMember.findFirst.mockResolvedValue(null);
+    restrictions.assertAllowed.mockClear();
+    await expect(
+      service.requireMembership(
+        userId,
+        businessId,
+        [BusinessMemberRole.OWNER],
+        'manage',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(restrictions.assertAllowed).not.toHaveBeenCalled();
   });
 });

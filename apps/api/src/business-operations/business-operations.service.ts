@@ -347,7 +347,12 @@ export class BusinessOperationsService {
     reviewId: string,
     dto: UpsertBusinessReviewResponseDto,
   ) {
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const body = dto.body.trim();
     if (!body) throw new BadRequestException('A response body is required.');
     const review = await this.prisma.review.findFirst({

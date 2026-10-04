@@ -7,6 +7,9 @@ import { ReviewsService } from './reviews/reviews.service';
 
 const adminId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const reviewId = '22222222-2222-4222-8222-222222222222';
+const allowRestrictions = {
+  assertAllowed: jest.fn().mockResolvedValue(undefined),
+} as never;
 
 function adminRecord(status: ReviewStatus = ReviewStatus.PENDING) {
   return {
@@ -80,7 +83,10 @@ function prismaMock(updateCount = 1): any {
 describe('ReviewsService admin moderation', () => {
   it('lists the moderation queue with filters and safe author context', async () => {
     const prisma = prismaMock();
-    const result = await new ReviewsService(prisma).findAdmin({
+    const result = await new ReviewsService(
+      prisma,
+      allowRestrictions,
+    ).findAdmin({
       page: 1,
       limit: 20,
       status: ReviewStatus.PENDING,
@@ -112,17 +118,20 @@ describe('ReviewsService admin moderation', () => {
   it('returns admin review detail or 404 when missing', async () => {
     const prisma = prismaMock();
     await expect(
-      new ReviewsService(prisma).findAdminById(reviewId),
+      new ReviewsService(prisma, allowRestrictions).findAdminById(reviewId),
     ).resolves.toMatchObject({ id: reviewId });
     prisma.review.findUnique.mockResolvedValueOnce(null);
     await expect(
-      new ReviewsService(prisma).findAdminById(reviewId),
+      new ReviewsService(prisma, allowRestrictions).findAdminById(reviewId),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('publishes a pending review and clears stale hide/reject fields', async () => {
     const prisma = prismaMock();
-    await new ReviewsService(prisma).publish(reviewId, adminId);
+    await new ReviewsService(prisma, allowRestrictions).publish(
+      reviewId,
+      adminId,
+    );
     expect(prisma.review.updateMany).toHaveBeenCalledWith({
       where: { id: reviewId, status: ReviewStatus.PENDING },
       data: expect.objectContaining({
@@ -141,7 +150,7 @@ describe('ReviewsService admin moderation', () => {
 
   it('rejects a pending review with a required reason', async () => {
     const prisma = prismaMock();
-    await new ReviewsService(prisma).reject(
+    await new ReviewsService(prisma, allowRestrictions).reject(
       reviewId,
       adminId,
       '  Not useful  ',
@@ -159,7 +168,7 @@ describe('ReviewsService admin moderation', () => {
 
   it('hides only a published review with a required reason', async () => {
     const prisma = prismaMock();
-    await new ReviewsService(prisma).hide(
+    await new ReviewsService(prisma, allowRestrictions).hide(
       reviewId,
       adminId,
       '  Policy issue  ',
@@ -179,12 +188,12 @@ describe('ReviewsService admin moderation', () => {
     const prisma = prismaMock();
     const audit = { record: jest.fn() };
 
-    await new ReviewsService(prisma, undefined, audit as any).restore(
-      reviewId,
-      adminId,
-      'Restored after review.',
-      {},
-    );
+    await new ReviewsService(
+      prisma,
+      allowRestrictions,
+      undefined,
+      audit as any,
+    ).restore(reviewId, adminId, 'Restored after review.', {});
 
     expect(prisma.review.updateMany).toHaveBeenCalledWith({
       where: { id: reviewId, status: ReviewStatus.HIDDEN },
@@ -211,7 +220,7 @@ describe('ReviewsService admin moderation', () => {
   it('returns conflict for invalid moderation transitions', async () => {
     const prisma = prismaMock(0);
     await expect(
-      new ReviewsService(prisma).publish(reviewId, adminId),
+      new ReviewsService(prisma, allowRestrictions).publish(reviewId, adminId),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
@@ -219,7 +228,11 @@ describe('ReviewsService admin moderation', () => {
     const prisma = prismaMock(0);
     prisma.review.findUnique.mockResolvedValueOnce(null);
     await expect(
-      new ReviewsService(prisma).reject(reviewId, adminId, 'Reason'),
+      new ReviewsService(prisma, allowRestrictions).reject(
+        reviewId,
+        adminId,
+        'Reason',
+      ),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

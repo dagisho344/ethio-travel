@@ -92,7 +92,12 @@ export class ToursService {
     dto: UpdateTourDetailDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findTourService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     if (dto.durationDays !== undefined && service.tourDetail) {
@@ -122,7 +127,12 @@ export class ToursService {
     dto: CreateTourItineraryItemDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findTourService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const detail = service.tourDetail;
@@ -161,7 +171,12 @@ export class ToursService {
     dto: UpdateTourItineraryItemDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findTourService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const detail = service.tourDetail;

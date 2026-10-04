@@ -14,6 +14,7 @@ import {
   PaymentStatus,
   PricingModel,
   Prisma,
+  UserRestrictionCapability,
   UserStatus,
   NotificationType,
 } from '@prisma/client';
@@ -25,6 +26,7 @@ import { paginate, PaginatedResponse } from '../common/dto/pagination.dto';
 import { publicServiceWhere } from '../common/utils/public-visibility.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { UserRestrictionsService } from '../users/user-restrictions.service';
 import {
   CreateAvailabilityOverrideDto,
   CreateAvailabilityRuleDto,
@@ -134,6 +136,7 @@ export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly businesses: BusinessesService,
+    private readonly restrictions: UserRestrictionsService,
     private readonly notifications?: NotificationsService,
     private readonly audit?: AuditService,
   ) {}
@@ -169,6 +172,10 @@ export class BookingsService {
 
   async create(userId: string, dto: CreateBookingDto): Promise<BookingRecord> {
     await this.ensureActiveUser(userId);
+    await this.restrictions.assertAllowed(
+      userId,
+      UserRestrictionCapability.BOOKING,
+    );
     const range = this.parseRange(dto.startAt, dto.endAt);
     const booking = await this.prisma.$transaction(
       async (tx) => {
@@ -282,7 +289,11 @@ export class BookingsService {
     id: string,
     dto: BookingActionDto,
   ): Promise<BookingRecord> {
-    await this.ensureActiveUser(userId);
+    await this.findMineById(userId, id);
+    await this.restrictions.assertAllowed(
+      userId,
+      UserRestrictionCapability.BOOKING,
+    );
     return this.transition(
       id,
       userId,
@@ -330,13 +341,33 @@ export class BookingsService {
     return booking;
   }
 
+  private async requireBusinessBookingManagement(
+    userId: string,
+    businessId: string,
+    bookingId: string,
+  ): Promise<void> {
+    // Keep the scoped 404 for an inaccessible booking before capability denial.
+    await this.businesses.requireMembership(userId, businessId, managerRoles);
+    const booking = await this.prisma.booking.findFirst({
+      where: { id: bookingId, businessId },
+      select: { id: true },
+    });
+    if (!booking) throw new NotFoundException('Booking not found.');
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      managerRoles,
+      'manage',
+    );
+  }
+
   async confirmBusiness(
     userId: string,
     businessId: string,
     id: string,
     dto: BookingActionDto,
   ): Promise<BookingRecord> {
-    await this.businesses.requireMembership(userId, businessId, managerRoles);
+    await this.requireBusinessBookingManagement(userId, businessId, id);
     return this.transition(
       id,
       userId,
@@ -353,7 +384,7 @@ export class BookingsService {
     id: string,
     dto: BookingActionDto,
   ): Promise<BookingRecord> {
-    await this.businesses.requireMembership(userId, businessId, managerRoles);
+    await this.requireBusinessBookingManagement(userId, businessId, id);
     return this.transition(
       id,
       userId,
@@ -370,7 +401,7 @@ export class BookingsService {
     id: string,
     dto: BookingActionDto,
   ): Promise<BookingRecord> {
-    await this.businesses.requireMembership(userId, businessId, managerRoles);
+    await this.requireBusinessBookingManagement(userId, businessId, id);
     return this.transition(
       id,
       userId,
@@ -387,7 +418,7 @@ export class BookingsService {
     id: string,
     dto: BookingActionDto,
   ): Promise<BookingRecord> {
-    await this.businesses.requireMembership(userId, businessId, managerRoles);
+    await this.requireBusinessBookingManagement(userId, businessId, id);
     return this.transition(
       id,
       userId,
@@ -404,7 +435,7 @@ export class BookingsService {
     id: string,
     dto: BookingActionDto,
   ): Promise<BookingRecord> {
-    await this.businesses.requireMembership(userId, businessId, managerRoles);
+    await this.requireBusinessBookingManagement(userId, businessId, id);
     return this.transition(
       id,
       userId,
@@ -463,7 +494,7 @@ export class BookingsService {
     serviceId: string,
     dto: UpsertAvailabilityConfigDto,
   ) {
-    await this.findServiceForMember(userId, serviceId, managerRoles);
+    await this.findServiceForMember(userId, serviceId, managerRoles, 'manage');
     this.validateConfig(dto);
     return this.prisma.serviceBookingConfig.upsert({
       where: { serviceId },
@@ -496,7 +527,7 @@ export class BookingsService {
     serviceId: string,
     dto: CreateAvailabilityRuleDto,
   ) {
-    await this.findServiceForMember(userId, serviceId, managerRoles);
+    await this.findServiceForMember(userId, serviceId, managerRoles, 'manage');
     this.validateRule(dto);
     return this.prisma.serviceAvailabilityRule.create({
       data: {
@@ -514,7 +545,7 @@ export class BookingsService {
     id: string,
     dto: UpdateAvailabilityRuleDto,
   ) {
-    await this.findServiceForMember(userId, serviceId, managerRoles);
+    await this.findServiceForMember(userId, serviceId, managerRoles, 'manage');
     this.validateRule(dto);
     const result = await this.prisma.serviceAvailabilityRule.updateMany({
       where: { id, serviceId },
@@ -536,7 +567,7 @@ export class BookingsService {
     serviceId: string,
     id: string,
   ): Promise<void> {
-    await this.findServiceForMember(userId, serviceId, managerRoles);
+    await this.findServiceForMember(userId, serviceId, managerRoles, 'manage');
     const result = await this.prisma.serviceAvailabilityRule.deleteMany({
       where: { id, serviceId },
     });
@@ -557,7 +588,7 @@ export class BookingsService {
     serviceId: string,
     dto: CreateAvailabilityOverrideDto,
   ) {
-    await this.findServiceForMember(userId, serviceId, managerRoles);
+    await this.findServiceForMember(userId, serviceId, managerRoles, 'manage');
     const range = this.parseRange(dto.startAt, dto.endAt);
     const type = dto.type ?? AvailabilityOverrideType.BLOCKED;
     this.validateOverrideType(type, dto.capacity);
@@ -579,7 +610,7 @@ export class BookingsService {
     id: string,
     dto: UpdateAvailabilityOverrideDto,
   ) {
-    await this.findServiceForMember(userId, serviceId, managerRoles);
+    await this.findServiceForMember(userId, serviceId, managerRoles, 'manage');
     const data = this.overrideData(dto, true);
     const result = await this.prisma.serviceAvailabilityOverride.updateMany({
       where: { id, serviceId },
@@ -597,7 +628,7 @@ export class BookingsService {
     serviceId: string,
     id: string,
   ): Promise<void> {
-    await this.findServiceForMember(userId, serviceId, managerRoles);
+    await this.findServiceForMember(userId, serviceId, managerRoles, 'manage');
     const result = await this.prisma.serviceAvailabilityOverride.deleteMany({
       where: { id, serviceId },
     });
@@ -733,6 +764,7 @@ export class BookingsService {
     userId: string,
     serviceId: string,
     roles: BusinessMemberRole[],
+    intent: 'read' | 'manage' = 'read',
   ): Promise<ServiceWithBooking> {
     const service = await this.prisma.service.findUnique({
       where: { id: serviceId },
@@ -749,7 +781,12 @@ export class BookingsService {
       },
     });
     if (!service) throw new NotFoundException('Service not found.');
-    await this.businesses.requireMembership(userId, service.businessId, roles);
+    await this.businesses.requireMembership(
+      userId,
+      service.businessId,
+      roles,
+      intent,
+    );
     return service;
   }
 

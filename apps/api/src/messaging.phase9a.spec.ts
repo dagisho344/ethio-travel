@@ -2,6 +2,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
@@ -84,6 +85,7 @@ function message(overrides = {}) {
 function setup(
   events?: { messageCreated: jest.Mock },
   notifications?: { createForUsers: jest.Mock },
+  restrictions = { assertAllowed: jest.fn().mockResolvedValue(undefined) },
 ) {
   const tx = {
     conversation: {
@@ -127,13 +129,53 @@ function setup(
   };
   const service = new MessagingService(
     prisma as never,
+    restrictions as never,
     events as never,
     notifications as never,
   );
-  return { service, prisma, tx };
+  return { service, prisma, tx, restrictions };
 }
 
 describe('MessagingService', () => {
+  it('denies restricted conversation creation after access checks without creating a conversation', async () => {
+    const { service, prisma, restrictions } = setup();
+    prisma.businessMember.findFirst.mockResolvedValue(null);
+    prisma.business.findFirst.mockResolvedValue({ id: businessId });
+    restrictions.assertAllowed.mockRejectedValue(new ForbiddenException());
+
+    await expect(
+      service.createConversation(userId, {
+        businessId,
+        subject: 'Trip question',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.business.findFirst).toHaveBeenCalled();
+    expect(prisma.conversation.create).not.toHaveBeenCalled();
+  });
+
+  it('denies restricted sends before writes or notifications while preserving reads', async () => {
+    const events = { messageCreated: jest.fn() };
+    const notifications = { createForUsers: jest.fn() };
+    const { service, prisma, restrictions } = setup(events, notifications);
+    prisma.conversationMember.findFirst.mockResolvedValue({
+      id: 'member-id',
+      role: ConversationMemberRole.TRAVELER,
+      conversation: { businessId },
+    });
+    restrictions.assertAllowed.mockRejectedValue(new ForbiddenException());
+
+    await expect(
+      service.createMessage(userId, conversationId, { body: 'Hello there' }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(events.messageCreated).not.toHaveBeenCalled();
+    expect(notifications.createForUsers).not.toHaveBeenCalled();
+
+    prisma.conversation.findUnique.mockResolvedValue(conversation());
+    await expect(
+      service.findById(userId, conversationId),
+    ).resolves.toBeDefined();
+  });
   it('creates a traveler conversation with a public business and active business recipients', async () => {
     const { service, prisma } = setup();
     prisma.businessMember.findFirst.mockResolvedValue(null);
@@ -182,6 +224,25 @@ describe('MessagingService', () => {
     await expect(
       service.createConversation(userId, { businessId, bookingId }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('keeps a private existing booking conversation hidden before restriction denial', async () => {
+    const { service, prisma, restrictions } = setup();
+    prisma.businessMember.findFirst.mockResolvedValue(null);
+    prisma.booking.findUnique.mockResolvedValue({
+      id: bookingId,
+      businessId,
+      travelerId: userId,
+    });
+    prisma.conversation.findUnique.mockResolvedValue(conversation());
+    prisma.conversationMember.findFirst.mockResolvedValue(null);
+    restrictions.assertAllowed.mockRejectedValue(new ForbiddenException());
+
+    await expect(
+      service.createConversation(userId, { businessId, bookingId }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(restrictions.assertAllowed).not.toHaveBeenCalled();
+    expect(prisma.conversation.create).not.toHaveBeenCalled();
   });
 
   it('does not expose conversations to non-members', async () => {

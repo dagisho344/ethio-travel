@@ -9,7 +9,17 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { Prisma, UserRestrictionCapability, UserStatus } from '@prisma/client';
+import {
+  BusinessMemberRole,
+  BusinessStatus,
+  BusinessVerificationSummary,
+  LocationStatus,
+  PricingModel,
+  Prisma,
+  ServiceStatus,
+  UserRestrictionCapability,
+  UserStatus,
+} from '@prisma/client';
 import * as argon2 from 'argon2';
 import type { Server } from 'node:http';
 import request from 'supertest';
@@ -1084,4 +1094,299 @@ databaseDescribe('Phase 17A-2B real PostgreSQL restriction foundation', () => {
       .expect(409);
     await adminGet(`/api/v1/users/${user.id}/restrictions`).expect(404);
   }, 30_000);
+
+  it('enforces product writes with the same JWT while preserving unrelated capabilities and reads', async () => {
+    if (!app) throw new Error('Test application is not initialized.');
+    const auth = app.get(AuthService);
+    const traveler = await makeUser('product-traveler');
+    const owner = await makeUser('product-owner');
+    const travelerToken = (
+      await auth.login({ email: traveler.email, password }, {})
+    ).accessToken;
+    const ownerToken = (await auth.login({ email: owner.email, password }, {}))
+      .accessToken;
+    const travelerPost = (path: string) =>
+      request(server).post(path).auth(travelerToken, { type: 'bearer' });
+    const travelerGet = (path: string) =>
+      request(server).get(path).auth(travelerToken, { type: 'bearer' });
+    const ownerPatch = (path: string) =>
+      request(server).patch(path).auth(ownerToken, { type: 'bearer' });
+    const ownerGet = (path: string) =>
+      request(server).get(path).auth(ownerToken, { type: 'bearer' });
+    const deny = (body: unknown, capability: UserRestrictionCapability) => {
+      expect(body).toMatchObject({
+        statusCode: 403,
+        code: 'USER_CAPABILITY_RESTRICTED',
+        capability,
+      });
+      expect(JSON.stringify(body)).not.toContain('Product policy');
+    };
+    const responseId = (body: unknown): string => {
+      if (
+        !body ||
+        typeof body !== 'object' ||
+        !('id' in body) ||
+        typeof body.id !== 'string'
+      )
+        throw new Error('Expected an ID in the product response.');
+      return body.id;
+    };
+    const restrict = async (
+      userId: string,
+      capability: UserRestrictionCapability,
+    ) =>
+      restrictions.restrict(
+        adminA,
+        userId,
+        { capability, reason: 'Product policy' },
+        {},
+      );
+    const lift = async (
+      userId: string,
+      capability: UserRestrictionCapability,
+    ) =>
+      restrictions.lift(
+        adminA,
+        userId,
+        capability,
+        { reason: 'Product policy resolved' },
+        {},
+      );
+
+    const region = await db.region.create({
+      data: {
+        name: 'Fixture Region',
+        slug: `r-${schema}`,
+        status: LocationStatus.ACTIVE,
+      },
+    });
+    const city = await db.city.create({
+      data: {
+        regionId: region.id,
+        name: 'Fixture City',
+        slug: `c-${schema}`,
+        latitude: 7,
+        longitude: 37,
+        status: LocationStatus.ACTIVE,
+      },
+    });
+    const category = await db.businessCategory.create({
+      data: { code: `CAT_${schema}`, name: 'Fixture category' },
+    });
+    const serviceCategory = await db.serviceCategory.create({
+      data: { code: `SVC_${schema}`, name: 'Fixture service category' },
+    });
+    const business = await db.business.create({
+      data: {
+        cityId: city.id,
+        categoryId: category.id,
+        name: 'Fixture Guest House',
+        slug: `b-${schema}`,
+        description: 'A public guest house for test travelers.',
+        addressLine1: 'Main Street',
+        latitude: 7,
+        longitude: 37,
+        status: BusinessStatus.ACTIVE,
+        verificationSummary: BusinessVerificationSummary.VERIFIED,
+        members: {
+          create: { userId: owner.id, role: BusinessMemberRole.OWNER },
+        },
+      },
+    });
+    await db.businessLocation.create({
+      data: {
+        businessId: business.id,
+        cityId: city.id,
+        label: 'Primary location',
+        addressLine1: 'Main Street',
+        latitude: 7,
+        longitude: 37,
+        isPrimary: true,
+      },
+    });
+    const service = await db.service.create({
+      data: {
+        businessId: business.id,
+        categoryId: serviceCategory.id,
+        name: 'Fixture Stay',
+        slug: `stay-${schema}`,
+        shortDescription: 'A test stay.',
+        description: 'A bookable test stay.',
+        pricingModel: PricingModel.FREE,
+        status: ServiceStatus.PUBLISHED,
+        bookingConfig: {
+          create: { enabled: true, capacity: 10, maxQuantity: 10 },
+        },
+      },
+    });
+    const startAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const endAt = new Date(startAt.getTime() + 60 * 60 * 1000);
+    const bookingBody = {
+      serviceId: service.id,
+      startAt: startAt.toISOString(),
+      endAt: endAt.toISOString(),
+      quantity: 1,
+    };
+    const before = {
+      bookings: await db.booking.count(),
+      reviews: await db.review.count(),
+      conversations: await db.conversation.count(),
+      messages: await db.message.count(),
+      notifications: await db.notification.count(),
+    };
+
+    await restrict(traveler.id, UserRestrictionCapability.BOOKING);
+    const deniedBooking = await travelerPost('/api/v1/bookings')
+      .send(bookingBody)
+      .expect(403);
+    deny(deniedBooking.body, UserRestrictionCapability.BOOKING);
+    expect(await db.booking.count()).toBe(before.bookings);
+    expect(
+      (
+        await db.serviceBookingConfig.findUniqueOrThrow({
+          where: { serviceId: service.id },
+        })
+      ).capacity,
+    ).toBe(10);
+    await travelerPost(`/api/v1/bookings/${randomUUID()}/cancel`)
+      .send({ reason: 'Not mine' })
+      .expect(404);
+    const reviewCreated = await travelerPost('/api/v1/reviews')
+      .send({
+        targetType: 'BUSINESS',
+        targetId: business.id,
+        rating: 5,
+        body: 'Good visit.',
+      })
+      .expect(201);
+    const reviewId = responseId(reviewCreated.body as unknown);
+    await travelerGet('/api/v1/users/me/bookings').expect(200);
+    await lift(traveler.id, UserRestrictionCapability.BOOKING);
+    const booked = await travelerPost('/api/v1/bookings')
+      .send(bookingBody)
+      .expect(201);
+    responseId(booked.body as unknown);
+    expect(await db.booking.count()).toBe(before.bookings + 1);
+
+    await restrict(traveler.id, UserRestrictionCapability.REVIEW);
+    const deniedReview = await request(server)
+      .patch(`/api/v1/reviews/${reviewId}`)
+      .auth(travelerToken, { type: 'bearer' })
+      .send({ body: 'Updated visit.' })
+      .expect(403);
+    deny(deniedReview.body, UserRestrictionCapability.REVIEW);
+    await request(server)
+      .patch(`/api/v1/reviews/${randomUUID()}`)
+      .auth(travelerToken, { type: 'bearer' })
+      .send({ body: 'Not mine' })
+      .expect(404);
+    expect(await db.review.count()).toBe(before.reviews + 1);
+    const conversation = await travelerPost('/api/v1/conversations')
+      .send({ businessId: business.id, subject: 'Fixture conversation' })
+      .expect(201);
+    const conversationId = responseId(conversation.body as unknown);
+    await lift(traveler.id, UserRestrictionCapability.REVIEW);
+    await request(server)
+      .patch(`/api/v1/reviews/${reviewId}`)
+      .auth(travelerToken, { type: 'bearer' })
+      .send({ body: 'Updated visit.' })
+      .expect(200);
+
+    await restrict(traveler.id, UserRestrictionCapability.MESSAGING);
+    const notificationsBeforeDeniedMessage = await db.notification.count();
+    const deniedConversation = await travelerPost('/api/v1/conversations')
+      .send({ businessId: business.id, subject: 'Second conversation' })
+      .expect(403);
+    deny(deniedConversation.body, UserRestrictionCapability.MESSAGING);
+    const deniedMessage = await travelerPost(
+      `/api/v1/conversations/${conversationId}/messages`,
+    )
+      .send({ body: 'Hello' })
+      .expect(403);
+    deny(deniedMessage.body, UserRestrictionCapability.MESSAGING);
+    await travelerPost(`/api/v1/conversations/${randomUUID()}/messages`)
+      .send({ body: 'Not mine' })
+      .expect(404);
+    expect(await db.conversation.count()).toBe(before.conversations + 1);
+    expect(await db.message.count()).toBe(before.messages);
+    expect(await db.notification.count()).toBe(
+      notificationsBeforeDeniedMessage,
+    );
+    await travelerGet('/api/v1/conversations').expect(200);
+    const secondStartAt = new Date(startAt.getTime() + 2 * 60 * 60 * 1000);
+    await travelerPost('/api/v1/bookings')
+      .send({
+        ...bookingBody,
+        startAt: secondStartAt.toISOString(),
+        endAt: new Date(secondStartAt.getTime() + 60 * 60 * 1000).toISOString(),
+      })
+      .expect(201);
+    await travelerPost(`/api/v1/conversations/${conversationId}/read`)
+      .send({})
+      .expect(201);
+    await lift(traveler.id, UserRestrictionCapability.MESSAGING);
+    await travelerPost(`/api/v1/conversations/${conversationId}/messages`)
+      .send({ body: 'Hello after lift' })
+      .expect(201);
+    expect(await db.message.count()).toBe(before.messages + 1);
+
+    await restrict(owner.id, UserRestrictionCapability.BUSINESS_MANAGEMENT);
+    const deniedBusiness = await ownerPatch(
+      `/api/v1/my/businesses/${business.id}`,
+    )
+      .send({ name: 'Forbidden rename' })
+      .expect(403);
+    deny(deniedBusiness.body, UserRestrictionCapability.BUSINESS_MANAGEMENT);
+    await ownerPatch(`/api/v1/my/businesses/${randomUUID()}`)
+      .send({ name: 'Not mine' })
+      .expect(403);
+    await ownerPatch(
+      `/api/v1/my/businesses/${business.id}/media/${randomUUID()}`,
+    )
+      .send({ altText: 'Not owned' })
+      .expect(404);
+    await request(server)
+      .post(
+        `/api/v1/my/businesses/${business.id}/verifications/${randomUUID()}/submit`,
+      )
+      .auth(ownerToken, { type: 'bearer' })
+      .expect(404);
+    expect(
+      (await db.business.findUniqueOrThrow({ where: { id: business.id } }))
+        .name,
+    ).toBe('Fixture Guest House');
+    await ownerGet(`/api/v1/my/businesses/${business.id}`).expect(200);
+    const ownerStartAt = new Date(secondStartAt.getTime() + 2 * 60 * 60 * 1000);
+    await request(server)
+      .post('/api/v1/bookings')
+      .auth(ownerToken, { type: 'bearer' })
+      .send({
+        ...bookingBody,
+        startAt: ownerStartAt.toISOString(),
+        endAt: new Date(ownerStartAt.getTime() + 60 * 60 * 1000).toISOString(),
+      })
+      .expect(201);
+    await lift(owner.id, UserRestrictionCapability.BUSINESS_MANAGEMENT);
+    await ownerPatch(`/api/v1/my/businesses/${business.id}`)
+      .send({ name: 'Updated Guest House' })
+      .expect(200);
+    expect(
+      (await db.business.findUniqueOrThrow({ where: { id: business.id } }))
+        .name,
+    ).toBe('Updated Guest House');
+    expect(
+      (
+        await db.session.findFirstOrThrow({
+          where: { userId: traveler.id, revokedAt: null },
+        })
+      ).revokedAt,
+    ).toBeNull();
+    expect(
+      (
+        await db.session.findFirstOrThrow({
+          where: { userId: owner.id, revokedAt: null },
+        })
+      ).revokedAt,
+    ).toBeNull();
+  }, 60_000);
 });

@@ -125,6 +125,7 @@ describe('Phase 13A administrator safety', () => {
     const audit = auditService(auditRecord);
     const service = new BusinessesService(
       transactionPrisma(transaction),
+      { assertAllowed: jest.fn().mockResolvedValue(undefined) } as never,
       audit,
     );
 

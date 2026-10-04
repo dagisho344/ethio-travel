@@ -107,6 +107,28 @@ function fixture(record = serviceRecord()) {
 }
 
 describe('Phase 14D tour service', () => {
+  it('blocks restricted owners before tour detail writes while permitting reads', async () => {
+    const { tours, requireMembership, detailUpsert } = fixture();
+    requireMembership.mockImplementation(
+      (
+        _userId: string,
+        _businessId: string,
+        _roles: unknown,
+        intent?: string,
+      ) => {
+        if (intent === 'manage')
+          return Promise.reject(new ForbiddenException());
+        return Promise.resolve({ role: BusinessMemberRole.OWNER });
+      },
+    );
+    await expect(
+      tours.updateDetail(userId, businessId, serviceId, { durationDays: 3 }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      tours.findMine(userId, businessId, serviceId),
+    ).resolves.toBeDefined();
+    expect(detailUpsert).not.toHaveBeenCalled();
+  });
   it('allows active staff to read an owned TOUR-family service', async () => {
     const { tours, requireMembership } = fixture();
     requireMembership.mockResolvedValue({ role: BusinessMemberRole.STAFF });
@@ -167,10 +189,12 @@ describe('Phase 14D tour service', () => {
       exclusions: ['Lunch'],
     });
 
-    expect(requireMembership).toHaveBeenCalledWith(userId, businessId, [
-      BusinessMemberRole.OWNER,
-      BusinessMemberRole.MANAGER,
-    ]);
+    expect(requireMembership).toHaveBeenCalledWith(
+      userId,
+      businessId,
+      [BusinessMemberRole.OWNER, BusinessMemberRole.MANAGER],
+      'manage',
+    );
     expect(detailUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: expect.objectContaining({
@@ -248,7 +272,9 @@ describe('Phase 14D tour service', () => {
     } as unknown as PrismaService;
     const tours = new ToursService(
       activeFixture.prisma,
-      new BusinessesService(memberships),
+      new BusinessesService(memberships, {
+        assertAllowed: jest.fn().mockResolvedValue(undefined),
+      } as never),
     );
     await expect(
       tours.createItineraryItem(userId, businessId, serviceId, {

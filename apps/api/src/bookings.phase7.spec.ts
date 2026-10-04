@@ -103,8 +103,15 @@ describe('BookingsService', () => {
       ),
     };
     const businesses = { requireMembership: jest.fn() };
-    const service = new BookingsService(prisma as never, businesses as never);
-    return { service, prisma, tx, businesses };
+    const restrictions = {
+      assertAllowed: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new BookingsService(
+      prisma as never,
+      businesses as never,
+      restrictions as never,
+    );
+    return { service, prisma, tx, businesses, restrictions };
   }
 
   it('creates eligible booking with server-side price snapshot and history', async () => {
@@ -186,7 +193,8 @@ describe('BookingsService', () => {
   });
 
   it('rejects invalid booking transitions with 409', async () => {
-    const { service, tx } = setup();
+    const { service, tx, prisma } = setup();
+    prisma.booking.findFirst.mockResolvedValue({ id: 'booking-id' });
     tx.booking.findFirst.mockResolvedValue({
       id: 'booking-id',
       bookingStatus: BookingStatus.COMPLETED,
@@ -203,5 +211,41 @@ describe('BookingsService', () => {
     await expect(
       service.findMine('user-id', { page: 1, limit: 20 }),
     ).rejects.toThrow('Authentication required.');
+  });
+
+  it('denies traveler creation and owned cancellation before booking writes', async () => {
+    const { service, prisma, tx, restrictions } = setup();
+    const denial = new ForbiddenException({
+      code: 'USER_CAPABILITY_RESTRICTED',
+      capability: 'BOOKING',
+    });
+    restrictions.assertAllowed.mockRejectedValue(denial);
+    await expect(
+      service.create('user-id', {
+        serviceId: 'service-id',
+        startAt: futureStart(),
+        endAt: futureEnd(),
+        quantity: 1,
+      }),
+    ).rejects.toBe(denial);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    prisma.booking.findFirst.mockResolvedValue({ id: 'booking-id' });
+    await expect(service.cancelMine('user-id', 'booking-id', {})).rejects.toBe(
+      denial,
+    );
+    expect(prisma.booking.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'booking-id', travelerId: 'user-id' },
+      }),
+    );
+    expect(tx.booking.updateMany).not.toHaveBeenCalled();
+    expect(restrictions.assertAllowed).toHaveBeenCalledWith(
+      'user-id',
+      'BOOKING',
+    );
+    restrictions.assertAllowed.mockResolvedValue(undefined);
+    await expect(
+      service.findMineById('user-id', 'booking-id'),
+    ).resolves.toBeDefined();
   });
 });

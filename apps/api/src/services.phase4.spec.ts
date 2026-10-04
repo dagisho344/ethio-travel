@@ -229,7 +229,10 @@ const invalidServiceCases: InvalidServiceCase[] = [
 ];
 
 function service(prisma: any) {
-  const businesses = new BusinessesService(prisma as PrismaService);
+  const businesses = new BusinessesService(
+    prisma as PrismaService,
+    { assertAllowed: jest.fn().mockResolvedValue(undefined) } as never,
+  );
   jest
     .spyOn(businesses, 'requireMembership')
     .mockResolvedValue({ role: BusinessMemberRole.OWNER } as any);

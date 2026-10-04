@@ -9,6 +9,7 @@ import {
   NotificationType,
   Prisma,
   ReviewStatus,
+  UserRestrictionCapability,
   UserStatus,
 } from '@prisma/client';
 import {
@@ -26,6 +27,7 @@ import {
 } from '../common/utils/public-visibility.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { UserRestrictionsService } from '../users/user-restrictions.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import {
   AdminReviewQueryDto,
@@ -298,6 +300,7 @@ export interface ReviewSummaryDto {
 export class ReviewsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly restrictions: UserRestrictionsService,
     private readonly notifications?: NotificationsService,
     private readonly audit?: AuditService,
   ) {}
@@ -307,6 +310,10 @@ export class ReviewsService {
     dto: CreateReviewDto,
   ): Promise<MyReviewResponseDto> {
     await this.ensureActiveUser(userId);
+    await this.restrictions.assertAllowed(
+      userId,
+      UserRestrictionCapability.REVIEW,
+    );
     await this.ensureTargetIsPublic(dto.targetType, dto.targetId);
     try {
       const review = await this.prisma.review.create({
@@ -356,6 +363,15 @@ export class ReviewsService {
         'At least one review field must be provided.',
       );
     }
+    const owned = await this.prisma.review.findFirst({
+      where: { id: reviewId, userId },
+      select: { id: true },
+    });
+    if (!owned) throw new NotFoundException('Review not found.');
+    await this.restrictions.assertAllowed(
+      userId,
+      UserRestrictionCapability.REVIEW,
+    );
     const result = await this.prisma.review.updateMany({
       where: { id: reviewId, userId },
       data: {

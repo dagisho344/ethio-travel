@@ -2,6 +2,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, ReviewStatus } from '@prisma/client';
@@ -49,8 +50,11 @@ function prismaMock(): any {
   return prisma;
 }
 
-function service(prisma: any) {
-  return new ReviewsService(prisma);
+function service(
+  prisma: any,
+  restrictions = { assertAllowed: jest.fn().mockResolvedValue(undefined) },
+) {
+  return new ReviewsService(prisma, restrictions as never);
 }
 
 function myReviewRecord(type: keyof typeof ReviewTargetType) {
@@ -373,5 +377,31 @@ describe('ReviewsService', () => {
       reviewCount: 0,
       ratingDistribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 },
     });
+  });
+
+  it('denies author writes without changing review state and keeps reads available', async () => {
+    const prisma = prismaMock();
+    const denial = new ForbiddenException({
+      code: 'USER_CAPABILITY_RESTRICTED',
+      capability: 'REVIEW',
+    });
+    const restrictions = { assertAllowed: jest.fn().mockRejectedValue(denial) };
+    const reviews = service(prisma, restrictions);
+    await expect(
+      reviews.create(userId, {
+        targetType: ReviewTargetType.BUSINESS,
+        targetId,
+        rating: 5,
+      }),
+    ).rejects.toBe(denial);
+    await expect(
+      reviews.update(userId, reviewId, { title: 'Changed' }),
+    ).rejects.toBe(denial);
+    expect(prisma.review.create).not.toHaveBeenCalled();
+    expect(prisma.review.updateMany).not.toHaveBeenCalled();
+    expect(restrictions.assertAllowed).toHaveBeenCalledWith(userId, 'REVIEW');
+    await expect(
+      reviews.findMine(userId, { page: 1, limit: 20 }),
+    ).resolves.toBeDefined();
   });
 });

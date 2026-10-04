@@ -108,7 +108,12 @@ export class RestaurantsService {
     dto: UpdateRestaurantDetailDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findRestaurantService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const data = this.detailData(dto);
@@ -134,7 +139,12 @@ export class RestaurantsService {
     dto: CreateRestaurantMenuDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findRestaurantService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const detail = service.restaurantDetail;
@@ -169,7 +179,12 @@ export class RestaurantsService {
     dto: UpdateRestaurantMenuDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findRestaurantService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const menu = await this.findMenuForService(menuId, service.id);
@@ -189,7 +204,12 @@ export class RestaurantsService {
     isActive: boolean,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findRestaurantService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const menu = await this.findMenuForService(menuId, service.id);
@@ -231,7 +251,12 @@ export class RestaurantsService {
     dto: CreateRestaurantMenuItemDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findRestaurantService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const menu = await this.findMenuForService(menuId, service.id);
@@ -267,7 +292,12 @@ export class RestaurantsService {
     dto: UpdateRestaurantMenuItemDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findRestaurantService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const menu = await this.findMenuForService(menuId, service.id);
@@ -289,7 +319,12 @@ export class RestaurantsService {
     available: boolean,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findRestaurantService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const menu = await this.findMenuForService(menuId, service.id);

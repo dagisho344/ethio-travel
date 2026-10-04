@@ -18,6 +18,7 @@ import {
   MediaVisibility,
   Prisma,
   PublicationStatus,
+  UserRestrictionCapability,
   UserStatus,
 } from '@prisma/client';
 import {
@@ -27,6 +28,7 @@ import {
 } from '../common/dto/pagination.dto';
 import { buildSlug } from '../common/utils/slug.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { UserRestrictionsService } from '../users/user-restrictions.service';
 import { AuditContext, AuditService } from '../audit/audit.service';
 import { AUDIT_ACTIONS, AUDIT_ENTITY_TYPES } from '../audit/audit.constants';
 import { AuthenticatedUser } from '../auth/authenticated-user';
@@ -120,6 +122,7 @@ type MyBusinessRecord = BusinessRecord & {
 export class BusinessesService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly restrictions: UserRestrictionsService,
     @Optional() private readonly audit?: AuditService,
   ) {}
 
@@ -128,6 +131,10 @@ export class BusinessesService {
     dto: CreateBusinessDto,
   ): Promise<BusinessRecord> {
     await this.ensureActiveUser(userId);
+    await this.restrictions.assertAllowed(
+      userId,
+      UserRestrictionCapability.BUSINESS_MANAGEMENT,
+    );
     await this.validateLocationAndCategory(
       dto.cityId,
       dto.categoryId,
@@ -310,10 +317,12 @@ export class BusinessesService {
     businessId: string,
     dto: OwnerUpdateBusinessDto,
   ): Promise<BusinessRecord> {
-    await this.requireMembership(userId, businessId, [
-      BusinessMemberRole.OWNER,
-      BusinessMemberRole.MANAGER,
-    ]);
+    await this.requireMembership(
+      userId,
+      businessId,
+      [BusinessMemberRole.OWNER, BusinessMemberRole.MANAGER],
+      'manage',
+    );
     const existing = await this.findAdminById(businessId);
     const resolvedDestinationId =
       dto.destinationId !== undefined
@@ -755,6 +764,7 @@ export class BusinessesService {
     userId: string,
     businessId: string,
     roles: MemberRole[],
+    intent: 'read' | 'manage' = 'read',
   ) {
     const member = await this.prisma.businessMember.findFirst({
       where: {
@@ -766,6 +776,12 @@ export class BusinessesService {
     });
     if (!member)
       throw new ForbiddenException('Business membership is required.');
+    if (intent === 'manage') {
+      await this.restrictions.assertAllowed(
+        userId,
+        UserRestrictionCapability.BUSINESS_MANAGEMENT,
+      );
+    }
     return member;
   }
 

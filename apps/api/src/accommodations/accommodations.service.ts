@@ -86,7 +86,12 @@ export class AccommodationService {
     dto: UpdateAccommodationDetailDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findAccommodationService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const data = this.detailData(dto);
@@ -112,7 +117,12 @@ export class AccommodationService {
     dto: CreateRoomTypeDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findAccommodationService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const detail = service.accommodationDetail;
@@ -143,7 +153,12 @@ export class AccommodationService {
     dto: UpdateRoomTypeDto,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findAccommodationService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const room = await this.findRoomForService(roomTypeId, service.id);
@@ -163,7 +178,12 @@ export class AccommodationService {
     isActive: boolean,
   ) {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const service = await this.findAccommodationService(businessId, serviceId);
     this.ensureServiceCanChange(service);
     const room = await this.findRoomForService(roomTypeId, service.id);

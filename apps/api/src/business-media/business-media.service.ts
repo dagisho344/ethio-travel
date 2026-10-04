@@ -129,8 +129,9 @@ export class BusinessMediaService {
     mediaId: string,
     dto: UpdateBusinessMediaDto,
   ) {
-    await this.requireWrite(userId, businessId);
+    await this.requireRead(userId, businessId);
     await this.findAttachment(businessId, mediaId);
+    await this.requireWrite(userId, businessId);
     return this.prisma.businessMedia.update({
       where: { businessId_mediaId: { businessId, mediaId } },
       data: {
@@ -144,8 +145,9 @@ export class BusinessMediaService {
   }
 
   async archive(userId: string, businessId: string, mediaId: string) {
-    await this.requireWrite(userId, businessId);
+    await this.requireRead(userId, businessId);
     const attachment = await this.findAttachment(businessId, mediaId);
+    await this.requireWrite(userId, businessId);
     if (attachment.media.status === MediaStatus.ARCHIVED)
       throw new ConflictException('Media is already archived.');
     await this.prisma.mediaAsset.update({
@@ -163,7 +165,7 @@ export class BusinessMediaService {
     businessId: string,
     dto: ReorderBusinessMediaDto,
   ) {
-    await this.requireWrite(userId, businessId);
+    await this.requireRead(userId, businessId);
     if (new Set(dto.mediaIds).size !== dto.mediaIds.length)
       throw new BadRequestException('Media IDs must be unique.');
     const attachments = await this.prisma.businessMedia.findMany({
@@ -181,6 +183,7 @@ export class BusinessMediaService {
       throw new BadRequestException(
         'Gallery order must contain every active gallery item exactly once.',
       );
+    await this.requireWrite(userId, businessId);
     await this.prisma.$transaction(
       dto.mediaIds.map((mediaId, sortOrder) =>
         this.prisma.businessMedia.update({
@@ -200,10 +203,12 @@ export class BusinessMediaService {
     ]);
   }
   private async requireWrite(userId: string, businessId: string) {
-    return this.businesses.requireMembership(userId, businessId, [
-      BusinessMemberRole.OWNER,
-      BusinessMemberRole.MANAGER,
-    ]);
+    return this.businesses.requireMembership(
+      userId,
+      businessId,
+      [BusinessMemberRole.OWNER, BusinessMemberRole.MANAGER],
+      'manage',
+    );
   }
   private async assertBusinessMutable(businessId: string) {
     const business = await this.prisma.business.findUnique({

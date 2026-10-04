@@ -137,6 +137,38 @@ function fixture(record = serviceRecord()) {
 }
 
 describe('Phase 14C restaurant service', () => {
+  it('blocks restricted owners before restaurant detail and menu writes, while permitting reads', async () => {
+    const { restaurants, requireMembership, detailUpsert, menuCreate } =
+      fixture();
+    requireMembership.mockImplementation(
+      (
+        _userId: string,
+        _businessId: string,
+        _roles: unknown,
+        intent?: string,
+      ) => {
+        if (intent === 'manage')
+          return Promise.reject(new ForbiddenException());
+        return Promise.resolve({ role: BusinessMemberRole.OWNER });
+      },
+    );
+    await expect(
+      restaurants.updateDetail(userId, businessId, serviceId, {
+        cuisineTypes: ['Ethiopian'],
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      restaurants.createMenu(userId, businessId, serviceId, {
+        name: 'Breakfast',
+        sortOrder: 1,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      restaurants.findMine(userId, businessId, serviceId),
+    ).resolves.toBeDefined();
+    expect(detailUpsert).not.toHaveBeenCalled();
+    expect(menuCreate).not.toHaveBeenCalled();
+  });
   it('allows active staff to read an owned RESTAURANT-family service', async () => {
     const { restaurants, requireMembership } = fixture();
     requireMembership.mockResolvedValue({ role: BusinessMemberRole.STAFF });
@@ -180,10 +212,12 @@ describe('Phase 14C restaurant service', () => {
       sortOrder: 2,
     });
 
-    expect(requireMembership).toHaveBeenCalledWith(userId, businessId, [
-      BusinessMemberRole.OWNER,
-      BusinessMemberRole.MANAGER,
-    ]);
+    expect(requireMembership).toHaveBeenCalledWith(
+      userId,
+      businessId,
+      [BusinessMemberRole.OWNER, BusinessMemberRole.MANAGER],
+      'manage',
+    );
     expect(detailUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: expect.objectContaining({
@@ -347,10 +381,12 @@ describe('Phase 14C restaurant service', () => {
     });
 
     expect(detailUpsert).toHaveBeenCalled();
-    expect(requireMembership).toHaveBeenCalledWith(userId, businessId, [
-      BusinessMemberRole.OWNER,
-      BusinessMemberRole.MANAGER,
-    ]);
+    expect(requireMembership).toHaveBeenCalledWith(
+      userId,
+      businessId,
+      [BusinessMemberRole.OWNER, BusinessMemberRole.MANAGER],
+      'manage',
+    );
   });
 
   it('denies an inactive user before membership or restaurant data access', async () => {
@@ -454,7 +490,9 @@ describe('Phase 14C restaurant service', () => {
     } as unknown as PrismaService;
     const restaurants = new RestaurantsService(
       restaurantFixture.prisma,
-      new BusinessesService(membershipPrisma),
+      new BusinessesService(membershipPrisma, {
+        assertAllowed: jest.fn().mockResolvedValue(undefined),
+      } as never),
     );
 
     await expect(

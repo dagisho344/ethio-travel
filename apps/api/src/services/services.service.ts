@@ -298,7 +298,12 @@ export class ServicesService {
     dto: CreateServiceDto,
   ): Promise<ServiceRecord> {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     await this.validateCategory(dto.categoryId);
     this.validateDto(dto);
     const slug = dto.slug ?? buildSlug(dto.name);
@@ -435,7 +440,12 @@ export class ServicesService {
     dto: UpdateServiceDto,
   ): Promise<ServiceRecord> {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     const existing = await this.findBusinessService(serviceId, businessId);
     if (existing.status === ServiceStatus.ARCHIVED)
       throw new ConflictException('Archived services cannot be changed.');
@@ -486,7 +496,12 @@ export class ServicesService {
     serviceId: string,
   ): Promise<ServiceRecord> {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     return this.publish(serviceId, businessId);
   }
 
@@ -496,7 +511,12 @@ export class ServicesService {
     serviceId: string,
   ): Promise<ServiceRecord> {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     return this.unpublish(serviceId, businessId);
   }
 
@@ -506,7 +526,12 @@ export class ServicesService {
     serviceId: string,
   ): Promise<ServiceRecord> {
     await this.ensureActiveUser(userId);
-    await this.businesses.requireMembership(userId, businessId, writableRoles);
+    await this.businesses.requireMembership(
+      userId,
+      businessId,
+      writableRoles,
+      'manage',
+    );
     return this.archive(serviceId, businessId);
   }
 

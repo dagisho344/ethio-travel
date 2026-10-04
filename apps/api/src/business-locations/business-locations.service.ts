@@ -233,7 +233,12 @@ export class BusinessLocationsService {
   }
 
   private async requireWriteAccess(userId: string, businessId: string) {
-    return this.businesses.requireMembership(userId, businessId, managingRoles);
+    return this.businesses.requireMembership(
+      userId,
+      businessId,
+      managingRoles,
+      'manage',
+    );
   }
 
   private async findLocation(

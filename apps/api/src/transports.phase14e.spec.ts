@@ -153,6 +153,30 @@ function fixture(record = serviceRecord()) {
 }
 
 describe('Phase 14E transport service', () => {
+  it('blocks restricted owners before transport detail writes while permitting reads', async () => {
+    const { transports, requireMembership, detailUpsert } = fixture();
+    requireMembership.mockImplementation(
+      (
+        _userId: string,
+        _businessId: string,
+        _roles: unknown,
+        intent?: string,
+      ) => {
+        if (intent === 'manage')
+          return Promise.reject(new ForbiddenException());
+        return Promise.resolve({ role: BusinessMemberRole.OWNER });
+      },
+    );
+    await expect(
+      transports.updateDetail(userId, businessId, serviceId, {
+        mode: 'SHUTTLE',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      transports.findMine(userId, businessId, serviceId),
+    ).resolves.toBeDefined();
+    expect(detailUpsert).not.toHaveBeenCalled();
+  });
   it('allows active STAFF to read and OWNER or MANAGER to write a TRANSPORT-family service', async () => {
     const staff = fixture();
     staff.requireMembership.mockResolvedValue({
@@ -331,7 +355,9 @@ describe('Phase 14E transport service', () => {
     } as unknown as PrismaService;
     const denied = new TransportsService(
       activeFixture.prisma,
-      new BusinessesService(memberships),
+      new BusinessesService(memberships, {
+        assertAllowed: jest.fn().mockResolvedValue(undefined),
+      } as never),
     );
     await expect(
       denied.createRoute(userId, businessId, serviceId, {
