@@ -22,14 +22,8 @@ Focused API unit tests cover password hashing, DTOs, transactions, lifecycle tra
 
 The opt-in PostgreSQL suite in `apps/api/test/admin-users.phase17a.database.e2e-spec.ts` passed 8/8 tests. Run it from `apps/api` with `ADMIN_USERS_DATABASE_TESTS=1 pnpm exec jest --config test/jest-e2e.json --runInBand test/admin-users.phase17a.database.e2e-spec.ts` (set the environment variable using your shell's syntax). It creates a uniquely named temporary PostgreSQL schema, applies the existing 23 migrations there, and drops that schema after testing; the main `public` schema is checked before and after for unchanged user, profile, role, session, audit, and active-Admin counts. Tests verify persisted account/role/audit data, an audit-FK-induced transaction rollback, status and role safety, two-connection concurrent last-Admin transitions in both lock directions, and real JWT/session revocation checks. The suite is skipped unless explicitly enabled. No migration or Prisma schema change is part of 17A-1.
 
-Interactive production Admin UI browser acceptance is still pending; these automated checks do not constitute a browser pass.
+Development browser acceptance passed using a disposable, fully migrated PostgreSQL schema. A temporary Admin-created traveler was edited for name, phone, and permitted roles in English and Amharic; validation and persisted values were checked after reload. The existing block/unblock and deactivate/reactivate flows were exercised and the target restored. The 20-user list page size was exercised with the minimum 18 temporary users needed alongside three seed accounts: page 1 had 20 distinct rows, page 2 had one, and search/status filters reset and updated pagination. Representative desktop and 390px mobile list, form, detail, and dialog views were checked in both locales without page-level overflow. The disposable schema and browser profiles were removed; the public development schema was unchanged.
 
-Manual acceptance remains pending:
-
-1. On desktop, log in as Admin; search/filter users, create a traveler, open profile, and edit name/phone/email and permitted roles.
-2. Block and unblock that user; verify old sessions cannot authenticate and a fresh login works after unblock.
-3. Deactivate and reactivate the user; verify old sessions remain invalid, a new login succeeds, and booking/trip/review/membership history remains.
-4. Attempt self-status changes and last-active-Admin removal from a test environment; verify server rejection.
-5. Repeat core list, form, detail, and confirmation-dialog flows in English and Amharic on narrow mobile; check wrapping, keyboard focus, Escape, and error announcements.
+The destructive last-Admin browser scenario was intentionally not performed against a real Admin account. The opt-in PostgreSQL suite above verifies self-protection, the ACTIVE-plus-ADMIN last-Admin rule, and concurrent removals in both lock directions. A signed-in browser session and product-action restriction behavior are covered separately in the restrictions phase. These checks are development acceptance, not a production deployment test.
 
 Granular restrictions (`BOOKING`, `REVIEW`, `MESSAGING`, `BUSINESS_MANAGEMENT`, `PAYMENT_PROOF_SUBMISSION`) and their enforcement are deferred to Phase 17A-2.

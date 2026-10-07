@@ -17,6 +17,105 @@ export function adminUuid(value: string, label = 'Record'): string {
   return value;
 }
 
+const restrictionCapabilities = new Set([
+  'BOOKING',
+  'REVIEW',
+  'MESSAGING',
+  'BUSINESS_MANAGEMENT',
+  'PAYMENT_PROOF_SUBMISSION',
+]);
+
+export function adminRestrictionCapability(value: string): string {
+  if (!restrictionCapabilities.has(value)) {
+    throw new BffAuthError(400, 'Invalid restriction capability.');
+  }
+  return value;
+}
+
+function restrictionReason(value: unknown): string {
+  if (typeof value !== 'string') {
+    throw new BffAuthError(400, 'A restriction reason is required.');
+  }
+  const reason = value.trim();
+  if (reason.length < 1 || reason.length > 1000) {
+    throw new BffAuthError(400, 'A reason must be 1–1000 characters.');
+  }
+  return reason;
+}
+
+function validOffsetIso(value: string): boolean {
+  const match =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-](\d{2}):(\d{2}))$/.exec(
+      value,
+    );
+  if (!match) return false;
+  const [, year, month, day, hour, minute, second, , offsetHour, offsetMinute] =
+    match;
+  const numericYear = Number(year);
+  const numericMonth = Number(month);
+  const numericDay = Number(day);
+  if (
+    numericMonth < 1 ||
+    numericMonth > 12 ||
+    numericDay < 1 ||
+    numericDay >
+      new Date(Date.UTC(numericYear, numericMonth, 0)).getUTCDate() ||
+    Number(hour) > 23 ||
+    Number(minute) > 59 ||
+    Number(second) > 59 ||
+    (offsetHour !== undefined && Number(offsetHour) > 23) ||
+    (offsetMinute !== undefined && Number(offsetMinute) > 59)
+  ) {
+    return false;
+  }
+  return Number.isFinite(new Date(value).getTime());
+}
+
+export async function adminRestrictBody(request: NextRequest): Promise<string> {
+  const input = await adminObject(request, 'A valid restriction is required.');
+  if (
+    Object.keys(input).some(
+      (key) => !['capability', 'reason', 'expiresAt'].includes(key),
+    )
+  ) {
+    throw new BffAuthError(400, 'The request contains an unsupported field.');
+  }
+  if (typeof input.capability !== 'string') {
+    throw new BffAuthError(400, 'Invalid restriction capability.');
+  }
+  const capability = adminRestrictionCapability(input.capability);
+  const reason = restrictionReason(input.reason);
+  let expiresAt: string | undefined;
+  if (input.expiresAt !== undefined) {
+    if (
+      typeof input.expiresAt !== 'string' ||
+      !validOffsetIso(input.expiresAt) ||
+      new Date(input.expiresAt) <= new Date()
+    ) {
+      throw new BffAuthError(
+        400,
+        'Expiry must be a future ISO timestamp with an offset.',
+      );
+    }
+    expiresAt = input.expiresAt;
+  }
+  return JSON.stringify({
+    capability,
+    reason,
+    ...(expiresAt ? { expiresAt } : {}),
+  });
+}
+
+export async function adminLiftRestrictionBody(
+  request: NextRequest,
+): Promise<string> {
+  const input = await adminObject(request, 'A lift reason is required.');
+  if (Object.keys(input).some((key) => key !== 'reason')) {
+    throw new BffAuthError(400, 'The request contains an unsupported field.');
+  }
+  return JSON.stringify({ reason: restrictionReason(input.reason) });
+}
+
 export function safeAdminQuery(
   request: NextRequest,
   allowed: readonly string[],

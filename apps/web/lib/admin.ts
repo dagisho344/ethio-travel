@@ -37,6 +37,72 @@ export type AdminUserDetail = AdminUser & {
   tripCount: number;
 };
 
+export const ADMIN_RESTRICTION_CAPABILITIES = [
+  'BOOKING',
+  'REVIEW',
+  'MESSAGING',
+  'BUSINESS_MANAGEMENT',
+  'PAYMENT_PROOF_SUBMISSION',
+] as const;
+
+export type AdminUserRestrictionCapability =
+  (typeof ADMIN_RESTRICTION_CAPABILITIES)[number];
+
+export type AdminUserRestriction = {
+  id: string;
+  capability: AdminUserRestrictionCapability;
+  active: boolean;
+  reason: string;
+  restrictedAt: string;
+  restrictedByUserId: string;
+  expiresAt: string | null;
+  liftedAt: string | null;
+  liftedByUserId: string | null;
+  liftReason: string | null;
+};
+
+export function restrictionState(
+  row: AdminUserRestriction | undefined,
+): 'unrestricted' | 'active' | 'expired' | 'lifted' {
+  if (!row) return 'unrestricted';
+  if (row.active) return 'active';
+  return row.liftedAt ? 'lifted' : 'expired';
+}
+
+export function restrictionActions(
+  status: string,
+  isAdmin: boolean,
+  row: AdminUserRestriction | undefined,
+): { canRestrict: boolean; canLift: boolean } {
+  const active = restrictionState(row) === 'active';
+  return {
+    canRestrict: status === 'ACTIVE' && !isAdmin && !active,
+    canLift: active,
+  };
+}
+
+export function localExpiryToIso(
+  value: string,
+  now = new Date(),
+): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime()) || date <= now) return null;
+  const [day, time] = value.split('T');
+  const [year, month, dateOfMonth] = (day ?? '').split('-').map(Number);
+  const [hour, minute] = (time ?? '').split(':').map(Number);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() + 1 !== month ||
+    date.getDate() !== dateOfMonth ||
+    date.getHours() !== hour ||
+    date.getMinutes() !== minute
+  ) {
+    return null;
+  }
+  return date.toISOString();
+}
+
 export type AdminBusiness = {
   category: { name: string };
   city: { name: string };

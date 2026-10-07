@@ -90,6 +90,10 @@ export function AdminUserForm({
       setError(t('requiredFields'));
       return;
     }
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      setError(t('emailInvalid'));
+      return;
+    }
     if (!editing) {
       if (password.length < 8 || password.length > 128) {
         setError(t('passwordLength'));
@@ -147,6 +151,7 @@ export function AdminUserForm({
         </p>
       ) : (
         <form
+          noValidate
           onSubmit={(event) => {
             void submit(event);
           }}

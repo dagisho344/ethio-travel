@@ -52,6 +52,17 @@ void test('book now UI checks availability before creating a booking', () => {
   assert.match(widget, /\/api\/bookings/);
   assert.match(widget, /stage !== 'available'/);
   assert.match(widget, /t\('availabilityChanged'\)/);
+  assert.match(widget, /err\.status === 403[\s\S]*t\('createForbidden'\)/);
+  for (const locale of ['en', 'am']) {
+    /** @type {unknown} */
+    const catalog = JSON.parse(read(`messages/${locale}.json`));
+    assert.ok(typeof catalog === 'object' && catalog !== null);
+    assert.ok('bookings' in catalog);
+    const bookings = catalog.bookings;
+    assert.ok(typeof bookings === 'object' && bookings !== null);
+    assert.ok('createForbidden' in bookings);
+    assert.equal(typeof bookings.createForbidden, 'string');
+  }
 });
 
 void test('unauthenticated booking actions redirect with safe returnTo', () => {

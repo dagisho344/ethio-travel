@@ -189,7 +189,11 @@ export function BookingWidget({
         return;
       }
       setStage('available');
-      setError(t('createError'));
+      setError(
+        err instanceof BookingRequestError && err.status === 403
+          ? t('createForbidden')
+          : t('createError'),
+      );
     }
   }
 

@@ -38,6 +38,8 @@ export function AdminUserStatusDialog({
     input.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !saving) {
+        event.preventDefault();
+        event.stopPropagation();
         setOpen(false);
         trigger.current?.focus();
       }
@@ -124,6 +126,7 @@ export function AdminUserStatusDialog({
               {destructive ? t('confirmWarning') : t('confirmRestore')}
             </p>
             <form
+              noValidate
               onSubmit={(event) => {
                 void submit(event);
               }}

@@ -26,6 +26,8 @@ void test('new and edit Admin routes reuse protected layout and safe user form',
   assert.match(editPage, /AdminUserForm/);
   assert.match(form, /type="password"/);
   assert.match(form, /password !== confirmation/);
+  assert.match(form, /noValidate/);
+  assert.match(form, /emailInvalid/);
   assert.match(form, /roleCodes\.filter/);
   assert.match(form, /setLoadFailed\(true\)/);
   assert.doesNotMatch(form, /passwordHash|localStorage|sessionStorage/);
@@ -54,7 +56,9 @@ void test('list and detail expose safe fields, lifecycle controls, filters and p
   assert.match(dialog, /reason\.trim\(\)/);
   assert.match(dialog, /aria-modal="true"/);
   assert.match(dialog, /event\.key === 'Escape'/);
+  assert.match(dialog, /event\.stopPropagation\(\)/);
   assert.match(dialog, /event\.key === 'Tab'/);
+  assert.match(dialog, /noValidate/);
   assert.doesNotMatch(list + detail, /passwordHash|refreshTokenHash/);
 });
 

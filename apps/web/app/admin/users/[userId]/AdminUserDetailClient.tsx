@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 import { AdminUserStatusDialog } from '../../../../components/admin/AdminUserStatusDialog';
+import { AdminUserRestrictions } from '../../../../components/admin/AdminUserRestrictions';
 import { resolveLocale } from '../../../../i18n/config';
 import { formatLocaleDate } from '../../../../i18n/format';
 import {
@@ -254,6 +255,12 @@ export function AdminUserDetailClient({
           ) : null}
         </ul>
       </section>
+      <AdminUserRestrictions
+        userId={user.id}
+        name={displayName(user)}
+        status={user.status}
+        isAdmin={user.roles.includes('ADMIN')}
+      />
       {!isSelf ? (
         <section
           aria-label={t('userProfile')}
