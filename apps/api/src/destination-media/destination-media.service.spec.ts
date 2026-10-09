@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -284,6 +285,37 @@ describe('Destination image media service', () => {
       ),
     ).rejects.toThrow('DB failed');
     expect(storage.deleteObject).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports failed orphan cleanup safely and preserves the original database error', async () => {
+    const { service, storage, tx } = harness();
+    const warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+    try {
+      tx.mediaAsset.create.mockRejectedValueOnce(new Error('DB failed'));
+      storage.deleteObject.mockRejectedValueOnce(
+        new Error('private bucket secret'),
+      );
+      await expect(
+        service.upload(
+          destinationId,
+          actorId,
+          { role: MediaRole.HERO },
+          file(),
+          {},
+        ),
+      ).rejects.toThrow('DB failed');
+      expect(storage.deleteObject).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining(`destinationId=${destinationId}`),
+      );
+      const warning = JSON.stringify(warn.mock.calls);
+      expect(warning).not.toContain('private bucket secret');
+      expect(warning).not.toContain('private/destinations/');
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('updates only trimmed metadata and hides foreign attachments', async () => {

@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -59,6 +60,8 @@ type AdminMediaRecord = Prisma.DestinationMediaGetPayload<{
 
 @Injectable()
 export class DestinationMediaService {
+  private readonly logger = new Logger(DestinationMediaService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
@@ -111,7 +114,7 @@ export class DestinationMediaService {
         body: file.buffer,
       });
     } catch (error) {
-      await this.storage.deleteObject(key).catch(() => undefined);
+      await this.cleanupFailedUpload(key, destinationId, id);
       throw error;
     }
 
@@ -198,8 +201,22 @@ export class DestinationMediaService {
         return this.toAdmin(destinationId, attachment);
       });
     } catch (error) {
-      await this.storage.deleteObject(key).catch(() => undefined);
+      await this.cleanupFailedUpload(key, destinationId, id);
       throw error;
+    }
+  }
+
+  private async cleanupFailedUpload(
+    key: string,
+    destinationId: string,
+    mediaId: string,
+  ): Promise<void> {
+    try {
+      await this.storage.deleteObject(key);
+    } catch {
+      this.logger.warn(
+        `Destination media cleanup failed for destinationId=${destinationId}, mediaId=${mediaId}; manual cleanup may be required.`,
+      );
     }
   }
 
