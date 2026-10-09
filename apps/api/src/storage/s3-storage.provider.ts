@@ -103,13 +103,18 @@ export class S3StorageProvider implements StorageProvider {
   private bucketFor(key: string): string {
     if (this.isPublicKey(key))
       return this.config.get('s3BucketPublic', { infer: true });
-    if (key.startsWith('private/verifications/'))
+    if (
+      key.startsWith('private/verifications/') ||
+      /^private\/destinations\/[0-9a-f-]+\/[0-9a-f-]+\.[a-z0-9]+$/i.test(key)
+    )
       return this.config.get('s3BucketPrivate', { infer: true });
     throw new Error('Storage key is outside an allowed namespace.');
   }
 
   private isPublicKey(key: string): boolean {
-    return /^public\/businesses\/[0-9a-f-]+\/[0-9a-f-]+\.[a-z0-9]+$/i.test(key);
+    return /^public\/(?:businesses|destinations)\/[0-9a-f-]+\/[0-9a-f-]+\.[a-z0-9]+$/i.test(
+      key,
+    );
   }
 
   private isNotFound(error: unknown): boolean {

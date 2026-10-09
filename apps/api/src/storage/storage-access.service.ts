@@ -3,7 +3,9 @@ import {
   BusinessStatus,
   BusinessVerificationSummary,
   LocationStatus,
+  MediaRole,
   MediaStatus,
+  MediaType,
   MediaVisibility,
   PublicationStatus,
 } from '@prisma/client';
@@ -72,13 +74,44 @@ export class StorageAccessService {
           },
         },
       }));
-    if (!destinationAttachment)
+    if (destinationAttachment)
+      return {
+        ...destinationAttachment.media,
+        body: await this.storage.readObject(
+          destinationAttachment.media.storageKey,
+        ),
+      };
+
+    const destinationImage = await this.prisma.destinationMedia.findFirst({
+      where: {
+        mediaId,
+        role: { in: [MediaRole.HERO, MediaRole.GALLERY] },
+        media: {
+          status: MediaStatus.READY,
+          visibility: MediaVisibility.PUBLIC,
+          mediaType: MediaType.IMAGE,
+          mimeType: { in: ['image/jpeg', 'image/png', 'image/webp'] },
+        },
+        destination: {
+          status: PublicationStatus.PUBLISHED,
+          city: {
+            status: LocationStatus.ACTIVE,
+            region: { status: LocationStatus.ACTIVE },
+          },
+        },
+      },
+      select: {
+        media: {
+          select: { storageKey: true, mimeType: true, sizeBytes: true },
+        },
+      },
+    });
+    if (!destinationImage)
       throw new NotFoundException('Public media not found.');
     return {
-      ...destinationAttachment.media,
-      body: await this.storage.readObject(
-        destinationAttachment.media.storageKey,
-      ),
+      ...destinationImage.media,
+      body: await this.storage.readObject(destinationImage.media.storageKey),
+      cacheControl: 'no-store',
     };
   }
 }

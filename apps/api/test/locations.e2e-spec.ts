@@ -19,6 +19,7 @@ import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 import { AttractionsService } from '../src/attractions/attractions.service';
 import { CitiesService } from '../src/cities/cities.service';
 import { DestinationsService } from '../src/destinations/destinations.service';
+import { DestinationMediaService } from '../src/destination-media/destination-media.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { RedisService } from '../src/redis/redis.service';
 import { RegionsService } from '../src/regions/regions.service';
@@ -111,6 +112,18 @@ const publishDestinationTranslation = jest.fn(() =>
 );
 const unpublishDestinationTranslation = jest.fn(() =>
   Promise.resolve(destinationTranslation),
+);
+const listDestinationMedia = jest.fn(() =>
+  Promise.resolve({
+    data: [],
+    meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+  }),
+);
+const uploadDestinationMedia = jest.fn(() =>
+  Promise.resolve({ mediaId: destination.id }),
+);
+const reorderDestinationMedia = jest.fn(() =>
+  Promise.resolve({ mediaIds: [] }),
 );
 
 const attraction = {
@@ -221,6 +234,19 @@ describe('Phase 2 location routes', () => {
         unpublishTranslation: unpublishDestinationTranslation,
         update: () => Promise.resolve(destination),
       })
+      .overrideProvider(DestinationMediaService)
+      .useValue({
+        list: listDestinationMedia,
+        upload: uploadDestinationMedia,
+        update: () => Promise.resolve({ mediaId: destination.id }),
+        archive: () => Promise.resolve({ mediaId: destination.id }),
+        reorder: reorderDestinationMedia,
+        readAdminImage: () =>
+          Promise.resolve({
+            mimeType: 'image/png',
+            body: Buffer.from('image'),
+          }),
+      })
       .overrideProvider(AttractionsService)
       .useValue({
         create: () => Promise.resolve(attraction),
@@ -273,6 +299,76 @@ describe('Phase 2 location routes', () => {
     publishDestinationTranslation.mockClear();
     saveDestinationTranslation.mockClear();
     unpublishDestinationTranslation.mockClear();
+    listDestinationMedia.mockClear();
+    uploadDestinationMedia.mockClear();
+    reorderDestinationMedia.mockClear();
+  });
+
+  it('guards destination image routes and validates UUIDs and upload/reorder DTOs', async () => {
+    const path = `/api/v1/admin/destinations/${destination.id}/media`;
+    await request(httpServer)
+      .get('/api/v1/media/public/not-a-uuid')
+      .expect(400);
+    await request(httpServer).get(path).expect(200);
+    expect(listDestinationMedia).toHaveBeenCalledWith(
+      destination.id,
+      expect.objectContaining({ page: 1, limit: 20 }),
+    );
+
+    allowAuth = false;
+    await request(httpServer).get(path).expect(401);
+    await request(httpServer)
+      .post(`${path}/uploads`)
+      .field('role', 'HERO')
+      .attach('file', Buffer.from('image'), 'test.png')
+      .expect(401);
+    expect(uploadDestinationMedia).not.toHaveBeenCalled();
+
+    allowAuth = true;
+    currentRoles = ['TRAVELER'];
+    await request(httpServer).get(path).expect(403);
+    await request(httpServer)
+      .post(`${path}/uploads`)
+      .field('role', 'HERO')
+      .attach('file', Buffer.from('image'), 'test.png')
+      .expect(403);
+    expect(uploadDestinationMedia).not.toHaveBeenCalled();
+
+    currentRoles = ['ADMIN'];
+    await request(httpServer)
+      .get('/api/v1/admin/destinations/not-a-uuid/media')
+      .expect(400);
+    await request(httpServer)
+      .post(`${path}/uploads`)
+      .field('role', 'LOGO')
+      .attach('file', Buffer.from('image'), 'test.png')
+      .expect(400);
+    await request(httpServer)
+      .post(`${path}/uploads`)
+      .field('role', 'HERO')
+      .field('storageKey', 'forbidden')
+      .attach('file', Buffer.from('image'), 'test.png')
+      .expect(400);
+    expect(uploadDestinationMedia).not.toHaveBeenCalled();
+    await request(httpServer)
+      .post(`${path}/uploads`)
+      .field('role', 'HERO')
+      .attach('file', Buffer.from('image'), 'test.png')
+      .expect(201);
+    expect(uploadDestinationMedia).toHaveBeenCalledTimes(1);
+    await request(httpServer)
+      .post(`${path}/reorder`)
+      .send({ mediaIds: ['44444444-4444-4444-8444-444444444444'] })
+      .expect(201);
+    expect(reorderDestinationMedia).toHaveBeenCalledTimes(1);
+    await request(httpServer)
+      .post(`${path}/reorder`)
+      .send({ mediaIds: ['not-a-uuid'] })
+      .expect(400);
+    await request(httpServer)
+      .patch(`${path}/${destination.id}`)
+      .send({ storageKey: 'forbidden' })
+      .expect(400);
   });
 
   it('serves paginated public collection endpoints', async () => {

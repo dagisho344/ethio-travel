@@ -26,6 +26,12 @@ import {
   publishedAmharicEditorial,
   resolvePublicDestinationEditorial,
 } from './public-destination-editorial.util';
+import {
+  publicGalleryMedia,
+  publicHeroMedia,
+  toPublicDestinationMedia,
+  PublicDestinationMediaRecord,
+} from './public-destination-media.util';
 
 type DestinationRecord = Awaited<
   ReturnType<PrismaService['destination']['findFirstOrThrow']>
@@ -33,6 +39,7 @@ type DestinationRecord = Awaited<
 
 const publicDestinationInclude = {
   translations: publishedAmharicEditorial,
+  media: publicHeroMedia,
 } satisfies Prisma.DestinationInclude;
 
 type PublicDestinationQueryRecord = Prisma.DestinationGetPayload<{
@@ -137,7 +144,11 @@ export class DestinationsService {
       include: publicDestinationInclude,
     });
     if (!destination) throw new NotFoundException('Destination not found.');
-    return this.resolvePublicDestination(destination, locale);
+    const gallery = await this.prisma.destinationMedia.findMany({
+      ...publicGalleryMedia,
+      where: { ...publicGalleryMedia.where, destinationId: destination.id },
+    });
+    return this.resolvePublicDestination(destination, locale, gallery);
   }
 
   async findAdmin(
@@ -482,9 +493,17 @@ export class DestinationsService {
   private resolvePublicDestination(
     destination: PublicDestinationQueryRecord,
     locale: EditorialLocale,
-  ): DestinationRecord {
-    const { translations, ...source } = destination;
-    return resolvePublicDestinationEditorial(source, locale, translations[0]);
+    gallery?: PublicDestinationMediaRecord[],
+  ) {
+    // Never spread the Prisma attachment relation into a public response.
+    const { translations, media, ...source } = destination;
+    return {
+      ...resolvePublicDestinationEditorial(source, locale, translations[0]),
+      media: {
+        hero: media?.[0] ? toPublicDestinationMedia(media[0]) : null,
+        ...(gallery ? { gallery: gallery.map(toPublicDestinationMedia) } : {}),
+      },
+    };
   }
 
   private translationValues(

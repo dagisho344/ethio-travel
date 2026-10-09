@@ -41,6 +41,9 @@ type PrismaMock = {
     findUnique: jest.Mock;
   };
   destinationTranslation: TransactionClientMock['destinationTranslation'];
+  destinationMedia: {
+    findMany: jest.Mock;
+  };
 };
 
 function sourceDestination(translations: DestinationTranslationFixture[] = []) {
@@ -125,6 +128,9 @@ function createPrismaMock(
       findUnique: jest.fn(() => Promise.resolve(sourceDestination())),
     },
     destinationTranslation,
+    destinationMedia: {
+      findMany: jest.fn(() => Promise.resolve([])),
+    },
   };
 }
 

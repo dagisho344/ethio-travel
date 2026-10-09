@@ -61,7 +61,7 @@ export class DevelopmentStorageProvider implements StorageProvider {
 
   private pathFor(key: string): string {
     if (
-      !/^(?:public\/businesses|private\/verifications)\/[0-9a-f-]+\/[0-9a-f-]+\.[a-z0-9]+$/i.test(
+      !/^(?:(?:public\/(?:businesses|destinations))|(?:private\/(?:verifications|destinations)))\/[0-9a-f-]+\/[0-9a-f-]+\.[a-z0-9]+$/i.test(
         key,
       )
     ) {
