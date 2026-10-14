@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, KeyboardEvent, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { AdminDestinationMedia } from './AdminDestinationMedia';
 import {
   AdminCity,
   AdminDestination,
@@ -870,6 +871,14 @@ export function AdminDestinationEditor({
             </>
           )}
         </section>
+      ) : null}
+
+      {item ? (
+        <AdminDestinationMedia
+          destinationId={item.id}
+          destinationName={item.name}
+          archived={item.status === 'ARCHIVED'}
+        />
       ) : null}
 
       {item && item.status !== 'ARCHIVED' ? (

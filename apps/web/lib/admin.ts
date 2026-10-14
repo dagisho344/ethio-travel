@@ -166,6 +166,20 @@ export type AdminDestination = {
   updatedAt: string;
 };
 
+export type AdminDestinationMedia = {
+  mediaId: string;
+  role: 'HERO' | 'GALLERY';
+  sortOrder: number;
+  altText: string | null;
+  caption: string | null;
+  createdAt: string;
+  status: 'PENDING_UPLOAD' | 'READY' | 'FAILED' | 'ARCHIVED';
+  mediaType: 'IMAGE';
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  sizeBytes: number;
+  previewPath: string;
+};
+
 export type AdminDestinationTranslation = {
   bestTimeToVisit: string | null;
   createdAt: string;
