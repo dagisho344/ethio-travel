@@ -4,6 +4,10 @@ import { getTranslations } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { FavoriteButton } from '../../../../../../../components/favorites/FavoriteButton';
 import { AddToTripButton } from '../../../../../../../components/trips/AddToTripButton';
+import {
+  PublicDestinationGallery,
+  PublicDestinationHero,
+} from '../../../../../../../components/public/PublicDestinationMedia';
 import { Container } from '../../../../../../../components/ui/Container';
 import { getPublicDestination } from '../../../../../../../lib/public-destinations';
 import type { Destination } from '../../../../../../../lib/types';
@@ -82,7 +86,11 @@ export default async function PublicDestinationPage({
           {destinationsT('back')}
         </Link>
         <article className="mt-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-sm font-semibold text-highland">
+          <PublicDestinationHero
+            destinationName={destination.name}
+            hero={destination.media?.hero}
+          />
+          <p className="mt-6 text-sm font-semibold text-highland">
             {marketplaceT('destination')}
           </p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
@@ -96,6 +104,10 @@ export default async function PublicDestinationPage({
               {destination.fullDescription}
             </p>
           ) : null}
+          <PublicDestinationGallery
+            destinationName={destination.name}
+            media={destination.media?.gallery}
+          />
           <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-5">
             <FavoriteButton
               targetType="DESTINATION"

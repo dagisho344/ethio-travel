@@ -270,7 +270,17 @@
     "noMatchingMessage": "Try changing your search or location filters.",
     "noAvailableMessage": "We're adding more places across Ethiopia. Explore another location or check back soon.",
     "loadError": "We could not load destinations right now. Please try again soon.",
-    "back": "Back to destinations"
+    "back": "Back to destinations",
+    "noCoverImage": "No cover image available",
+    "coverImageAlt": "Cover image of {name}",
+    "gallery": "Photo gallery",
+    "galleryImageAlt": "Photo {number} of {name}",
+    "viewGalleryImage": "View photo {number} full size",
+    "imageViewer": "Photo gallery for {name}",
+    "closeImageViewer": "Close photo viewer",
+    "previousImage": "Previous photo",
+    "nextImage": "Next photo",
+    "imagePosition": "{current} of {total}"
   },
   "businesses": {
     "eyebrow": "Businesses",

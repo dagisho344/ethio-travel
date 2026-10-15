@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { getTranslations } from 'next-intl/server';
-import { ArrowRight, ImageIcon, Map, MapPin } from 'lucide-react';
+import { ArrowRight, Map, MapPin } from 'lucide-react';
 import { DestinationFilters } from './DestinationFilters';
 import { FavoriteButton } from '../../components/favorites/FavoriteButton';
 import { AddToTripButton } from '../../components/trips/AddToTripButton';
+import { PublicDestinationThumbnail } from '../../components/public/PublicDestinationMedia';
 import { Container } from '../../components/ui/Container';
 import { SectionHeading } from '../../components/ui/States';
 import { safePage } from '../../lib/api';
@@ -144,11 +145,10 @@ function DestinationResultCard({
         initialFavoriteId={favoriteId}
         className="absolute right-3 top-3 z-10"
       />
-      <div className="flex h-36 items-center justify-center bg-gradient-to-br from-emerald-50 via-sky-50 to-amber-50 text-highland">
-        <div className="rounded-full bg-white/75 p-4 shadow-sm ring-1 ring-slate-200/70">
-          <ImageIcon className="h-7 w-7" aria-hidden="true" />
-        </div>
-      </div>
+      <PublicDestinationThumbnail
+        destinationName={destination.name}
+        hero={destination.media?.hero}
+      />
       <div className="flex flex-1 flex-col p-5">
         <h3 className="text-lg font-bold text-slate-950">{destination.name}</h3>
         {location ? (

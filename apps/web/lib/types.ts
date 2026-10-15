@@ -34,6 +34,10 @@ export interface Destination {
   longitude: string | number;
   city?: LocationSummary;
   region?: LocationSummary;
+  media?: {
+    hero: PublicDestinationMedia | null;
+    gallery?: PublicDestinationMedia[];
+  };
 }
 export interface Attraction {
   id: string;
@@ -49,6 +53,13 @@ export interface PublicMedia {
   altText?: string | null;
   caption?: string | null;
   accessPath: string;
+}
+
+export interface PublicDestinationMedia extends PublicMedia {
+  role: 'HERO' | 'GALLERY';
+  sortOrder: number;
+  mediaType: 'IMAGE';
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
 }
 
 export interface Business {

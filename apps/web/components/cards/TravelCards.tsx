@@ -7,6 +7,7 @@ import { BookingWidget } from '../bookings/BookingWidget';
 import { FavoriteButton } from '../favorites/FavoriteButton';
 import { StartConversationButton } from '../messaging/StartConversationButton';
 import { PublicBusinessCardImage } from '../public/PublicBusinessMedia';
+import { PublicDestinationThumbnail } from '../public/PublicDestinationMedia';
 import { ReviewForm } from '../reviews/ReviewForm';
 import { ReviewPanel } from '../reviews/ReviewPanel';
 import { AddToTripButton } from '../trips/AddToTripButton';
@@ -26,13 +27,6 @@ import type {
   Service,
 } from '../../lib/types';
 
-function Placeholder({ label }: { label: string }) {
-  return (
-    <div className="flex h-32 items-end rounded-md bg-gradient-to-br from-emerald-100 via-sky-100 to-amber-100 p-4 text-xs font-semibold uppercase tracking-wide text-slate-600">
-      {label}
-    </div>
-  );
-}
 function LocationLine({
   city,
   region,
@@ -60,7 +54,10 @@ export function DestinationCard({ destination }: { destination: Destination }) {
         targetName={destination.name}
         className="absolute right-4 top-4 z-10"
       />
-      <Placeholder label={t('destination')} />
+      <PublicDestinationThumbnail
+        destinationName={destination.name}
+        hero={destination.media?.hero}
+      />
       <div className="p-2">
         <h3 className="text-lg font-bold text-slate-950">{destination.name}</h3>
         <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">

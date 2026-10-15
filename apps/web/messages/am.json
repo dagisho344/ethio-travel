@@ -270,7 +270,17 @@
     "noMatchingMessage": "ፍለጋዎን ወይም የቦታ ማጣሪያዎችን ይቀይሩ።",
     "noAvailableMessage": "በመላው ኢትዮጵያ ተጨማሪ ቦታዎችን እየጨመርን ነው። ሌላ ቦታ ያስሱ ወይም በቅርቡ ይመለሱ።",
     "loadError": "መዳረሻዎችን አሁን መጫን አልቻልንም። እባክዎ በቅርቡ እንደገና ይሞክሩ።",
-    "back": "ወደ መዳረሻዎች ተመለስ"
+    "back": "ወደ መዳረሻዎች ተመለስ",
+    "noCoverImage": "የሽፋን ምስል የለም",
+    "coverImageAlt": "የ{name} የሽፋን ምስል",
+    "gallery": "የፎቶ ማዕከለ ስዕላት",
+    "galleryImageAlt": "የ{name} ፎቶ {number}",
+    "viewGalleryImage": "ፎቶ {number}ን በሙሉ መጠን ይመልከቱ",
+    "imageViewer": "የ{name} የፎቶ ማዕከለ ስዕላት",
+    "closeImageViewer": "የፎቶ መመልከቻን ዝጋ",
+    "previousImage": "ቀዳሚ ፎቶ",
+    "nextImage": "ቀጣይ ፎቶ",
+    "imagePosition": "{current} ከ{total}"
   },
   "businesses": {
     "eyebrow": "ንግዶች",
