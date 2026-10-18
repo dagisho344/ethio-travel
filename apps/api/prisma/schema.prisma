@@ -204,6 +204,15 @@ enum PublicationStatus {
   ARCHIVED
 }
 
+enum DestinationPriceUnit {
+  PER_BOOKING
+}
+
+enum DestinationPaymentProvider {
+  TELEBIRR
+  CBE
+}
+
 enum EditorialLocale {
   en
   am
@@ -286,26 +295,28 @@ model City {
 }
 
 model Destination {
-  id                String                   @id @default(uuid()) @db.Uuid
-  cityId            String                   @map("city_id") @db.Uuid
-  name              String                   @db.VarChar(180)
-  slug              String                   @db.VarChar(200)
-  shortDescription  String                   @map("short_description") @db.VarChar(300)
-  fullDescription   String                   @map("full_description")
-  latitude          Decimal                  @db.Decimal(9, 6)
-  longitude         Decimal                  @db.Decimal(9, 6)
-  travelInfo        Json?                    @map("travel_info")
-  status            PublicationStatus        @default(DRAFT)
-  publishedAt       DateTime?                @map("published_at")
-  archivedAt        DateTime?                @map("archived_at")
-  createdAt         DateTime                 @default(now()) @map("created_at")
-  updatedAt         DateTime                 @updatedAt @map("updated_at")
-  city              City                     @relation(fields: [cityId], references: [id], onDelete: Restrict)
+  id                String                      @id @default(uuid()) @db.Uuid
+  cityId            String                      @map("city_id") @db.Uuid
+  name              String                      @db.VarChar(180)
+  slug              String                      @db.VarChar(200)
+  shortDescription  String                      @map("short_description") @db.VarChar(300)
+  fullDescription   String                      @map("full_description")
+  latitude          Decimal                     @db.Decimal(9, 6)
+  longitude         Decimal                     @db.Decimal(9, 6)
+  travelInfo        Json?                       @map("travel_info")
+  status            PublicationStatus           @default(DRAFT)
+  publishedAt       DateTime?                   @map("published_at")
+  archivedAt        DateTime?                   @map("archived_at")
+  createdAt         DateTime                    @default(now()) @map("created_at")
+  updatedAt         DateTime                    @updatedAt @map("updated_at")
+  city              City                        @relation(fields: [cityId], references: [id], onDelete: Restrict)
   attractions       Attraction[]
-  businesses        Business[]               @relation("BusinessDestination")
-  businessLocations BusinessLocation[]       @relation("BusinessLocationDestination")
+  businesses        Business[]                  @relation("BusinessDestination")
+  businessLocations BusinessLocation[]          @relation("BusinessLocationDestination")
   media             DestinationMedia[]
   translations      DestinationTranslation[]
+  bookingConfig     DestinationBookingConfig?
+  paymentAccounts   DestinationPaymentAccount[]
 
   favorites    Favorite[]
   reviews      Review[]
@@ -318,6 +329,41 @@ model Destination {
   @@index([name])
   @@index([latitude, longitude])
   @@map("destinations")
+}
+
+model DestinationBookingConfig {
+  id                  String               @id @default(uuid()) @db.Uuid
+  destinationId       String               @unique @map("destination_id") @db.Uuid
+  bookingEnabled      Boolean              @default(false) @map("booking_enabled")
+  priceAmount         Decimal?             @map("price_amount") @db.Decimal(12, 2)
+  currency            String               @default("ETB") @db.Char(3)
+  priceUnit           DestinationPriceUnit @default(PER_BOOKING) @map("price_unit")
+  requestDescription  String?              @map("request_description") @db.VarChar(1000)
+  bookingInstructions String?              @map("booking_instructions") @db.VarChar(1000)
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  destination         Destination          @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+
+  @@map("destination_booking_configs")
+}
+
+model DestinationPaymentAccount {
+  id                   String                     @id @default(uuid()) @db.Uuid
+  destinationId        String                     @map("destination_id") @db.Uuid
+  provider             DestinationPaymentProvider
+  accountHolderName    String                     @map("account_holder_name") @db.VarChar(160)
+  accountIdentifier    String                     @map("account_identifier") @db.VarChar(64)
+  normalizedIdentifier String                     @map("normalized_identifier") @db.VarChar(64)
+  instructions         String?                    @db.VarChar(1000)
+  isActive             Boolean                    @default(true) @map("is_active")
+  displayOrder         Int                        @default(0) @map("display_order")
+  createdAt            DateTime                   @default(now()) @map("created_at")
+  updatedAt            DateTime                   @updatedAt @map("updated_at")
+  destination          Destination                @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+
+  @@unique([destinationId, provider, normalizedIdentifier])
+  @@index([destinationId, isActive, displayOrder, id])
+  @@map("destination_payment_accounts")
 }
 
 model DestinationTranslation {

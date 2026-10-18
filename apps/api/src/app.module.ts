@@ -18,6 +18,7 @@ import { BookingsModule } from './bookings/bookings.module';
 import { CitiesModule } from './cities/cities.module';
 import { DestinationsModule } from './destinations/destinations.module';
 import { DestinationMediaModule } from './destination-media/destination-media.module';
+import { DestinationBookingConfigModule } from './destination-booking-config/destination-booking-config.module';
 import { appConfig } from './config/app.config';
 import { envValidationSchema } from './config/env.validation';
 import { FavoritesModule } from './favorites/favorites.module';
@@ -67,6 +68,7 @@ import { UsersModule } from './users/users.module';
     CitiesModule,
     DestinationsModule,
     DestinationMediaModule,
+    DestinationBookingConfigModule,
     AttractionsModule,
     BusinessCategoriesModule,
     BusinessesModule,
