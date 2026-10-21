@@ -192,13 +192,15 @@ export function AdminWorkspaceShell({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || !drawerOpen || event.defaultPrevented)
+        return;
+      event.preventDefault();
       setDrawerOpen(false);
       menuButtonRef.current?.focus();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [drawerOpen]);
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-slate-100">

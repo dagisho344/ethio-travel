@@ -166,6 +166,58 @@ export type AdminDestination = {
   updatedAt: string;
 };
 
+export type AdminDestinationBookingConfig = {
+  id: string | null;
+  destinationId: string;
+  bookingEnabled: boolean;
+  priceAmount: string | null;
+  currency: 'ETB';
+  priceUnit: 'PER_BOOKING';
+  requestDescription: string | null;
+  bookingInstructions: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type AdminDestinationBookingConfigUpdateInput = Pick<
+  AdminDestinationBookingConfig,
+  | 'bookingEnabled'
+  | 'priceAmount'
+  | 'currency'
+  | 'priceUnit'
+  | 'requestDescription'
+  | 'bookingInstructions'
+>;
+
+export type AdminDestinationPaymentProvider = 'TELEBIRR' | 'CBE';
+
+export type AdminDestinationPaymentAccount = {
+  id: string;
+  destinationId: string;
+  provider: AdminDestinationPaymentProvider;
+  accountHolderName: string;
+  accountIdentifier: string;
+  instructions: string | null;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminDestinationPaymentAccountCreateInput = Pick<
+  AdminDestinationPaymentAccount,
+  | 'provider'
+  | 'accountHolderName'
+  | 'accountIdentifier'
+  | 'instructions'
+  | 'displayOrder'
+>;
+
+export type AdminDestinationPaymentAccountUpdateInput = Partial<
+  AdminDestinationPaymentAccountCreateInput &
+    Pick<AdminDestinationPaymentAccount, 'isActive'>
+>;
+
 export type AdminDestinationMedia = {
   mediaId: string;
   role: 'HERO' | 'GALLERY';

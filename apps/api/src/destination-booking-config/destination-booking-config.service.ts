@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -59,6 +60,13 @@ export class DestinationBookingConfigService {
   ) {
     return this.prisma.$transaction(async (tx) => {
       await this.lockMutableDestination(tx, destinationId);
+      if (dto.bookingEnabled === true) {
+        throw new ForbiddenException({
+          code: 'DESTINATION_BOOKING_ACTIVATION_PAUSED',
+          message:
+            'Booking activation is unavailable until fulfillment and cancellation policies are approved.',
+        });
+      }
       const current = await tx.destinationBookingConfig.findUnique({
         where: { destinationId },
       });
@@ -76,22 +84,6 @@ export class DestinationBookingConfigService {
       }
       if (dto.priceUnit && dto.priceUnit !== DestinationPriceUnit.PER_BOOKING) {
         throw new BadRequestException('Only PER_BOOKING pricing is supported.');
-      }
-      if (dto.bookingEnabled === true) {
-        if (!priceAmount || priceAmount.lte(0)) {
-          throw new ConflictException('A positive price is required.');
-        }
-        if (!requestDescription || requestDescription.length < 10) {
-          throw new ConflictException(
-            'A request description of at least 10 characters is required.',
-          );
-        }
-        const activeAccounts = await tx.destinationPaymentAccount.count({
-          where: { destinationId, isActive: true },
-        });
-        if (!activeAccounts) {
-          throw new ConflictException('An active payment account is required.');
-        }
       }
       const config = await tx.destinationBookingConfig.upsert({
         where: { destinationId },
@@ -115,11 +107,9 @@ export class DestinationBookingConfigService {
       });
       const action = !current
         ? AUDIT_ACTIONS.ADMIN_DESTINATION_BOOKING_CONFIG_CREATED
-        : !current.bookingEnabled && dto.bookingEnabled
-          ? AUDIT_ACTIONS.ADMIN_DESTINATION_BOOKING_CONFIG_ENABLED
-          : current.bookingEnabled && !dto.bookingEnabled
-            ? AUDIT_ACTIONS.ADMIN_DESTINATION_BOOKING_CONFIG_DISABLED
-            : AUDIT_ACTIONS.ADMIN_DESTINATION_BOOKING_CONFIG_UPDATED;
+        : current.bookingEnabled && !dto.bookingEnabled
+          ? AUDIT_ACTIONS.ADMIN_DESTINATION_BOOKING_CONFIG_DISABLED
+          : AUDIT_ACTIONS.ADMIN_DESTINATION_BOOKING_CONFIG_UPDATED;
       await this.audit.record(tx, {
         ...context,
         action,

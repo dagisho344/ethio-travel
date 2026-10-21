@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FormEvent, KeyboardEvent, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { AdminDestinationMedia } from './AdminDestinationMedia';
+import { AdminDestinationBookingConfig } from './AdminDestinationBookingConfig';
 import {
   AdminCity,
   AdminDestination,
@@ -878,6 +879,14 @@ export function AdminDestinationEditor({
           destinationId={item.id}
           destinationName={item.name}
           archived={item.status === 'ARCHIVED'}
+        />
+      ) : null}
+
+      {item ? (
+        <AdminDestinationBookingConfig
+          destinationId={item.id}
+          destinationName={item.name}
+          publicationStatus={item.status}
         />
       ) : null}
 

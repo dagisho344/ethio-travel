@@ -1,5 +1,9 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { PublicationStatus } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { DestinationBookingConfigService } from './destination-booking-config.service';
 import {
   CreateDestinationPaymentAccountDto,
   UpdateDestinationBookingConfigDto,
@@ -96,5 +100,52 @@ describe('Phase 17C-1 Destination configuration DTOs', () => {
         destinationId: 'injected',
       }),
     ).not.toHaveLength(0);
+  });
+});
+
+describe('Destination booking activation policy', () => {
+  it('rejects service-level activation before any config write or successful audit', async () => {
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          status: PublicationStatus.DRAFT,
+        },
+      ]),
+      destinationBookingConfig: {
+        findUnique: jest.fn(),
+        upsert: jest.fn(),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn((work: (client: typeof tx) => Promise<unknown>) =>
+        work(tx),
+      ),
+    };
+    const audit = { record: jest.fn() };
+    const service = new DestinationBookingConfigService(
+      prisma as unknown as PrismaService,
+      audit as unknown as AuditService,
+    );
+
+    await expect(
+      service.updateConfig(
+        '33333333-3333-4333-8333-333333333333',
+        '11111111-1111-4111-8111-111111111111',
+        {
+          bookingEnabled: true,
+          priceAmount: '125.00',
+          requestDescription: 'Request a guided visit only.',
+          bookingInstructions: null,
+        },
+        {},
+      ),
+    ).rejects.toMatchObject({
+      status: 403,
+      response: { code: 'DESTINATION_BOOKING_ACTIVATION_PAUSED' },
+    });
+    expect(tx.destinationBookingConfig.findUnique).not.toHaveBeenCalled();
+    expect(tx.destinationBookingConfig.upsert).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
   });
 });

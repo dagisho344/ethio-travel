@@ -1,17 +1,33 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { ConflictException } from '@nestjs/common';
+import {
+  ConflictException,
+  ExecutionContext,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
+import { Test } from '@nestjs/testing';
 import { LocationStatus, Prisma, PublicationStatus } from '@prisma/client';
+import type { Server } from 'node:http';
+import request from 'supertest';
+import { AppModule } from '../src/app.module';
 import { AUDIT_ACTIONS } from '../src/audit/audit.constants';
 import { AuditService } from '../src/audit/audit.service';
+import { AuthenticatedUser } from '../src/auth/authenticated-user';
+import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 import { DestinationBookingConfigService } from '../src/destination-booking-config/destination-booking-config.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { RedisService } from '../src/redis/redis.service';
 
 const databaseDescribe =
   process.env.DESTINATION_BOOKING_CONFIG_DATABASE_TESTS === '1'
     ? describe
     : describe.skip;
 const schema = `phase17c1_${randomUUID().replaceAll('-', '').slice(0, 16)}`;
+const activationPaused = {
+  status: 403,
+  response: { code: 'DESTINATION_BOOKING_ACTIVATION_PAUSED' },
+};
 
 databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
   let root: PrismaService | undefined;
@@ -24,6 +40,7 @@ databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
   let adminId: string;
   let schemaCreated = false;
   let originalCounts: { users: number; destinations: number; audits: number };
+  let disposableDatabaseUrl: string;
 
   beforeAll(async () => {
     const databaseUrl = process.env.DATABASE_URL;
@@ -49,6 +66,7 @@ databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
     await root.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
     schemaCreated = true;
     parsed.searchParams.set('schema', schema);
+    disposableDatabaseUrl = parsed.toString();
     const migrate = spawnSync(
       process.execPath,
       [require.resolve('prisma/build/index.js'), 'migrate', 'deploy'],
@@ -176,7 +194,7 @@ databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
         },
         {},
       ),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).rejects.toMatchObject(activationPaused);
     await expect(
       service.updateConfig(
         destinationId,
@@ -189,7 +207,7 @@ databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
         },
         {},
       ),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).rejects.toMatchObject(activationPaused);
     expect((await service.getConfig(destinationId)).bookingEnabled).toBe(false);
     await expect(
       service.updateConfig(
@@ -203,7 +221,7 @@ databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
         },
         {},
       ),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).rejects.toMatchObject(activationPaused);
   });
 
   it('stores destination-specific accounts, prevents normalized duplicates and scopes IDs', async () => {
@@ -226,19 +244,43 @@ databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
         })
       ).normalizedIdentifier,
     ).toBe('+251912345678');
-    const enabled = await service.updateConfig(
+    const auditsBeforeDeniedActivation = await database.auditLog.count({
+      where: { entityId: destinationId },
+    });
+    await expect(
+      service.updateConfig(
+        destinationId,
+        adminId,
+        {
+          bookingEnabled: true,
+          priceAmount: '125.25',
+          requestDescription: 'Request a visit; admission is not guaranteed.',
+          bookingInstructions: null,
+        },
+        {},
+      ),
+    ).rejects.toMatchObject(activationPaused);
+    expect((await service.getConfig(destinationId)).bookingEnabled).toBe(false);
+    expect(
+      await database.auditLog.count({ where: { entityId: destinationId } }),
+    ).toBe(auditsBeforeDeniedActivation);
+    await service.updateConfig(
       destinationId,
       adminId,
       {
-        bookingEnabled: true,
+        bookingEnabled: false,
         priceAmount: '125.25',
         requestDescription: 'Request a visit; admission is not guaranteed.',
         bookingInstructions: null,
       },
       {},
     );
-    expect(enabled.bookingEnabled).toBe(true);
-    expect(enabled.requestDescription).toContain('admission is not guaranteed');
+    // An existing enabled row is a legacy fixture, not a production activation path.
+    await database.destinationBookingConfig.update({
+      where: { destinationId },
+      data: { bookingEnabled: true },
+    });
+    expect((await service.getConfig(destinationId)).bookingEnabled).toBe(true);
     await expect(
       service.deactivateAccount(destinationId, created.id, adminId, {}),
     ).rejects.toBeInstanceOf(ConflictException);
@@ -312,7 +354,6 @@ databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
     expect(audits.map((audit) => audit.action)).toEqual(
       expect.arrayContaining([
         AUDIT_ACTIONS.ADMIN_DESTINATION_BOOKING_CONFIG_CREATED,
-        AUDIT_ACTIONS.ADMIN_DESTINATION_BOOKING_CONFIG_ENABLED,
         AUDIT_ACTIONS.ADMIN_DESTINATION_BOOKING_CONFIG_DISABLED,
         AUDIT_ACTIONS.ADMIN_DESTINATION_PAYMENT_ACCOUNT_CREATED,
         AUDIT_ACTIONS.ADMIN_DESTINATION_PAYMENT_ACCOUNT_UPDATED,
@@ -327,6 +368,9 @@ databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
     );
     expect(JSON.stringify(audits.map((audit) => audit.metadata))).not.toContain(
       'admission is not guaranteed',
+    );
+    expect(audits.map((audit) => audit.action)).not.toContain(
+      AUDIT_ACTIONS.ADMIN_DESTINATION_BOOKING_CONFIG_ENABLED,
     );
   });
 
@@ -353,7 +397,7 @@ databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
     expect(await database.auditLog.count()).toBe(beforeAudits);
   });
 
-  it('serializes enable/deactivate and competing deactivations without losing the last active account', async () => {
+  it('rejects competing activation and preserves the last account of an existing enabled row', async () => {
     const database = db!;
     const first = await service.createAccount(
       otherDestinationId,
@@ -393,6 +437,10 @@ databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
     expect(
       enableRace.filter((outcome) => outcome.status === 'fulfilled'),
     ).toHaveLength(1);
+    expect(enableRace[0]).toMatchObject({
+      status: 'rejected',
+      reason: activationPaused,
+    });
     const afterRace = await service.getConfig(otherDestinationId);
     const activeAfterRace = await database.destinationPaymentAccount.count({
       where: { destinationId: otherDestinationId, isActive: true },
@@ -405,17 +453,10 @@ databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
       { isActive: true },
       {},
     );
-    await service.updateConfig(
-      otherDestinationId,
-      adminId,
-      {
-        bookingEnabled: true,
-        priceAmount: '5.00',
-        requestDescription: 'Request a visit only.',
-        bookingInstructions: null,
-      },
-      {},
-    );
+    await database.destinationBookingConfig.update({
+      where: { destinationId: otherDestinationId },
+      data: { bookingEnabled: true },
+    });
     const second = await service.createAccount(
       otherDestinationId,
       adminId,
@@ -455,6 +496,76 @@ databaseDescribe('Phase 17C-1 disposable PostgreSQL configuration', () => {
         {},
       ),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('rejects direct Admin HTTP activation without changing config or audit history', async () => {
+    const database = db!;
+    const beforeConfig =
+      await database.destinationBookingConfig.findUniqueOrThrow({
+        where: { destinationId },
+      });
+    const beforeAudits = await database.auditLog.count({
+      where: { entityId: destinationId },
+    });
+    const httpDb = new PrismaService({
+      datasources: { db: { url: disposableDatabaseUrl } },
+    });
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(PrismaService)
+      .useValue(httpDb)
+      .overrideProvider(RedisService)
+      .useValue({ isHealthy: () => Promise.resolve(true) })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate(context: ExecutionContext) {
+          context
+            .switchToHttp()
+            .getRequest<{ user: AuthenticatedUser }>().user = {
+            sub: adminId,
+            sessionId: 'disposable-test-session',
+            email: 'disposable-admin@example.invalid',
+            roles: ['ADMIN'],
+          };
+          return true;
+        },
+      })
+      .compile();
+    const app: INestApplication = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api/v1');
+    app.useGlobalPipes(
+      new ValidationPipe({
+        forbidNonWhitelisted: true,
+        transform: true,
+        whitelist: true,
+      }),
+    );
+    try {
+      await app.init();
+      const server = app.getHttpServer() as Server;
+      const response = await request(server)
+        .put(`/api/v1/admin/destinations/${destinationId}/booking-config`)
+        .send({
+          bookingEnabled: true,
+          priceAmount: '125.25',
+          requestDescription: 'Request a visit; admission is not guaranteed.',
+          bookingInstructions: null,
+        })
+        .expect(403);
+      const body: unknown = response.body;
+      expect(body).toMatchObject({
+        code: 'DESTINATION_BOOKING_ACTIVATION_PAUSED',
+      });
+      expect(
+        await database.destinationBookingConfig.findUniqueOrThrow({
+          where: { destinationId },
+        }),
+      ).toEqual(beforeConfig);
+      expect(
+        await database.auditLog.count({ where: { entityId: destinationId } }),
+      ).toBe(beforeAudits);
+    } finally {
+      await app.close();
+    }
   });
 
   it('enforces migrated database checks and keeps archived destinations read-only', async () => {
